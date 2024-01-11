@@ -6,12 +6,22 @@ import typing as t
 from pydantic import Field
 
 
+def get_metadata(field_info, key: str, default: t.Any | None = None):
+    for element in field_info.metadata:
+        if key in element:
+            return element[key]
+    return default
+
+
 def MetadataField(  # noqa: N802
     default: t.Any | None = None,
     *,
     priority: int = 0,
     short_name: str | None = None,
     option_cls: t.Any | None = None,
+    is_attribute: bool = False,
+    subscriptable: bool = False,
+    database_alias: str | None = None,
     **kwargs,
 ):
     """Return a :class:`pydantic.fields.Field` instance with additional metadata.
@@ -39,7 +49,14 @@ def MetadataField(  # noqa: N802
     """
     field_info = Field(default, **kwargs)
 
-    for key, value in (('priority', priority), ('short_name', short_name), ('option_cls', option_cls)):
+    for key, value in (
+        ('priority', priority),
+        ('short_name', short_name),
+        ('option_cls', option_cls),
+        ('is_attribute', is_attribute),
+        ('database_alias', database_alias),
+        ('subscriptable', subscriptable),
+    ):
         if value is not None:
             field_info.metadata.append({key: value})
 

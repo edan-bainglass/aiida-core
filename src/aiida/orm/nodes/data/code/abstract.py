@@ -64,12 +64,14 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
             title='Default `CalcJob` plugin',
             description='Entry point name of the default plugin (as listed in `verdi plugin list aiida.calculations`).',
             short_name='-P',
+            is_attribute=True,
         )
         use_double_quotes: bool = MetadataField(
             False,
             title='Escape using double quotes',
             description='Whether the executable and arguments of the code in the submission script should be escaped '
             'with single or double quotes.',
+            is_attribute=True,
         )
         with_mpi: t.Optional[bool] = MetadataField(
             None,
@@ -77,6 +79,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
             description='Whether the executable should be run as an MPI program. This option can be left unspecified '
             'in which case `None` will be set and it is left up to the calculation job plugin or inputs '
             'whether to run with MPI.',
+            is_attribute=True,
         )
         prepend_text: str = MetadataField(
             '',
@@ -89,6 +92,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
                 'in all submit scripts for this code, type that between the equal signs below and save the file.',
                 footer='All lines that start with `#=`: will be ignored.',
             ),
+            is_attribute=True,
         )
         append_text: str = MetadataField(
             '',
@@ -101,6 +105,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
                 'in all submit scripts for this code, type that between the equal signs below and save the file.',
                 footer='All lines that start with `#=`: will be ignored.',
             ),
+            is_attribute=True,
         )
 
         @field_validator('label')

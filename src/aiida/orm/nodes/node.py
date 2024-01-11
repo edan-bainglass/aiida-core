@@ -10,12 +10,13 @@
 from datetime import datetime
 from functools import cached_property
 from logging import Logger
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, Iterator, List, Optional, Sequence, Tuple, Type, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, Iterator, List, Optional, Tuple, Type, TypeVar
 from uuid import UUID
 
 from aiida.common import exceptions
 from aiida.common.lang import classproperty, type_check
 from aiida.common.links import LinkType
+from aiida.common.pydantic import MetadataField
 from aiida.common.warnings import warn_deprecation
 from aiida.manage import get_manager
 from aiida.orm.utils.node import (
@@ -28,7 +29,6 @@ from ..computers import Computer
 from ..entities import Collection as EntityCollection
 from ..entities import Entity, from_backend_entity
 from ..extras import EntityExtras
-from ..fields import QbField
 from ..querybuilder import QueryBuilder
 from ..users import User
 from .attributes import NodeAttributes
@@ -185,25 +185,29 @@ class Node(Entity['BackendNode', NodeCollection], metaclass=AbstractNodeMeta):
     _storable = False
     _unstorable_message = 'only Data, WorkflowNode, CalculationNode or their subclasses can be stored'
 
-    __qb_fields__: Sequence[QbField] = (
-        QbField('uuid', dtype=str, doc='The UUID of the node'),
-        QbField('label', dtype=str, doc='The node label'),
-        QbField('description', dtype=str, doc='The node description'),
-        QbField('node_type', dtype=str, doc='The type of the node'),
-        QbField('ctime', dtype=datetime, doc='The creation time of the node'),
-        QbField('mtime', dtype=datetime, doc='The modification time of the node'),
-        QbField('repository_metadata', dtype=Dict[str, Any], doc='The repository virtual file system'),
-        QbField('extras', dtype=Dict[str, Any], subscriptable=True, doc='The node extras'),
-        QbField('user_pk', 'user_id', dtype=int, doc='The PK of the user who owns the node'),
+    class Model(Entity.Model):
+        uuid: str = MetadataField(exclude=True, description='The UUID of the node')
+        label: str = MetadataField(description='The node label')
+        description: str = MetadataField(description='The node description')
+        node_type: str = MetadataField(exclude=True, description='The type of the node')
+        ctime: datetime = MetadataField(exclude=True, description='The creation time of the node')
+        mtime: datetime = MetadataField(exclude=True, description='The modification time of the node')
+        repository_metadata: Dict[str, Any] = MetadataField(
+            exclude=True, description='The repository virtual file system'
+        )
+        extras: Dict[str, Any] = MetadataField(description='The node extras', subscriptable=True)
+        user_pk: int = MetadataField(
+            exclude=True, description='The PK of the user who owns the node', database_alias='user_id'
+        )
         # Subclasses denote specific keys in the attributes dict
         # QbField('attributes', dtype=Dict[str, Any], subscriptable=True, doc='The node attributes'),
-    )
 
     def __init__(
         self,
         backend: Optional['StorageBackend'] = None,
         user: Optional[User] = None,
         computer: Optional[Computer] = None,
+        extras: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         backend = backend or get_manager().get_profile_storage()
@@ -221,6 +225,8 @@ class Node(Entity['BackendNode', NodeCollection], metaclass=AbstractNodeMeta):
             node_type=self.class_node_type, user=user.backend_entity, computer=backend_computer, **kwargs
         )
         super().__init__(backend_entity)
+        if extras is not None:
+            self.base.extras.set_many(extras)
 
     @cached_property
     def base(self) -> NodeBase:

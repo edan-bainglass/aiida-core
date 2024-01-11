@@ -7,13 +7,13 @@
 # For further information please visit http://www.aiida.net               #
 ###########################################################################
 """Module with `Node` sub class `Data` to be used as a base class for data structures."""
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional
 
 from aiida.common import exceptions
 from aiida.common.lang import override
 from aiida.common.links import LinkType
+from aiida.common.pydantic import MetadataField
 from aiida.orm.entities import from_backend_entity
-from aiida.orm.fields import QbAttrField, QbField
 
 from ..node import Node
 
@@ -45,9 +45,10 @@ class Data(Node):
     _storable = True
     _unstorable_message = 'storing for this node has been disabled'
 
-    __qb_fields__: Sequence[QbField] = (
-        QbAttrField('source', dtype=Optional[dict], subscriptable=True, doc='Source of the data'),
-    )
+    class Model(Node.Model):
+        source: Optional[dict] = MetadataField(
+            None, subscriptable=True, description='Source of the data.', is_attribute=True
+        )
 
     def __init__(self, *args, source=None, **kwargs):
         """Construct a new instance, setting the ``source`` attribute if provided as a keyword argument."""

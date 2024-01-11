@@ -13,9 +13,9 @@ from typing import Optional
 
 from aiida.common import exceptions
 from aiida.common.log import override_log_level
+from aiida.common.pydantic import MetadataField
 from aiida.common.warnings import warn_deprecation
 from aiida.orm import Computer
-from aiida.orm.fields import QbAttrField
 
 from .abstract import AbstractCode
 
@@ -38,22 +38,21 @@ class Code(AbstractCode):
     for the code to be run).
     """
 
-    __qb_fields__ = (
-        QbAttrField(
-            'prepend_text',
-            dtype=Optional[str],
-            doc='The code that will be put in the scheduler script before the execution of the code',
-        ),
-        QbAttrField(
-            'append_text',
-            dtype=Optional[str],
-            doc='The code that will be put in the scheduler script after the execution of the code',
-        ),
-        QbAttrField('input_plugin', dtype=Optional[str], doc='The name of the input plugin to be used for this code'),
-        QbAttrField('local_executable', dtype=Optional[str], doc='Path to a local executable'),
-        QbAttrField('remote_exec_path', dtype=Optional[str], doc='Remote path to executable'),
-        QbAttrField('is_local', dtype=Optional[bool], doc='Whether the code is local or remote'),
-    )
+    class Model(AbstractCode.Model):
+        prepend_text: Optional[str] = MetadataField(
+            is_attribute=True,
+            description='The code that will be put in the scheduler script before the execution of the code',
+        )
+        append_text: Optional[str] = MetadataField(
+            is_attribute=True,
+            description='The code that will be put in the scheduler script after the execution of the code',
+        )
+        input_plugin: Optional[str] = MetadataField(
+            is_attribute=True, description='The name of the input plugin to be used for this code'
+        )
+        local_executable: Optional[str] = MetadataField(is_attribute=True, description='Path to a local executable')
+        remote_exec_path: Optional[str] = MetadataField(is_attribute=True, description='Remote path to executable')
+        is_local: Optional[bool] = MetadataField(is_attribute=True, description='Whether the code is local or remote')
 
     def __init__(self, remote_computer_exec=None, local_executable=None, input_plugin_name=None, files=None, **kwargs):
         super().__init__(**kwargs)

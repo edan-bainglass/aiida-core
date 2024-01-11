@@ -10,10 +10,10 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional, Type
 
+from aiida.common.pydantic import MetadataField
 from aiida.manage import get_manager
 
 from . import entities, users
-from .fields import QbField
 
 if TYPE_CHECKING:
     from aiida.orm import Node, User
@@ -64,14 +64,13 @@ class Comment(entities.Entity['BackendComment', CommentCollection]):
 
     _CLS_COLLECTION = CommentCollection
 
-    __qb_fields__ = (
-        QbField('uuid', dtype=str, doc='The UUID of the comment'),
-        QbField('ctime', dtype=datetime, doc='Creation time of the comment'),
-        QbField('mtime', dtype=datetime, doc='Modified time of the comment'),
-        QbField('content', dtype=str, doc='Content of the comment'),
-        QbField('user_pk', 'user_id', dtype=int, doc='User PK that created the comment'),
-        QbField('node_pk', 'dbnode_id', dtype=int, doc='Node PK that the comment is attached to'),
-    )
+    class Model(entities.Entity.Model):
+        uuid: str = MetadataField(description='The UUID of the comment', exclude=True)
+        ctime: datetime = MetadataField(description='Creation time of the comment', exclude=True)
+        mtime: datetime = MetadataField(description='Modified time of the comment', exclude=True)
+        content: str = MetadataField(description='Content of the comment')
+        user_pk: int = MetadataField(description='User PK that created the comment', database_alias='user_id')
+        node_pk: int = MetadataField(description='Node PK that the comment is attached to', database_alias='dbnode_id')
 
     def __init__(
         self, node: 'Node', user: 'User', content: Optional[str] = None, backend: Optional['StorageBackend'] = None

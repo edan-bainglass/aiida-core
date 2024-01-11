@@ -12,16 +12,18 @@ from __future__ import annotations
 import abc
 from enum import Enum
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, Sequence, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Type, TypeVar, cast
 
 from plumpy.base.utils import call_with_super_check, super_check
+from pydantic import BaseModel
 
 from aiida.common.exceptions import InvalidOperation
 from aiida.common.lang import classproperty, type_check
+from aiida.common.pydantic import MetadataField
 from aiida.common.warnings import warn_deprecation
 from aiida.manage import get_manager
 
-from .fields import EntityFieldMeta, QbField, QbFields
+from .fields import EntityFieldMeta, QbFields
 
 if TYPE_CHECKING:
     from aiida.orm.implementation import BackendEntity, StorageBackend
@@ -172,7 +174,12 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
 
     fields: QbFields = QbFields()
 
-    __qb_fields__: Sequence[QbField] = (QbField('pk', 'id', dtype=int, doc='The primary key of the entity'),)
+    class Model(BaseModel):
+        pk: int = MetadataField(
+            exclude=True,
+            description='The primary key of the entity',
+            database_alias='id',
+        )
 
     @classproperty
     def objects(cls: EntityType) -> CollectionType:  # noqa: N805

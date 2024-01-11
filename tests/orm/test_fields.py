@@ -10,7 +10,9 @@
 """Test for entity fields"""
 import pytest
 from aiida import orm
-from aiida.orm import Data, Dict, QueryBuilder, fields
+from aiida.common.pydantic import MetadataField
+from aiida.orm import Data, Dict, Node, QueryBuilder, fields
+from aiida.orm.utils.mixins import Sealable
 from importlib_metadata import entry_points
 
 EPS = entry_points()
@@ -24,15 +26,49 @@ def test_all_entity_fields(entity_cls, data_regression):
 
 
 @pytest.mark.parametrize(
-    'group,name', ((group, name) for group in ('aiida.node', 'aiida.data') for name in EPS.select(group=group).names)
+    'group,name',
+    (
+        (group, name)
+        for group in ('aiida.node', 'aiida.data')
+        for name in EPS.select(group=group).names
+        if name.startswith('core.')
+    ),
 )
 def test_all_node_fields(group, name, data_regression):
     """Test that all the node fields are correctly registered."""
+
+    def serialize_field(field):
+        """Necessary for Python 3.9 and older where ``Any`` is serialized as ``typing.Any``.
+
+        This should be removed when Python 3.9 is dropped and the reference output files should be regenerated.
+        """
+        representation = repr(field)
+        representation = representation.replace('typing.Any', 'Any')
+        return representation
+
     node_cls = next(iter(tuple(EPS.select(group=group, name=name)))).load()
     data_regression.check(
-        {key: repr(value) for key, value in node_cls.fields._dict.items()},
+        {key: serialize_field(value) for key, value in node_cls.fields._dict.items()},
         basename=f'fields_{group}.{name}.{node_cls.__name__}',
     )
+
+
+def test_invalid_model_subclassses(clear_database_before_test):
+    """Test that the metaclass validates that the ``Model`` attribute subclasses all necessary bases."""
+
+    # Here the ``Model`` skips a direct subclass and goes to a grandparent.
+    with pytest.raises(RuntimeError, match=r'.*It should be: `class Model\(aiida.orm.nodes.data.data.Data.Model\):'):
+
+        class IncorrectBaseData(Data):
+            class Model(Node.Model):
+                """Invalid model definition because"""
+
+    # Here the ``Model`` only subclasses one base, where the class has two bases that define a model
+    with pytest.raises(RuntimeError, match=r'.*It should be: `class Model\(.*Data.Model, .*Sealable.Model\):'):
+
+        class MissingBaseData(Data, Sealable):  # type: ignore[misc]
+            class Model(Data.Model):
+                """Invalid model definition because"""
 
 
 def test_query_new_class(clear_database_before_test, monkeypatch):
@@ -47,11 +83,10 @@ def test_query_new_class(clear_database_before_test, monkeypatch):
     monkeypatch.setattr(plugins.entry_point, 'is_registered_entry_point', _dummy)
 
     class NewNode(Data):
-        __qb_fields__ = (
-            fields.QbField('key1', 'attributes.key1'),
-            fields.QbAttrField('key2'),
-            fields.QbAttrField('key3'),
-        )
+        class Model(Data.Model):
+            key1: int = MetadataField(database_alias='attributes.key1')  # type: ignore[annotation-unchecked]
+            key2: int = MetadataField(is_attribute=True)  # type: ignore[annotation-unchecked]
+            key3: int = MetadataField(is_attribute=True)  # type: ignore[annotation-unchecked]
 
     node = NewNode()
     node.set_attribute_many({'key1': 2, 'key2': 2, 'key3': 3})
@@ -83,7 +118,6 @@ def test_filter_operators():
     """Test that the operators are correctly registered."""
     field = Data.fields.pk
     filters = (field == 1) & (field != 2) & (field > 3) & (field >= 4) & (field < 5) & (field <= 6)
-    # print(filters.as_dict())
     assert filters.as_dict() == {
         fields.QbField('pk', qb_field='id', dtype=int): {
             'and': [{'==': 1}, {'!=': 2}, {'>': 3}, {'>=': 4}, {'<': 5}, {'<=': 6}]
@@ -95,7 +129,6 @@ def test_filter_comparators():
     """Test that the comparators are correctly registered."""
     field = Data.fields.uuid
     filters = (field.in_(['a'])) & (field.not_in(['b'])) & (field.like('a%')) & (field.ilike('a%'))
-    print(filters.as_dict())
     assert filters.as_dict() == {
         fields.QbField('uuid', qb_field='uuid', dtype=str): {
             'and': [{'in': {'a'}}, {'!in': {'b'}}, {'like': 'a%'}, {'ilike': 'a%'}]
@@ -116,5 +149,5 @@ def test_query_subscriptable(clear_database_before_test):
     """Test using subscriptable fields in a query."""
     node = Dict(dict={'a': 1}).store()
     node.set_extra('b', 2)
-    result = QueryBuilder().append(Dict, project=[Dict.fields.dict['a'], Dict.fields.extras['b']]).all()
+    result = QueryBuilder().append(Dict, project=[Dict.fields.value['a'], Dict.fields.extras['b']]).all()
     assert result == [[1, 2]]

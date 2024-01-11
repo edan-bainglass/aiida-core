@@ -10,8 +10,8 @@
 import re
 from typing import List
 
+from aiida.common.pydantic import MetadataField
 from aiida.common.utils import Capturing
-from aiida.orm.fields import QbAttrField
 
 from .singlefile import SinglefileData
 
@@ -249,11 +249,14 @@ class CifData(SinglefileData):
     _values = None
     _ase = None
 
-    __qb_fields__ = (
-        QbAttrField('formulae', dtype=List[str]),
-        QbAttrField('spacegroup_numbers', dtype=List[str]),
-        QbAttrField('md5', dtype=str),
-    )
+    class Model(SinglefileData.Model):
+        formulae: List[str] = MetadataField(
+            is_attribute=True, description='List of formulae contained in the CIF file.'
+        )
+        spacegroup_numbers: List[str] = MetadataField(
+            is_attribute=True, description='List of space group numbers of the structure.'
+        )
+        md5: str = MetadataField(is_attribute=True, description='MD5 checksum of the file contents.')
 
     def __init__(self, ase=None, file=None, filename=None, values=None, scan_type=None, parse_policy=None, **kwargs):
         """Construct a new instance and set the contents to that of the file.

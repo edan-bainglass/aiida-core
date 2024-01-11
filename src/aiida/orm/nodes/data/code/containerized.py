@@ -39,6 +39,7 @@ class ContainerizedCode(InstalledCode):
             'replaced with the `image_name`.',
             short_name='-E',
             priority=3,
+            is_attribute=True,
         )
         image_name: str = MetadataField(
             ...,
@@ -46,6 +47,7 @@ class ContainerizedCode(InstalledCode):
             description='Name of the image container in which to the run the executable.',
             short_name='-I',
             priority=2,
+            is_attribute=True,
         )
         wrap_cmdline_params: bool = MetadataField(
             False,
@@ -53,6 +55,7 @@ class ContainerizedCode(InstalledCode):
             description='Whether all command line parameters to be passed to the engine command should be wrapped in '
             'a double quotes to form a single argument. This should be set to `True` for Docker.',
             priority=1,
+            is_attribute=True,
         )
 
     def __init__(self, engine_command: str, image_name: str, **kwargs):

@@ -48,6 +48,7 @@ class PortableCode(Code):
             description='Filepath to directory containing code files.',
             short_name='-F',
             priority=2,
+            is_attribute=True,
         )
         filepath_executable: str = MetadataField(
             ...,
@@ -55,6 +56,7 @@ class PortableCode(Code):
             description='Relative filepath of executable with directory of code files.',
             short_name='-X',
             priority=1,
+            is_attribute=True,
         )
 
         @field_validator('filepath_files')

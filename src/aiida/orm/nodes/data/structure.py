@@ -17,7 +17,7 @@ from typing import List, Optional
 
 from aiida.common.constants import elements
 from aiida.common.exceptions import UnsupportedSpeciesError
-from aiida.orm.fields import QbAttrField
+from aiida.common.pydantic import MetadataField
 
 from .data import Data
 
@@ -687,14 +687,13 @@ class StructureData(Data):
     _dimensionality_label = {0: '', 1: 'length', 2: 'surface', 3: 'volume'}
     _internal_kind_tags = None
 
-    __qb_fields__ = (
-        QbAttrField('pbc1', dtype=bool, doc='Whether periodic in the a direction'),
-        QbAttrField('pbc2', dtype=bool, doc='Whether periodic in the b direction'),
-        QbAttrField('pbc3', dtype=bool, doc='Whether periodic in the c direction'),
-        QbAttrField('cell', dtype=List[List[float]], doc='The cell parameters'),
-        QbAttrField('kinds', dtype=Optional[List[dict]], doc='The kinds of atoms'),
-        QbAttrField('sites', dtype=Optional[List[dict]], doc='The atomic sites'),
-    )
+    class Model(Data.Model):
+        pbc1: bool = MetadataField(is_attribute=True, description='Whether periodic in the a direction')
+        pbc2: bool = MetadataField(is_attribute=True, description='Whether periodic in the b direction')
+        pbc3: bool = MetadataField(is_attribute=True, description='Whether periodic in the c direction')
+        cell: List[List[float]] = MetadataField(is_attribute=True, description='The cell parameters')
+        kinds: Optional[List[dict]] = MetadataField(is_attribute=True, description='The kinds of atoms')
+        sites: Optional[List[dict]] = MetadataField(is_attribute=True, description='The atomic sites')
 
     def __init__(
         self, cell=None, pbc=None, ase=None, pymatgen=None, pymatgen_structure=None, pymatgen_molecule=None, **kwargs

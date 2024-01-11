@@ -14,7 +14,7 @@ from typing import List
 
 import numpy
 
-from aiida.orm.fields import QbAttrField
+from aiida.common.pydantic import MetadataField
 
 from .array import ArrayData
 
@@ -37,16 +37,17 @@ class KpointsData(ArrayData):
     set_cell_from_structure methods.
     """
 
-    __qb_fields__ = (
-        QbAttrField('labels', dtype=List[str], doc='Labels associated with the list of kpoints'),
-        QbAttrField('label_numbers', dtype=List[int], doc='Index of the labels in the list of kpoints'),
-        QbAttrField('mesh', dtype=List[int], doc='Mesh of kpoints'),
-        QbAttrField('offset', dtype=List[float], doc='Offset of kpoints'),
-        QbAttrField('cell', dtype=List[List[float]], doc='Unit cell of the crystal, in Angstroms'),
-        QbAttrField('pbc1', dtype=bool, doc='True if the first lattice vector is periodic'),
-        QbAttrField('pbc2', dtype=bool, doc='True if the second lattice vector is periodic'),
-        QbAttrField('pbc3', dtype=bool, doc='True if the third lattice vector is periodic'),
-    )
+    class Model(ArrayData.Model):
+        labels: List[str] = MetadataField(is_attribute=True, description='Labels associated with the list of kpoints')
+        label_numbers: List[int] = MetadataField(
+            is_attribute=True, description='Index of the labels in the list of kpoints'
+        )
+        mesh: List[int] = MetadataField(is_attribute=True, description='Mesh of kpoints')
+        offset: List[float] = MetadataField(is_attribute=True, description='Offset of kpoints')
+        cell: List[List[float]] = MetadataField(is_attribute=True, description='Unit cell of the crystal, in Angstroms')
+        pbc1: bool = MetadataField(is_attribute=True, description='True if the first lattice vector is periodic')
+        pbc2: bool = MetadataField(is_attribute=True, description='True if the second lattice vector is periodic')
+        pbc3: bool = MetadataField(is_attribute=True, description='True if the third lattice vector is periodic')
 
     def get_description(self):
         """Returns a string with infos retrieved from  kpoints node's properties.

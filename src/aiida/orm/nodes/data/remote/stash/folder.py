@@ -3,7 +3,7 @@ from typing import List, Tuple, Union
 
 from aiida.common.datastructures import StashMode
 from aiida.common.lang import type_check
-from aiida.orm.fields import QbAttrField
+from aiida.common.pydantic import MetadataField
 
 from .base import RemoteStashData
 
@@ -18,10 +18,11 @@ class RemoteStashFolderData(RemoteStashData):
 
     _storable = True
 
-    __qb_fields__ = (
-        QbAttrField('target_basepath', dtype=str, doc='The the target basepath'),
-        QbAttrField('source_list', dtype=List[str], doc='The list of source files that were stashed'),
-    )
+    class Model(RemoteStashData.Model):
+        target_basepath: str = MetadataField(is_attribute=True, description='The the target basepath')
+        source_list: List[str] = MetadataField(
+            is_attribute=True, description='The list of source files that were stashed'
+        )
 
     def __init__(self, stash_mode: StashMode, target_basepath: str, source_list: List, **kwargs):
         """Construct a new instance

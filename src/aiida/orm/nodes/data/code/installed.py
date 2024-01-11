@@ -46,6 +46,7 @@ class InstalledCode(Code):
             description='The remote computer on which the executable resides.',
             short_name='-Y',
             priority=2,
+            is_attribute=True,
         )
         filepath_executable: str = MetadataField(
             ...,
@@ -53,6 +54,7 @@ class InstalledCode(Code):
             description='Filepath of the executable on the remote computer.',
             short_name='-X',
             priority=1,
+            is_attribute=True,
         )
 
         @field_validator('label')

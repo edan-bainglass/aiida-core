@@ -12,11 +12,11 @@ import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 from aiida.common import exceptions
+from aiida.common.pydantic import MetadataField
 from aiida.manage import get_manager
 from aiida.plugins import SchedulerFactory, TransportFactory
 
 from . import entities, users
-from .fields import QbField
 
 if TYPE_CHECKING:
     from aiida.orm import AuthInfo, User
@@ -72,15 +72,14 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
     _CLS_COLLECTION = ComputerCollection
 
-    __qb_fields__ = (
-        QbField('uuid', dtype=str, doc='The UUID of the computer'),
-        QbField('label', dtype=str, doc='Label for the computer'),
-        QbField('description', dtype=str, doc='Description of the computer'),
-        QbField('hostname', dtype=str, doc='Hostname of the computer'),
-        QbField('transport_type', dtype=str, doc='Transport type of the computer'),
-        QbField('scheduler_type', dtype=str, doc='Scheduler type of the computer'),
-        QbField('metadata', dtype=Dict[str, Any], doc='Metadata of the computer'),
-    )
+    class Model(entities.Entity.Model):
+        uuid: str = MetadataField(description='The UUID of the computer')
+        label: str = MetadataField(description='Label for the computer')
+        description: str = MetadataField(description='Description of the computer')
+        hostname: str = MetadataField(description='Hostname of the computer')
+        transport_type: str = MetadataField(description='Transport type of the computer')
+        scheduler_type: str = MetadataField(description='Scheduler type of the computer')
+        metadata: Dict[str, Any] = MetadataField(description='Metadata of the computer')
 
     def __init__(
         self,

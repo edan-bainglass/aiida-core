@@ -12,10 +12,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
 from aiida.common import timezone
+from aiida.common.pydantic import MetadataField
 from aiida.manage import get_manager
 
 from . import entities
-from .fields import QbField
 
 if TYPE_CHECKING:
     from aiida.orm import Node
@@ -128,15 +128,14 @@ class Log(entities.Entity['BackendLog', LogCollection]):
 
     _CLS_COLLECTION = LogCollection
 
-    __qb_fields__ = (
-        QbField('uuid', dtype=str, doc='The UUID of the node'),
-        QbField('loggername', dtype=str, doc='The name of the logger'),
-        QbField('levelname', dtype=str, doc='The name of the log level'),
-        QbField('message', dtype=str, doc='The message of the log'),
-        QbField('time', dtype=datetime, doc='The time at which the log was created'),
-        QbField('metadata', dtype=Dict[str, Any], doc='The metadata of the log'),
-        QbField('node_pk', 'dbnode_id', dtype=int, doc='The PK for the node'),
-    )
+    class Model(entities.Entity.Model):
+        uuid: str = MetadataField(description='The UUID of the node')
+        loggername: str = MetadataField(description='The name of the logger')
+        levelname: str = MetadataField(description='The name of the log level')
+        message: str = MetadataField(description='The message of the log')
+        time: datetime = MetadataField(description='The time at which the log was created')
+        metadata: Dict[str, Any] = MetadataField(description='The metadata of the log')
+        node_pk: int = MetadataField(description='The PK for the node', database_alias='dbnode_id')
 
     def __init__(
         self,

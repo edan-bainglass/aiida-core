@@ -10,11 +10,10 @@
 from __future__ import annotations
 
 import copy
-from typing import Any
-from typing import Dict as DictType
+import typing as t
 
 from aiida.common import exceptions
-from aiida.orm.fields import QbField
+from aiida.common.pydantic import MetadataField
 
 from .base import to_aiida_type
 from .data import Data
@@ -50,9 +49,10 @@ class Dict(Data):
     Finally, all dictionary mutations will be forbidden once the node is stored.
     """
 
-    __qb_fields__ = (
-        QbField('dict', 'attributes', dtype=DictType[str, Any], subscriptable=True, doc='Source of the data'),
-    )
+    class Model(Data.Model):
+        value: t.Dict[str, t.Any] = MetadataField(
+            subscriptable=True, description='Source of the data', database_alias='attributes'
+        )
 
     def __init__(self, value=None, **kwargs):
         """Initialise a ``Dict`` node instance.
@@ -87,7 +87,7 @@ class Dict(Data):
         """Return whether the node contains a key."""
         return key in self.base.attributes
 
-    def get(self, key: str, default: Any | None = None, /):  # type: ignore[override]
+    def get(self, key: str, default: t.Any | None = None, /):  # type: ignore[override]
         """Return the value for key if key is in the dictionary, else default.
 
         :param key: The key whose value to return.

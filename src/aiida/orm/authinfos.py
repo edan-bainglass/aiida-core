@@ -10,11 +10,11 @@
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type
 
 from aiida.common import exceptions
+from aiida.common.pydantic import MetadataField
 from aiida.manage import get_manager
 from aiida.plugins import TransportFactory
 
 from . import entities, users
-from .fields import QbField
 
 if TYPE_CHECKING:
     from aiida.orm import Computer, User
@@ -45,13 +45,12 @@ class AuthInfo(entities.Entity['BackendAuthInfo', AuthInfoCollection]):
 
     _CLS_COLLECTION = AuthInfoCollection
 
-    __qb_fields__ = (
-        QbField('enabled', dtype=bool, doc='Whether the instance is enabled'),
-        QbField('auth_params', dtype=Dict[str, Any], doc='Dictionary of authentication parameters'),
-        QbField('metadata', dtype=Dict[str, Any], doc='Dictionary of metadata'),
-        QbField('computer_pk', 'dbcomputer_id', dtype=int, doc='The PK of the computer'),
-        QbField('user_pk', 'aiidauser_id', dtype=int, doc='The PK of the user'),
-    )
+    class Model(entities.Entity.Model):
+        auth_params: Dict[str, Any] = MetadataField(description='Dictionary of authentication parameters')
+        computer_pk: int = MetadataField(description='The PK of the computer', database_alias='dbcomputer_id')
+        enabled: bool = MetadataField(description='Whether the instance is enabled')
+        metadata: Dict[str, Any] = MetadataField(description='Dictionary of metadata')
+        user_pk: int = MetadataField(description='The PK of the user', database_alias='aiidauser_id')
 
     PROPERTY_WORKDIR = 'workdir'
 
