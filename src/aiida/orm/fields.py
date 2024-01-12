@@ -9,6 +9,7 @@
 """Module which provides decorators for AiiDA ORM entity -> DB field mappings."""
 from abc import ABCMeta
 from copy import deepcopy
+from functools import singledispatchmethod
 from pprint import pformat
 from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Union
 
@@ -203,27 +204,75 @@ class QbFieldFilters:
 
     __slots__ = ('filters',)
 
-    def __init__(self, filters: Sequence[Tuple[QbField, str, Any]]):
-        self.filters = list(filters)
+    def __init__(self, filters: Union[Sequence[Tuple[QbField, str, Any]], dict]):
+        self.filters: Dict[str, Any] = {}
+        self.add_filters(filters)
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Return the filters dictionary."""
+        return self.filters
+
+    def items(self):
+        """Return an items view of the filters for use in the QueryBuilder."""
+        return self.filters.items()
+
+    @singledispatchmethod
+    def add_filters(self, filters: dict):
+        self.filters.update(filters)
+
+    @add_filters.register(list)
+    @add_filters.register(tuple)
+    def _(self, filters):
+        for field, comparator, value in filters:
+            qb_field = field.qb_field
+            if qb_field in self.filters:
+                self.filters['and'] = [
+                    {qb_field: self.filters.pop(qb_field)},
+                    {qb_field: {comparator: value}},
+                ]
+            else:
+                self.filters[qb_field] = {comparator: value}
 
     def __repr__(self) -> str:
         return f'QbFieldFilters({self.filters})'
 
-    def as_dict(self) -> Dict[QbField, Any]:
-        """Return the filters as a dictionary, for use in the QueryBuilder."""
-        output: Dict[QbField, Any] = {}
-        for field, comparator, value in self.filters:
-            if field in output:
-                output[field]['and'].append({comparator: value})
-            else:
-                output[field] = {'and': [{comparator: value}]}
-        return output
+    def __getitem__(self, key: str) -> Any:
+        return self.filters[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.filters
+
+    def __eq__(self, other: object) -> bool:
+        """``a == b`` checks if `a.filters == b.filters`."""
+        if not isinstance(other, QbFieldFilters):
+            raise TypeError(f'Cannot compare QbFieldFilters to {type(other)}')
+        return self.filters == other.filters
 
     def __and__(self, other: 'QbFieldFilters') -> 'QbFieldFilters':
-        """Concatenate two QbFieldFilters objects: ``a & b``."""
+        """``a & b`` -> {'and': [`a.filters`, `b.filters`]}."""
+        return self.__checks(other, 'and') or QbFieldFilters({'and': [self.filters, other.filters]})
+
+    def __or__(self, other: 'QbFieldFilters') -> 'QbFieldFilters':
+        """``a | b`` -> {'or': [`a.filters`, `b.filters`]}."""
+        return self.__checks(other, 'or') or QbFieldFilters({'or': [self.filters, other.filters]})
+
+    def __checks(self, other: 'QbFieldFilters', logical: str) -> Optional['QbFieldFilters']:
+        """Check for redundant filters and nested logical operators."""
+
         if not isinstance(other, QbFieldFilters):
-            raise TypeError(f'Cannot add QbFieldFilters and {type(other)}')
-        return QbFieldFilters(self.filters + other.filters)
+            raise TypeError(f'Cannot combine QbFieldFilters and {type(other)}')
+
+        # same filters
+        if other == self:
+            return self
+
+        # self is already wrapped in `logical`
+        # append other to collection
+        if logical in self.filters:
+            self.filters[logical].append(other.filters)
+            return self
+
+        return None
 
 
 class QbFields:

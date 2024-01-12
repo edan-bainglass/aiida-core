@@ -715,17 +715,12 @@ class QueryBuilder:
     @staticmethod
     def _process_filters(filters: FilterType) -> Dict[str, Any]:
         """Process filters."""
-        filters_dict: Dict[Union[str, fields.QbField], Any] = {}
-        if isinstance(filters, fields.QbFieldFilters):
-            filters_dict = filters.as_dict()  # type: ignore[assignment]
-        elif isinstance(filters, dict):
-            filters_dict = filters  # type: ignore[assignment]
-        else:
-            raise TypeError('Filters have to be passed as dictionaries or QbFieldFilters')
+        if not isinstance(filters, (dict, fields.QbFieldFilters)):
+            raise TypeError('Filters must be either a dictionary or QbFieldFilters')
 
         processed_filters = {}
 
-        for key, value in filters_dict.items():
+        for key, value in filters.items():
             if isinstance(value, entities.Entity):
                 # Convert to be the id of the joined entity because we can't query
                 # for the object instance directly

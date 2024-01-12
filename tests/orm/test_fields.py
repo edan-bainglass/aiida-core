@@ -11,7 +11,7 @@
 import pytest
 from aiida import orm
 from aiida.common.pydantic import MetadataField
-from aiida.orm import Data, Dict, Node, QueryBuilder, fields
+from aiida.orm import Data, Dict, Node, QueryBuilder
 from aiida.orm.utils.mixins import Sealable
 from importlib_metadata import entry_points
 
@@ -119,20 +119,36 @@ def test_filter_operators():
     field = Data.fields.pk
     filters = (field == 1) & (field != 2) & (field > 3) & (field >= 4) & (field < 5) & (field <= 6)
     assert filters.as_dict() == {
-        fields.QbField('pk', qb_field='id', dtype=int): {
-            'and': [{'==': 1}, {'!=': 2}, {'>': 3}, {'>=': 4}, {'<': 5}, {'<=': 6}]
-        }
+        'and': [
+            {'id': {'==': 1}},
+            {'id': {'!=': 2}},
+            {'id': {'>': 3}},
+            {'id': {'>=': 4}},
+            {'id': {'<': 5}},
+            {'id': {'<=': 6}},
+        ]
     }
 
 
 def test_filter_comparators():
     """Test that the comparators are correctly registered."""
     field = Data.fields.uuid
-    filters = (field.in_(['a'])) & (field.not_in(['b'])) & (field.like('a%')) & (field.ilike('a%'))
+    filters = (field.in_(['a'])) & (field.not_in(['b'])) | (field.like('a%')) & (field.ilike('a%'))
     assert filters.as_dict() == {
-        fields.QbField('uuid', qb_field='uuid', dtype=str): {
-            'and': [{'in': {'a'}}, {'!in': {'b'}}, {'like': 'a%'}, {'ilike': 'a%'}]
-        }
+        'or': [
+            {
+                'and': [
+                    {'uuid': {'in': {'a'}}},
+                    {'uuid': {'!in': {'b'}}},
+                ]
+            },
+            {
+                'and': [
+                    {'uuid': {'like': 'a%'}},
+                    {'uuid': {'ilike': 'a%'}},
+                ]
+            },
+        ]
     }
 
 
