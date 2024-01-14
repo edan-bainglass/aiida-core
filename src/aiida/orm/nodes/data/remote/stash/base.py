@@ -28,7 +28,7 @@ class RemoteStashData(Data):
 
     _storable = False
 
-    class Model(Data.Model):
+    class Model:
         stash_mode: str = MetadataField(is_attribute=True, description='The mode with which the data was stashed')
 
     def __init__(self, stash_mode: StashMode, **kwargs):

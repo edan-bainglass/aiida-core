@@ -52,7 +52,7 @@ class User(entities.Entity['BackendUser', UserCollection]):
 
     _CLS_COLLECTION = UserCollection
 
-    class Model(entities.Entity.Model):
+    class Model:
         email: str = MetadataField(description='The user email')
         first_name: str = MetadataField(description='The user first name')
         last_name: str = MetadataField(description='The user last name')

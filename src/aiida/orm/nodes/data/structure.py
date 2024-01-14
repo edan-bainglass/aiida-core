@@ -687,7 +687,7 @@ class StructureData(Data):
     _dimensionality_label = {0: '', 1: 'length', 2: 'surface', 3: 'volume'}
     _internal_kind_tags = None
 
-    class Model(Data.Model):
+    class Model:
         pbc1: bool = MetadataField(is_attribute=True, description='Whether periodic in the a direction')
         pbc2: bool = MetadataField(is_attribute=True, description='Whether periodic in the b direction')
         pbc3: bool = MetadataField(is_attribute=True, description='Whether periodic in the c direction')

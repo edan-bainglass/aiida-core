@@ -45,7 +45,7 @@ class Data(Node):
     _storable = True
     _unstorable_message = 'storing for this node has been disabled'
 
-    class Model(Node.Model):
+    class Model:
         source: Optional[dict] = MetadataField(
             None, subscriptable=True, description='Source of the data.', is_attribute=True
         )

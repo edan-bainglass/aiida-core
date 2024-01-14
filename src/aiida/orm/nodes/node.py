@@ -185,7 +185,7 @@ class Node(Entity['BackendNode', NodeCollection], metaclass=AbstractNodeMeta):
     _storable = False
     _unstorable_message = 'only Data, WorkflowNode, CalculationNode or their subclasses can be stored'
 
-    class Model(Entity.Model):
+    class Model:
         uuid: str = MetadataField(exclude=True, description='The UUID of the node')
         label: str = MetadataField(description='The node label')
         description: str = MetadataField(description='The node description')

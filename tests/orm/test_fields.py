@@ -11,8 +11,7 @@
 import pytest
 from aiida import orm
 from aiida.common.pydantic import MetadataField
-from aiida.orm import Data, Dict, Node, QueryBuilder
-from aiida.orm.utils.mixins import Sealable
+from aiida.orm import Data, Dict, QueryBuilder
 from importlib_metadata import entry_points
 
 EPS = entry_points()
@@ -53,24 +52,6 @@ def test_all_node_fields(group, name, data_regression):
     )
 
 
-def test_invalid_model_subclassses(clear_database_before_test):
-    """Test that the metaclass validates that the ``Model`` attribute subclasses all necessary bases."""
-
-    # Here the ``Model`` skips a direct subclass and goes to a grandparent.
-    with pytest.raises(RuntimeError, match=r'.*It should be: `class Model\(aiida.orm.nodes.data.data.Data.Model\):'):
-
-        class IncorrectBaseData(Data):
-            class Model(Node.Model):
-                """Invalid model definition because"""
-
-    # Here the ``Model`` only subclasses one base, where the class has two bases that define a model
-    with pytest.raises(RuntimeError, match=r'.*It should be: `class Model\(.*Data.Model, .*Sealable.Model\):'):
-
-        class MissingBaseData(Data, Sealable):  # type: ignore[misc]
-            class Model(Data.Model):
-                """Invalid model definition because"""
-
-
 def test_query_new_class(clear_database_before_test, monkeypatch):
     """Test that fields are correctly registered on a new data class,
     and can be used in a query.
@@ -83,7 +64,7 @@ def test_query_new_class(clear_database_before_test, monkeypatch):
     monkeypatch.setattr(plugins.entry_point, 'is_registered_entry_point', _dummy)
 
     class NewNode(Data):
-        class Model(Data.Model):
+        class Model:
             key1: int = MetadataField(database_alias='attributes.key1')  # type: ignore[annotation-unchecked]
             key2: int = MetadataField(is_attribute=True)  # type: ignore[annotation-unchecked]
             key3: int = MetadataField(is_attribute=True)  # type: ignore[annotation-unchecked]

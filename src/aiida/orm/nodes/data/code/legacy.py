@@ -38,7 +38,7 @@ class Code(AbstractCode):
     for the code to be run).
     """
 
-    class Model(AbstractCode.Model):
+    class Model:
         prepend_text: Optional[str] = MetadataField(
             is_attribute=True,
             description='The code that will be put in the scheduler script before the execution of the code',

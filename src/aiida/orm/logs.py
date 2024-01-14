@@ -128,7 +128,7 @@ class Log(entities.Entity['BackendLog', LogCollection]):
 
     _CLS_COLLECTION = LogCollection
 
-    class Model(entities.Entity.Model):
+    class Model:
         uuid: str = MetadataField(description='The UUID of the node')
         loggername: str = MetadataField(description='The name of the logger')
         levelname: str = MetadataField(description='The name of the log level')

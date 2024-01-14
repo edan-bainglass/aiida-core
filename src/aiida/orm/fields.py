@@ -325,6 +325,15 @@ class QbFields:
 class EntityFieldMeta(ABCMeta):
     """A metaclass for entity fields, which adds a `fields` class attribute."""
 
+    def __new__(cls, name, bases, classdict):
+        if 'Model' in classdict:
+            if parent_models := [base.Model for base in bases if hasattr(base, 'Model')]:
+                model = type('Model', (classdict['Model'], *parent_models), {})
+            else:
+                model = type('Model', (classdict['Model'], BaseModel), {})
+            classdict['Model'] = model
+        return super().__new__(cls, name, bases, classdict)
+
     def __init__(cls, name, bases, classdict):
         super().__init__(name, bases, classdict)
 
@@ -377,18 +386,6 @@ class EntityFieldMeta(ABCMeta):
                     cls_model_bases = {
                         BaseModel,
                     }
-
-                # Get the set of bases of ``cls.Model`` that are a subclass of :class:`pydantic.BaseModel`.
-                model_bases = {base for base in cls.Model.__bases__ if issubclass(base, BaseModel)}
-
-                # For ``cls.Model`` to be valid, the bases that contain a model, should equal to the leaf bases of the
-                # ``cls`` itself that also define a model.
-                if model_bases != cls_model_bases:
-                    bases = [f'{e.__module__}.{e.__name__}.Model' for e in cls_bases_with_model_leaves]
-                    raise RuntimeError(
-                        f'`{cls.__name__}.Model` does not subclass all necessary base classes. It should be: '
-                        f'`class Model({", ".join(sorted(bases))}):`'
-                    )
 
             for key, field in cls.Model.model_fields.items():
                 field_cls = QbAttrField if get_metadata(field, 'is_attribute', False) else QbField

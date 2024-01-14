@@ -37,7 +37,7 @@ class KpointsData(ArrayData):
     set_cell_from_structure methods.
     """
 
-    class Model(ArrayData.Model):
+    class Model:
         labels: List[str] = MetadataField(is_attribute=True, description='Labels associated with the list of kpoints')
         label_numbers: List[int] = MetadataField(
             is_attribute=True, description='Index of the labels in the list of kpoints'

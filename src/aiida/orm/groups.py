@@ -107,7 +107,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
 
     __type_string: ClassVar[Optional[str]]
 
-    class Model(entities.Entity.Model):
+    class Model:
         uuid: str = MetadataField(description='The UUID of the group')
         type_string: str = MetadataField(description='The type of the group')
         label: str = MetadataField(description='The group label')

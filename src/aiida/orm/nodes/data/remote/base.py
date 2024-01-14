@@ -25,7 +25,7 @@ class RemoteData(Data):
 
     KEY_EXTRA_CLEANED = 'cleaned'
 
-    class Model(Data.Model):
+    class Model:
         remote_path: str = MetadataField(is_attribute=True, description='Filepath on the remote computer.')
 
     def __init__(self, remote_path=None, **kwargs):

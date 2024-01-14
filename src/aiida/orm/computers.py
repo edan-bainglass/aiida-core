@@ -72,7 +72,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
     _CLS_COLLECTION = ComputerCollection
 
-    class Model(entities.Entity.Model):
+    class Model:
         uuid: str = MetadataField(description='The UUID of the computer')
         label: str = MetadataField(description='Label for the computer')
         description: str = MetadataField(description='Description of the computer')

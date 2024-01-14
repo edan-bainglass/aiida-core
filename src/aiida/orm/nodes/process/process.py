@@ -165,7 +165,7 @@ class ProcessNode(Sealable, Node):
             cls.PROCESS_STATUS_KEY,
         )
 
-    class Model(Node.Model, Sealable.Model):
+    class Model:
         process_type: Optional[str] = MetadataField(is_attribute=True, description='The process type string')
         computer_pk: Optional[int] = MetadataField(description='The computer PK', database_alias='dbcomputer_id')
         process_label: Optional[str] = MetadataField(is_attribute=True, description='The process label')

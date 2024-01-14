@@ -23,7 +23,7 @@ class TrajectoryData(ArrayData):
     possibly with velocities).
     """
 
-    class Model(ArrayData.Model):
+    class Model:
         units_positions: str = MetadataField(
             is_attribute=True, description='Unit of positions', database_alias='units|positions'
         )

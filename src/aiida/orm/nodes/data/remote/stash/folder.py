@@ -18,7 +18,7 @@ class RemoteStashFolderData(RemoteStashData):
 
     _storable = True
 
-    class Model(RemoteStashData.Model):
+    class Model:
         target_basepath: str = MetadataField(is_attribute=True, description='The the target basepath')
         source_list: List[str] = MetadataField(
             is_attribute=True, description='The list of source files that were stashed'
