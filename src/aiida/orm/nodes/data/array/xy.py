@@ -13,9 +13,10 @@ on them.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence, Union
 
 import numpy as np
+from pydantic import field_validator
 
 from aiida.common.exceptions import NotExistent
 from aiida.common.pydantic import MetadataField
@@ -86,6 +87,44 @@ class XyData(ArrayData):
         y_units: Sequence[str] = MetadataField(
             description='The units of the y arrays',
         )
+
+    class ConstructorModel(ArrayData.ConstructorModel):
+        x_array: Sequence = MetadataField(
+            description='The x array, which must be a 1D numpy array of floats.',
+            write_only=True,
+        )
+        y_arrays: Sequence = MetadataField(
+            description='The y array(s), which must be 1D numpy arrays of floats with the same shape as the x array.',
+            write_only=True,
+        )
+
+        @field_validator('x_array', mode='before')
+        @classmethod
+        def normalize_x_array(
+            cls,
+            value: Sequence | np.ndarray,
+        ) -> Sequence:
+            if isinstance(value, Sequence):
+                return value
+            if isinstance(value, np.ndarray):
+                return value.tolist()
+            else:
+                raise TypeError(f'`x_array` should be an iterable but got: {value}')
+
+        @field_validator('y_arrays', mode='before')
+        @classmethod
+        def normalize_y_arrays(
+            cls,
+            value: Sequence | np.ndarray | list[np.ndarray],
+        ) -> Sequence:
+            if isinstance(value, Sequence):
+                return value
+            if isinstance(value, np.ndarray):
+                return value.tolist()
+            elif isinstance(value, list) and all(isinstance(v, np.ndarray) for v in value):
+                return [v.tolist() for v in value]
+            else:
+                raise TypeError(f'`y_arrays` should be an iterable but got: {value}')
 
     def __init__(
         self,

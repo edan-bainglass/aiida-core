@@ -101,14 +101,8 @@ class OrmModel(BaseModel, defer_build=True):
 
         readonly_fields: t.List[str] = []
         for key, field in CreateModel.model_fields.items():
-            annotation = field.annotation
             if get_metadata(field, 'read_only'):
                 readonly_fields.append(key)
-            elif isinstance(annotation, type) and issubclass(annotation, OrmModel):
-                sub_create_model = annotation._as_create_model()
-                field.annotation = sub_create_model
-                if any(f.is_required() for f in sub_create_model.model_fields.values()):
-                    field.default_factory = None
 
         # Remove read-only fields
         for key in readonly_fields:

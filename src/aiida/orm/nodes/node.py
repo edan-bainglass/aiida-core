@@ -217,22 +217,40 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     identity_field: ClassVar[str] = 'uuid'
 
+    class BaseNodeModel(OrmModel):
+        node_type: str = MetadataField(
+            description='The type of the node',
+            examples=['process.calculation.calcjob.CalcJobNode.'],
+        )
+        label: str = MetadataField(
+            '',
+            description='The node label',
+            examples=['my_node'],
+        )
+        description: str = MetadataField(
+            '',
+            description='The node description',
+            examples=['This is my node description.'],
+        )
+        extras: Dict[str, Any] = MetadataField(
+            default_factory=dict,
+            description='The node extras',
+            orm_to_model=lambda node: cast(Node, node).base.extras.all,
+            may_be_large=True,
+            examples=[{'extra_key': 'extra_value'}],
+        )
+
     class AttributesModel(OrmModel):
         """The node attributes.
 
         Extended by `Node` subclasses with specific attributes.
         """
 
-    class Model(Entity.Model):
+    class Model(Entity.Model, BaseNodeModel):
         uuid: UUID = MetadataField(
             description='The UUID of the node',
             read_only=True,
             examples=['123e4567-e89b-12d3-a456-426614174000'],
-        )
-        node_type: str = MetadataField(
-            description='The type of the node',
-            read_only=True,
-            examples=['process.calculation.calcjob.CalcJobNode.'],
         )
         process_type: Optional[str] = MetadataField(
             None,
@@ -258,29 +276,12 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             read_only=True,
             examples=['2024-01-02T12:00:00+00:00'],
         )
-        label: str = MetadataField(
-            '',
-            description='The node label',
-            examples=['my_node'],
-        )
-        description: str = MetadataField(
-            '',
-            description='The node description',
-            examples=['This is my node description.'],
-        )
         attributes: Node.AttributesModel = MetadataField(
             default_factory=lambda: Node.AttributesModel(),
             description='The node attributes',
             orm_to_model=lambda node: cast(Node, node).base.attributes.all,
             may_be_large=True,
             examples=[{'attr_key': 'attr_value'}],
-        )
-        extras: Dict[str, Any] = MetadataField(
-            default_factory=dict,
-            description='The node extras',
-            orm_to_model=lambda node: cast(Node, node).base.extras.all,
-            may_be_large=True,
-            examples=[{'extra_key': 'extra_value'}],
         )
         computer: Optional[int] = MetadataField(
             None,
@@ -303,6 +304,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             """Serialize UUID to string."""
             return str(value)
 
+    ConstructorModel = None
+
     def __init_subclass__(cls, **kwargs) -> None:
         """Customize subclass creation.
 
@@ -314,7 +317,9 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         super().__init_subclass__(**kwargs)
 
         AttributesModel = cast(type[Node.AttributesModel], getattr(cls, 'AttributesModel'))  # noqa: N806
-        if 'AttributesModel' not in cls.__dict__:
+        if 'AttributesModel' in cls.__dict__:
+            AttributesModel.model_rebuild(force=True)
+        else:
             AttributesModel = cast(  # noqa: N806
                 type[Node.AttributesModel],
                 type(
@@ -354,6 +359,26 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 ),
             )
             cls.Model = Model  # type: ignore[misc]
+
+        ConstructorModel = getattr(cls, 'ConstructorModel', None)  # noqa: N806
+
+        if 'ConstructorModel' in cls.__dict__:
+            if ConstructorModel is not None:
+                cast(type[Node.BaseNodeModel], ConstructorModel).model_rebuild(force=True)
+        elif ConstructorModel is not None:
+            ConstructorModel = cast(  # noqa: N806
+                type[Node.BaseNodeModel],
+                type(
+                    'ConstructorModel',
+                    (ConstructorModel,),
+                    {
+                        '__module__': cls.__module__,
+                        '__qualname__': f'{cls.__qualname__}.ConstructorModel',
+                    },
+                ),
+            )
+            ConstructorModel.model_rebuild(force=True)
+            cls.ConstructorModel = ConstructorModel  # type: ignore[misc]
 
     def __init__(
         self,

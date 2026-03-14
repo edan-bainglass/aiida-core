@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import io
 from collections.abc import Iterable, Iterator, Sequence
-from typing import Any, Literal, Optional, Union, cast
+from typing import Any, Literal, Union
 
 import numpy as np
 from pydantic import ConfigDict, field_validator
@@ -63,22 +63,18 @@ class ArrayData(Data):
             },
         )
 
-        arrays: Optional[Union[Sequence, dict[str, Sequence]]] = MetadataField(
-            None,
+    class ConstructorModel(Data.BaseNodeModel):
+        arrays: Union[Sequence, dict[str, Sequence]] = MetadataField(
             description='A single (or dictionary of) array(s) to store',
-            orm_to_model=lambda node: cast(ArrayData, node).arrays,
             write_only=True,
-            exclude=True,
         )
 
         @field_validator('arrays', mode='before')
         @classmethod
         def normalize_arrays(
             cls,
-            value: Sequence | np.ndarray | dict[str, Sequence | np.ndarray] | None,
-        ) -> Sequence | dict[str, Sequence] | None:
-            if value is None:
-                return value
+            value: Sequence | np.ndarray | dict[str, Sequence | np.ndarray],
+        ) -> Sequence | dict[str, Sequence]:
             if isinstance(value, Sequence):
                 return value
             if isinstance(value, np.ndarray):

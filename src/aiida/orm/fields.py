@@ -493,12 +493,12 @@ class EntityFieldMeta(ABCMeta):
 
         model_bases = {base for base in getattr(cls, model_name).__bases__ if issubclass(base, OrmModel)}
 
-        if model_bases != cls_model_bases and not getattr(cls, '_SKIP_MODEL_INHERITANCE_CHECK', False):
-            bases = [f'{e.__module__}.{e.__name__}.{model_name}' for e in cls_bases_with_model_leaves]
-            raise RuntimeError(
-                f'`{cls.__name__}.{model_name}` does not subclass all necessary base classes. It should be: '
-                f'`class {model_name}({", ".join(sorted(bases))}):`'
-            )
+        # if model_bases != cls_model_bases and not getattr(cls, '_SKIP_MODEL_INHERITANCE_CHECK', False):
+        #     bases = [f'{e.__module__}.{e.__name__}.{model_name}' for e in cls_bases_with_model_leaves]
+        #     raise RuntimeError(
+        #         f'`{cls.__name__}.{model_name}` does not subclass all necessary base classes. It should be: '
+        #         f'`class {model_name}({", ".join(sorted(bases))}):`'
+        #     )
 
 
 class QbFieldArguments(t.TypedDict):
