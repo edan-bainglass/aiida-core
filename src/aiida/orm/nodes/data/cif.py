@@ -254,17 +254,14 @@ class CifData(SinglefileData):
         formulae: Optional[List[str]] = MetadataField(
             None,
             description='List of formulae contained in the CIF file',
-            read_only=True,
         )
         spacegroup_numbers: Optional[List[str]] = MetadataField(
             None,
             description='List of space group numbers of the structure',
-            read_only=True,
         )
         md5: Optional[str] = MetadataField(
             None,
             description='MD5 checksum of the file contents',
-            read_only=True,
         )
 
     def __init__(self, ase=None, file=None, filename=None, values=None, scan_type=None, parse_policy=None, **kwargs):

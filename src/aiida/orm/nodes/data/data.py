@@ -52,7 +52,6 @@ class Data(Node):
         source: Optional[dict] = MetadataField(
             None,
             description='Source of the data',
-            read_only=True,
         )
 
     def __init__(self, *args, source=None, **kwargs):
