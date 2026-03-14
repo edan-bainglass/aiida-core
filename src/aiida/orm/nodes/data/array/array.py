@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import io
 from collections.abc import Iterable, Iterator, Sequence
-from typing import Any, Literal, Union
+from typing import Any, Union
 
 import numpy as np
 from pydantic import ConfigDict, field_validator
@@ -100,7 +100,7 @@ class ArrayData(Data):
 
         :param arrays: An optional single numpy array, or dictionary of numpy arrays to store.
         """
-        arrays = arrays if arrays is not None else kwargs.get('attributes', {}).pop('arrays', {})
+        arrays = arrays if arrays is not None else {}
 
         super().__init__(**kwargs)
         self._cached_arrays: dict[str, np.ndarray] = {}
@@ -117,20 +117,6 @@ class ArrayData(Data):
     @property
     def arrays(self) -> dict[str, np.ndarray]:
         return {name: self.get_array(name) for name in self.get_arraynames()}
-
-    def serialize(
-        self,
-        *,
-        context: dict[str, Any] | None = None,
-        minimal: bool = False,
-        mode: Literal['json'] | Literal['python'] = 'json',
-        dump_repo: bool = False,
-    ) -> dict[str, Any]:
-        serialized = super().serialize(context=context, minimal=minimal, mode=mode, dump_repo=dump_repo)
-        serialized['attributes'] |= {
-            f'{self.array_prefix}{name}': list(array.shape) for name, array in self.get_iterarrays()
-        }
-        return serialized
 
     def initialize(self):
         super().initialize()

@@ -102,10 +102,6 @@ class PortableCode(Code):
         :param filepath_executable: The relative filepath of the executable within the directory of uploaded files.
         :param filepath_files: The filepath to the directory containing all the files of the code.
         """
-        attributes = kwargs.get('attributes', {})
-        filepath_executable = filepath_executable or attributes.pop(self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, None)
-        filepath_files = filepath_files or attributes.pop('filepath_files', None)
-
         if filepath_executable is None:
             raise ValueError('`filepath_executable` must be provided.')
 

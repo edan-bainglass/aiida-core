@@ -81,7 +81,7 @@ class Dict(Data):
 
         :param value: dictionary to initialise the ``Dict`` node from
         """
-        dictionary = value or kwargs.pop('dict', None) or kwargs.get('attributes', {}).pop('value', None)
+        dictionary = value or kwargs.pop('dict', None)
 
         super().__init__(**kwargs)
 

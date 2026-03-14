@@ -737,14 +737,6 @@ class StructureData(Data):
         sites: list[Site | dict[str, t.Any]] | None = None,
         **kwargs,
     ):
-        attributes = kwargs.get('attributes', {})
-        pbc1 = pbc1 if pbc1 is not None else attributes.pop('pbc1', None)
-        pbc2 = pbc2 if pbc2 is not None else attributes.pop('pbc2', None)
-        pbc3 = pbc3 if pbc3 is not None else attributes.pop('pbc3', None)
-        cell = cell if cell is not None else attributes.pop('cell', None)
-        kinds = kinds or attributes.pop('kinds', None)
-        sites = sites or attributes.pop('sites', None)
-
         if pbc1 is not None or pbc2 is not None or pbc3 is not None:
             pbc = [pbc1 or False, pbc2 or False, pbc3 or False]
 

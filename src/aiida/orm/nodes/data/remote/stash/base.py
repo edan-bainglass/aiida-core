@@ -43,18 +43,12 @@ class RemoteStashData(Data):
             description='The mode with which the data was stashed',
         )
 
-    def __init__(self, stash_mode: Optional[StashMode] = None, **kwargs):
+    def __init__(self, stash_mode: StashMode, **kwargs):
         """Construct a new instance
 
         :param stash_mode: the stashing mode with which the data was stashed on the remote.
         """
-        stash_mode = stash_mode or kwargs.get('attributes', {}).pop('stash_mode', None)
-
-        if stash_mode is None:
-            raise ValueError('the `stash_mode` parameter must be specified.')
-
         super().__init__(**kwargs)
-
         self.stash_mode = stash_mode
 
     @property

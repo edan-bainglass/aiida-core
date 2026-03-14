@@ -35,7 +35,7 @@ class List(Data, MutableSequence):
 
         :param value: list to initialise the ``List`` node from
         """
-        data = value or kwargs.pop('list', []) or kwargs.get('attributes', {}).pop('value', [])
+        data = value or kwargs.pop('list', [])
         super().__init__(**kwargs)
         self.set_list(data)
 

@@ -62,10 +62,6 @@ class ContainerizedCode(InstalledCode):
         image_name: str | None = None,
         **kwargs,
     ):
-        attributes = kwargs.get('attributes', {})
-        engine_command = engine_command or attributes.pop(self._KEY_ATTRIBUTE_ENGINE_COMMAND, None)
-        image_name = image_name or attributes.pop(self._KEY_ATTRIBUTE_IMAGE_NAME, None)
-
         if engine_command is None or image_name is None:
             raise ValueError('Both `engine_command` and `image_name` must be provided.')
 

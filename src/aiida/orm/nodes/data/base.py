@@ -41,11 +41,7 @@ class BaseType(Data):
             getattr(self, '_type')
         except AttributeError:
             raise RuntimeError('Derived class must define the `_type` class member')
-
-        value = value if value is not None else kwargs.get('attributes', {}).pop('value', None)
-
         super().__init__(**kwargs)
-
         self.value = value if value is not None else self._type()
 
     @property

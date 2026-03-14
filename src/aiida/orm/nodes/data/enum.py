@@ -21,7 +21,7 @@ import typing as t
 from enum import Enum
 
 from plumpy.loaders import get_object_loader
-from pydantic import computed_field, model_validator
+from pydantic import model_validator
 
 from aiida.common.lang import type_check
 from aiida.common.pydantic import MetadataField
@@ -54,31 +54,18 @@ class EnumData(Data):
     KEY_IDENTIFIER = 'identifier'
 
     class AttributesModel(Data.AttributesModel):
-        member: t.Optional[Enum] = MetadataField(
-            None,
+        name: str = MetadataField(
             description='The member name',
-            write_only=True,
-            exclude=True,
-            orm_to_model=lambda node: t.cast(EnumData, node).get_member(),
+            orm_to_model=lambda node: t.cast(EnumData, node).name,
         )
-
-        @computed_field  # type: ignore[prop-decorator]
-        @property
-        def name(self) -> str:
-            """Return the member name."""
-            return self.member.name if self.member is not None else ''
-
-        @computed_field  # type: ignore[prop-decorator]
-        @property
-        def value(self) -> t.Optional[t.Any]:
-            """Return the member value."""
-            return self.member.value if self.member is not None else None
-
-        @computed_field  # type: ignore[prop-decorator]
-        @property
-        def identifier(self) -> str:
-            """Return the member identifier."""
-            return get_object_loader().identify_object(self.member.__class__)
+        value: t.Any = MetadataField(
+            description='The member value',
+            orm_to_model=lambda node: t.cast(EnumData, node).value,
+        )
+        identifier: str = MetadataField(
+            description='The member identifier',
+            orm_to_model=lambda node: t.cast(EnumData, node).identifier,
+        )
 
         @model_validator(mode='before')
         @classmethod
@@ -95,27 +82,18 @@ class EnumData(Data):
 
             return values
 
-    def __init__(self, member: t.Optional[Enum] = None, *args, **kwargs):
+    def __init__(self, member: Enum, *args, **kwargs):
         """Construct the node for the to enum member that is to be wrapped."""
-
-        attributes: dict = kwargs.get('attributes', {})
-        member = member or attributes.pop('member', None)
-
-        if member is not None:
-            type_check(member, Enum)
-
-            kwargs['attributes'] = {
-                self.KEY_NAME: member.name,
-                self.KEY_VALUE: member.value,
-                self.KEY_IDENTIFIER: get_object_loader().identify_object(member.__class__),
-            }
-        elif not all(key in attributes for key in (self.KEY_NAME, self.KEY_VALUE, self.KEY_IDENTIFIER)):
-            raise ValueError(
-                'if the `member` argument is not provided, the `name`, `value` and `identifier` must be provided '
-                'through the `attributes` argument.'
-            )
-
+        type_check(member, Enum)
         super().__init__(*args, **kwargs)
+
+        data = {
+            self.KEY_NAME: member.name,
+            self.KEY_VALUE: member.value,
+            self.KEY_IDENTIFIER: get_object_loader().identify_object(member.__class__),
+        }
+
+        self.base.attributes.set_many(data)
 
     @property
     def name(self) -> str:
@@ -127,12 +105,17 @@ class EnumData(Data):
         """Return the value of the enum member."""
         return self.base.attributes.get(self.KEY_VALUE)
 
+    @property
+    def identifier(self) -> str:
+        """Return the identifier of the enum member."""
+        return self.base.attributes.get(self.KEY_IDENTIFIER)
+
     def get_enum(self) -> t.Type[EnumType]:
         """Return the enum class reconstructed from the serialized identifier stored in the database.
 
         :raises `ImportError`: if the enum class represented by the stored identifier cannot be imported.
         """
-        identifier = self.base.attributes.get(self.KEY_IDENTIFIER)
+        identifier = self.identifier
         try:
             return get_object_loader().load_object(identifier)
         except ValueError as exc:

@@ -15,7 +15,6 @@ import io
 import os
 import pathlib
 import typing as t
-import warnings
 
 from aiida.common import exceptions
 from aiida.common.pydantic import MetadataField
@@ -84,11 +83,6 @@ class SinglefileData(Data):
             Hint: Pass io.BytesIO(b"my string") to construct the SinglefileData directly from a string.
         :param filename: specify filename to use (defaults to name of provided file).
         """
-
-        attributes = kwargs.get('attributes', {})
-        filename = filename or attributes.pop('filename', None)
-        content = content or attributes.pop('content', None)
-
         super().__init__(**kwargs)
 
         if file is not None and content is not None:
@@ -99,16 +93,6 @@ class SinglefileData(Data):
 
         if file is not None:
             self.set_file(file, filename=filename)
-        else:
-            # Store the filename if provided, even if the file is not yet set.
-            # We check for consistency later on `store`.
-            if filename is not None:
-                self.filename = str(filename)
-
-            warnings.warn(
-                'No content provided for `SinglefileData`. Please use the `set_file` method to set the file content.',
-                stacklevel=2,
-            )
 
     @property
     def content(self) -> bytes:
@@ -121,16 +105,6 @@ class SinglefileData(Data):
         :return: the filename under which the file is stored in the repository
         """
         return self.base.attributes.get('filename')
-
-    @filename.setter
-    def filename(self, value: str) -> None:
-        """Set the name of the file stored.
-
-        :param value: the filename under which the file is stored in the repository
-        """
-        if not isinstance(value, str):
-            raise TypeError(f'filename must be a string, got {type(value)}')
-        self.base.attributes.set('filename', value)
 
     @t.overload
     @contextlib.contextmanager
