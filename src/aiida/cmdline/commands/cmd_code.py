@@ -27,7 +27,6 @@ from aiida.cmdline.utils import echo, echo_tabulate
 from aiida.cmdline.utils.common import validate_output_filename
 from aiida.cmdline.utils.decorators import with_dbenv
 from aiida.common import exceptions
-from aiida.common.pydantic import get_metadata
 
 if TYPE_CHECKING:
     from aiida.orm import Code
@@ -41,7 +40,7 @@ def verdi_code():
 def create_code(ctx: click.Context, cls: Code, **kwargs) -> None:
     """Create a new `Code` instance."""
     try:
-        model = cls.CreateModel(**kwargs)
+        model = cls.WriteModel(**kwargs)
         instance = cls.from_model(model)
     except (TypeError, ValueError) as exception:
         echo.echo_critical(f'Failed to create instance `{cls}`: {exception}')
@@ -247,7 +246,7 @@ def show(code: Code):
         table.append(['Computer', f'{code.computer.label} ({code.computer.hostname}), pk: {code.computer.pk}'])
 
     for key, field in code.AttributesModel.model_fields.items():
-        if key == 'source' or get_metadata(field, 'write_only'):
+        if key == 'source':
             continue
         value = getattr(code, key)
         table.append([field.title, value])

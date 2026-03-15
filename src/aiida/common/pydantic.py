@@ -73,7 +73,7 @@ class OrmModel(BaseModel, defer_build=True):
         return MinimalModel
 
     @classmethod
-    def _as_create_model(cls: t.Type[OrmModel]) -> t.Type[OrmModel]:
+    def _as_write_model(cls: t.Type[OrmModel]) -> t.Type[OrmModel]:
         """Return a derived creation model class with read-only fields removed.
 
         This also removes any serializers/validators defined on those fields.
@@ -81,37 +81,37 @@ class OrmModel(BaseModel, defer_build=True):
         :return: The derived creation model class.
         """
 
-        cached = cls.__dict__.get('_AIIDA_CREATE_MODEL')
+        cached = cls.__dict__.get('_AIIDA_WRITE_MODEL')
         if isinstance(cached, type) and issubclass(cached, OrmModel):
             return cached
 
-        CreateModel = create_model(  # noqa: N806
-            'CreateModel',
+        WriteModel = create_model(  # noqa: N806
+            'WriteModel',
             __base__=cls,
             __module__=cls.__module__,
-            __qualname__=cls.__qualname__.replace('Model', 'CreateModel'),
+            __qualname__=cls.__qualname__.replace('ReadModel', 'WriteModel'),
         )
-        CreateModel.model_config['extra'] = 'ignore'
-        CreateModel.model_config['json_schema_extra'] = {
-            **CreateModel.model_config.get('json_schema_extra', {}),  # type: ignore[dict-item]
+        WriteModel.model_config['extra'] = 'ignore'
+        WriteModel.model_config['json_schema_extra'] = {
+            **WriteModel.model_config.get('json_schema_extra', {}),  # type: ignore[dict-item]
             'additionalProperties': False,
         }
 
-        CreateModel.model_rebuild(force=True)
+        WriteModel.model_rebuild(force=True)
 
         readonly_fields: t.List[str] = []
-        for key, field in CreateModel.model_fields.items():
+        for key, field in WriteModel.model_fields.items():
             if get_metadata(field, 'read_only'):
                 readonly_fields.append(key)
 
         # Remove read-only fields
         for key in readonly_fields:
-            CreateModel.model_fields.pop(key, None)
-            if hasattr(CreateModel, key):
-                delattr(CreateModel, key)
+            WriteModel.model_fields.pop(key, None)
+            if hasattr(WriteModel, key):
+                delattr(WriteModel, key)
 
         # Prune field validators/serializers referring to read-only fields
-        decorators = CreateModel.__pydantic_decorators__
+        decorators = WriteModel.__pydantic_decorators__
 
         def prune_field_decorators(field_decorators: dict[str, t.Any]) -> dict[str, t.Any]:
             return {
@@ -124,10 +124,10 @@ class OrmModel(BaseModel, defer_build=True):
         decorators.field_serializers = prune_field_decorators(decorators.field_serializers)
 
         # Make subsequent calls idempotent for this specific class
-        cls._AIIDA_CREATE_MODEL = CreateModel  # type: ignore[attr-defined]
+        cls._AIIDA_WRITE_MODEL = WriteModel  # type: ignore[attr-defined]
 
-        CreateModel.model_rebuild(force=True)
-        return CreateModel
+        WriteModel.model_rebuild(force=True)
+        return WriteModel
 
 
 def MetadataField(  # noqa: N802
@@ -150,14 +150,14 @@ def MetadataField(  # noqa: N802
 
     .. code-block:: python
 
-        class Model(OrmModel):
+        class ReadModel(OrmModel):
 
             attribute: MetadataField('default', priority=1000, short_name='-A')
 
     This is a utility function that constructs a ``Field`` instance with an easy interface to add additional metadata.
     It is possible to add metadata using ``Annotated``::
 
-        class Model(BaseModel):
+        class ReadModel(BaseModel):
 
             attribute: Annotated[str, {'metadata': 'value'}] = Field(...)
 

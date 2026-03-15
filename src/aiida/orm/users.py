@@ -57,7 +57,7 @@ class User(entities.Entity['BackendUser', UserCollection]):
 
     _CLS_COLLECTION = UserCollection
 
-    class Model(entities.Entity.Model):
+    class ReadModel(entities.Entity.ReadModel):
         email: str = MetadataField(
             description='The user email',
             examples=['verdi@opera.net'],

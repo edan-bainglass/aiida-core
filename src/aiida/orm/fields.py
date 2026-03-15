@@ -16,7 +16,7 @@ from functools import singledispatchmethod
 from pprint import pformat
 
 from aiida.common.lang import isidentifier
-from aiida.common.pydantic import OrmModel, get_metadata
+from aiida.common.pydantic import OrmModel
 
 __all__ = (
     'QbField',
@@ -422,11 +422,11 @@ class EntityFieldMeta(ABCMeta):
 
         fields: dict[str, t.Any] = {}
 
-        if cls._has_model('Model'):
-            if 'Model' in cls.__dict__:
-                cls._validate_model_inheritance('Model')
+        if cls._has_model('ReadModel'):
+            if 'ReadModel' in cls.__dict__:
+                cls._validate_model_inheritance('ReadModel')
 
-            Model = cls.Model  # type: ignore[attr-defined] # noqa N806
+            Model = cls.ReadModel  # type: ignore[attr-defined] # noqa N806
             for key, field in Model.model_fields.items():
                 fields[key] = add_field(
                     key,
@@ -449,9 +449,6 @@ class EntityFieldMeta(ABCMeta):
 
             Model = cls.AttributesModel  # type: ignore[attr-defined] # noqa N806
             for key, field in Model.model_fields.items():
-                if get_metadata(field, 'write_only'):
-                    continue
-
                 typed_field = add_field(
                     key,
                     alias=field.alias,
@@ -466,11 +463,11 @@ class EntityFieldMeta(ABCMeta):
         # Finalize
         cls.fields = QbFields({key: fields[key] for key in sorted(fields)})
 
-    def _has_model(cls, model_name: str = 'Model') -> bool:
+    def _has_model(cls, model_name: str = 'ReadModel') -> bool:
         """Return whether the class has a model defined."""
         return hasattr(cls, model_name) and issubclass(getattr(cls, model_name), OrmModel)
 
-    def _validate_model_inheritance(cls, model_name: str = 'Model') -> None:
+    def _validate_model_inheritance(cls, model_name: str = 'ReadModel') -> None:
         """Validate that model class inherits from all necessary base classes."""
 
         cls_bases_with_model = [
@@ -493,12 +490,14 @@ class EntityFieldMeta(ABCMeta):
 
         model_bases = {base for base in getattr(cls, model_name).__bases__ if issubclass(base, OrmModel)}
 
-        # if model_bases != cls_model_bases and not getattr(cls, '_SKIP_MODEL_INHERITANCE_CHECK', False):
-        #     bases = [f'{e.__module__}.{e.__name__}.{model_name}' for e in cls_bases_with_model_leaves]
-        #     raise RuntimeError(
-        #         f'`{cls.__name__}.{model_name}` does not subclass all necessary base classes. It should be: '
-        #         f'`class {model_name}({", ".join(sorted(bases))}):`'
-        #     )
+        if model_bases != cls_model_bases and not getattr(cls, '_SKIP_MODEL_INHERITANCE_CHECK', False):
+            # TODO resolve this
+            return
+            bases = [f'{e.__module__}.{e.__name__}.{model_name}' for e in cls_bases_with_model_leaves]
+            raise RuntimeError(
+                f'`{cls.__name__}.{model_name}` does not subclass all necessary base classes. It should be: '
+                f'`class {model_name}({", ".join(sorted(bases))}):`'
+            )
 
 
 class QbFieldArguments(t.TypedDict):

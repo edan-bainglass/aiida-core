@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
-from typing import Optional, cast
+from typing import cast
 
 from aiida.common import exceptions
 from aiida.common.folders import Folder
@@ -60,30 +60,31 @@ class PortableCode(Code):
         """Model describing required information to create an instance."""
 
         filepath_executable: str = MetadataField(
-            ...,
+            title='Filepath executable',
+            description='Relative filepath of executable with directory of code files',
+            orm_to_model=lambda node: str(cast(PortableCode, node).filepath_executable),
+        )
+
+    class ConstructorModel(AbstractCode.BaseWriteModel):
+        """Model describing required information to create an instance."""
+
+        filepath_executable: str = MetadataField(
             title='Filepath executable',
             description='Relative filepath of executable with directory of code files',
             short_name='-X',
             priority=1,
-            orm_to_model=lambda node: str(cast(PortableCode, node).filepath_executable),
         )
-        filepath_files: Optional[str] = MetadataField(
-            None,
+        filepath_files: str = MetadataField(
             title='Code directory',
             description='Filepath to directory containing code files',
             short_name='-F',
             priority=2,
             write_only=True,
-            exclude=True,
-            orm_to_model=lambda node, ctx: _export_filepath_files_from_repo(
-                cast(PortableCode, node),
-                ctx.get('repository_path', pathlib.Path.cwd() / f'{cast(PortableCode, node).label}'),
-            ),
         )
 
     def __init__(
         self,
-        filepath_executable: FilePath | None = None,
+        filepath_executable: FilePath,
         filepath_files: FilePath | None = None,
         **kwargs,
     ):
@@ -102,9 +103,6 @@ class PortableCode(Code):
         :param filepath_executable: The relative filepath of the executable within the directory of uploaded files.
         :param filepath_files: The filepath to the directory containing all the files of the code.
         """
-        if filepath_executable is None:
-            raise ValueError('`filepath_executable` must be provided.')
-
         super().__init__(**kwargs)
 
         self.filepath_executable = filepath_executable

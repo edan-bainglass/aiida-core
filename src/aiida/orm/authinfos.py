@@ -52,7 +52,7 @@ class AuthInfo(entities.Entity['BackendAuthInfo', AuthInfoCollection]):
     _CLS_COLLECTION = AuthInfoCollection
     PROPERTY_WORKDIR = 'workdir'
 
-    class Model(entities.Entity.Model):
+    class ReadModel(entities.Entity.ReadModel):
         computer: int = MetadataField(
             description='The PK of the computer',
             orm_class=Computer,

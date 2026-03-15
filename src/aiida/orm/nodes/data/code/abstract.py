@@ -90,7 +90,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
             ),
         )
 
-    class Model(Data.Model):
+    class ReadModel(Data.ReadModel):
         label: str = MetadataField(
             ...,
             title='Label',

@@ -80,7 +80,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
     _CLS_COLLECTION = ComputerCollection
 
-    class Model(entities.Entity.Model):
+    class ReadModel(entities.Entity.ReadModel):
         uuid: UUID = MetadataField(
             description='The UUID of the computer',
             read_only=True,

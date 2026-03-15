@@ -76,7 +76,7 @@ class Comment(entities.Entity['BackendComment', CommentCollection]):
 
     identity_field: ClassVar[str] = 'uuid'
 
-    class Model(entities.Entity.Model):
+    class ReadModel(entities.Entity.ReadModel):
         uuid: UUID = MetadataField(
             description='The UUID of the comment',
             read_only=True,

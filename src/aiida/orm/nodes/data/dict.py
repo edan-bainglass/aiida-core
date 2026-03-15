@@ -60,16 +60,11 @@ class Dict(Data):
             },
         )
 
-        value: t.Dict[str, t.Any] = MetadataField(
+    class ConstructorModel(Data.BaseWriteModel):
+        value: dict[str, t.Any] = MetadataField(
             description='The dictionary content',
             write_only=True,
-            exclude=True,
         )
-
-        @pdt.model_validator(mode='before')
-        @classmethod
-        def assign_dict_to_value(cls, value: dict) -> dict:
-            return value if 'value' in value else {'value': value}
 
     def __init__(self, value=None, **kwargs):
         """Initialise a ``Dict`` node instance.
@@ -87,23 +82,6 @@ class Dict(Data):
 
         if dictionary:
             self.set_dict(dictionary)
-
-    def serialize(
-        self,
-        *,
-        context: dict[str, t.Any] | None = None,
-        minimal: bool = False,
-        mode: t.Literal['json'] | t.Literal['python'] = 'json',
-        dump_repo: bool = False,
-    ) -> dict[str, t.Any]:
-        serialized = super().serialize(
-            context=context,
-            minimal=minimal,
-            mode=mode,
-            dump_repo=dump_repo,
-        )
-        serialized['attributes'] = self.get_dict()
-        return serialized
 
     def __getitem__(self, key):
         try:

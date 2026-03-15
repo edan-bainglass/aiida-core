@@ -260,7 +260,7 @@ def test_roundtrip(required_arguments, tmp_path):
     # ORM entity constructor are identical of the original model.
     context = {'repository_path': tmp_path} if issubclass(cls, Node) else None
     roundtrip_model = roundtrip.to_model(context=context)
-    original_field_values = cls.model_to_orm_field_values(model)
+    original_field_values = cls.model_to_orm_field_values(model, cls.WriteModel)
 
     def _validate_value(value):
         if isinstance(value, dict):
@@ -270,7 +270,7 @@ def test_roundtrip(required_arguments, tmp_path):
             return value.read()
         return value
 
-    for key, value in cls.model_to_orm_field_values(roundtrip_model).items():
+    for key, value in cls.model_to_orm_field_values(roundtrip_model, cls.WriteModel).items():
         assert _validate_value(value) == _validate_value(original_field_values[key])
 
 

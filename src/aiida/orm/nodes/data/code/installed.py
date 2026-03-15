@@ -47,6 +47,14 @@ class InstalledCode(Code):
             title='Filepath executable',
             description='Filepath of the executable on the remote computer',
             orm_to_model=lambda node: str(cast(InstalledCode, node).filepath_executable),
+        )
+
+    # TODO this one might break things - need to have a look at how cmd_computer works with it
+    # TODO likely CLI needs to switch to using constructor models (can't use attributes from CLI)
+    class ConstructorModel(AbstractCode.BaseWriteModel):
+        filepath_executable: str = MetadataField(
+            title='Filepath executable',
+            description='Filepath of the executable on the remote computer',
             short_name='-X',
             priority=1,
         )
@@ -56,12 +64,10 @@ class InstalledCode(Code):
             short_name='-Y',
             priority=2,
             write_only=True,
-            exclude=True,
-            orm_to_model=lambda node: cast(InstalledCode, node).computer.label,
-            model_to_orm=lambda model: load_computer(cast(InstalledCode.AttributesModel, model).computer),
+            model_to_orm=lambda model: load_computer(cast(InstalledCode.ConstructorModel, model).computer),
         )
 
-    class Model(AbstractCode.Model):
+    class ReadModel(AbstractCode.ReadModel):
         @model_validator(mode='before')
         @classmethod
         def pass_computer_label_to_attributes(cls, values: dict) -> dict:
@@ -80,8 +86,8 @@ class InstalledCode(Code):
 
     def __init__(
         self,
-        computer: Computer | str | None = None,
-        filepath_executable: str | None = None,
+        computer: Computer | str,
+        filepath_executable: str,
         **kwargs,
     ):
         """Construct a new instance.
@@ -94,14 +100,8 @@ class InstalledCode(Code):
             self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, None
         )
 
-        if computer is None:
-            raise ValueError('The `computer` parameter must be provided.')
-
         if isinstance(computer, str):
             computer = load_computer(computer)
-
-        if filepath is None:
-            raise ValueError('The `filepath_executable` parameter must be provided.')
 
         super().__init__(**kwargs)
 

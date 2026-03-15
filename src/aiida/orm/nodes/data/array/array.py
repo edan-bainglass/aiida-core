@@ -63,7 +63,7 @@ class ArrayData(Data):
             },
         )
 
-    class ConstructorModel(Data.BaseNodeModel):
+    class ConstructorModel(Data.BaseWriteModel):
         arrays: Union[Sequence, dict[str, Sequence]] = MetadataField(
             description='A single (or dictionary of) array(s) to store',
             write_only=True,

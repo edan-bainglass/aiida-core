@@ -199,7 +199,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
 
     identity_field: ClassVar[str] = 'pk'
 
-    class Model(OrmModel):
+    class ReadModel(OrmModel):
         pk: int = MetadataField(
             description='The primary key of the entity',
             read_only=True,
@@ -207,66 +207,57 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         )
 
     @classproperty
-    def CreateModel(cls) -> Type[OrmModel]:  # noqa: N802, N805
-        """Return the creation version of the model class for this entity.
+    def WriteModel(cls) -> Type[OrmModel]:  # noqa: N802, N805
+        """Return the attributes-based creation version of the model class for this entity.
 
-        :return: The creation model class, with read-only fields removed.
+        :return: The attributes-based creation model class, with read-only fields removed.
         """
-        return cls.Model._as_create_model()
+        return cls.ReadModel._as_write_model()
 
     @classmethod
-    def model_to_orm_field_values(cls, valid_model: OrmModel) -> dict[str, Any]:
-        """Collect values for the ORM entity's fields from the given model instance.
+    def model_to_orm_field_values(
+        cls,
+        valid_model: OrmModel,
+        schema: type[OrmModel],
+    ) -> dict[str, Any]:
+        """Collect values for the ORM entity's fields from the given model instance and schema.
 
-        This method centralizes the mapping of Model -> ORM values, including handling of
-        `orm_class` metadata and nested models. The process is recursive, applying metadata
-        field rules to nested models as well.
-
-        :param valid_model: An validated instance of the entity's model class.
+        :param valid_model: A validated model instance.
+        :param schema: The schema model that defines which fields to map.
         :return: Mapping of model field name to validated value.
         :raises EntryPointError: if an `orm_class` entry point could not be loaded.
         :raises NotExistent: if a referenced ORM entity could not be found.
         """
         from aiida.plugins.factories import BaseFactory
 
-        def get_orm_field_values(model: OrmModel, schema: type[OrmModel] = cls.CreateModel) -> dict[str, Any]:
-            """Recursive helper function to collect field values from a model instance.
+        fields: dict[str, Any] = {}
+        for key, field in schema.model_fields.items():
+            field_value = getattr(valid_model, key, field.default)
 
-            :param model: The model instance to extract field values from.
-            :param schema: The model class.
-            :return: Mapping of model field name to validated value.
-            """
+            if field_value is None:
+                continue
 
-            fields: dict[str, Any] = {}
-            for key, field in schema.model_fields.items():
-                field_value = getattr(model, key, field.default)
-
-                if field_value is None:
-                    continue
-
-                annotation = field.annotation
-                if isinstance(annotation, type) and issubclass(annotation, OrmModel):
-                    fields[key] = get_orm_field_values(field_value, annotation)
-                elif orm_class := get_metadata(field, 'orm_class'):
-                    if isinstance(orm_class, str):
-                        try:
-                            orm_class = BaseFactory('aiida.orm', orm_class)
-                        except EntryPointError as exception:
-                            raise EntryPointError(
-                                f'The `orm_class` of `{cls.__name__}.Model.{key} is invalid: {exception}'
-                            ) from exception
+            annotation = field.annotation
+            if isinstance(annotation, type) and issubclass(annotation, OrmModel):
+                fields[key] = cls.model_to_orm_field_values(field_value, annotation)
+            elif orm_class := get_metadata(field, 'orm_class'):
+                if isinstance(orm_class, str):
                     try:
-                        fields[key] = orm_class.collection.get(id=field_value)
-                    except NotExistent as exception:
-                        raise NotExistent(f'No `{orm_class}` found with pk={field_value}') from exception
-                elif model_to_orm := get_metadata(field, 'model_to_orm'):
-                    fields[key] = model_to_orm(model)
-                else:
-                    fields[key] = field_value
+                        orm_class = BaseFactory('aiida.orm', orm_class)
+                    except EntryPointError as exception:
+                        raise EntryPointError(
+                            f'The `orm_class` of `{cls.__name__}.Model.{key} is invalid: {exception}'
+                        ) from exception
+                try:
+                    fields[key] = orm_class.collection.get(id=field_value)
+                except NotExistent as exception:
+                    raise NotExistent(f'No `{orm_class}` found with pk={field_value}') from exception
+            elif model_to_orm := get_metadata(field, 'model_to_orm'):
+                fields[key] = model_to_orm(valid_model)
+            else:
+                fields[key] = field_value
 
-            return fields
-
-        return get_orm_field_values(valid_model)
+        return fields
 
     def orm_to_model_field_values(
         self,
@@ -327,7 +318,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
 
             return fields
 
-        return get_model_field_values(model or self.Model)
+        return get_model_field_values(model or self.ReadModel)
 
     def to_model(self, *, context: dict[str, Any] | None = None, minimal: bool = False) -> OrmModel:
         """Return the entity instance as an instance of its model.
@@ -337,7 +328,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         :return: An instance of the entity's model class.
         """
         fields = self.orm_to_model_field_values(context=context, minimal=minimal)
-        Model = self.Model if self.is_stored else self.CreateModel  # noqa: N806
+        Model = self.ReadModel if self.is_stored else self.WriteModel  # noqa: N806
         if minimal:
             Model = Model._as_minimal_model()  # noqa: N806
         return Model(**fields)
@@ -349,7 +340,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         :param model: An instance of the entity's model class.
         :return: An instance of the entity class.
         """
-        fields = cls.model_to_orm_field_values(model)
+        fields = cls.model_to_orm_field_values(model, cls.WriteModel)
         return cls(**fields)
 
     def serialize(
@@ -381,7 +372,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         :param serialized: The serialized data.
         :return: The constructed entity instance.
         """
-        return cls.from_model(cls.CreateModel(**serialized))
+        return cls.from_model(cls.WriteModel(**serialized))
 
     @classproperty
     def objects(cls) -> CollectionType:  # noqa: N805

@@ -36,12 +36,16 @@ class SinglefileData(Data):
             description='The name of the stored file',
             orm_to_model=lambda node: t.cast(SinglefileData, node).base.attributes.get('filename', 'file.txt'),
         )
-        content: t.Optional[str] = MetadataField(
-            None,
+
+    class ConstructorModel(Data.BaseWriteModel):
+        filename: str = MetadataField(  # TODO not DRY! rethink
+            'file.txt',
+            description='The name of the stored file',
+        )
+        content: str = MetadataField(
             description='The file content',
-            model_to_orm=lambda model: t.cast(SinglefileData.AttributesModel, model).content_as_bytes(),
+            model_to_orm=lambda model: t.cast(SinglefileData.ConstructorModel, model).content_as_bytes(),
             write_only=True,
-            exclude=True,
         )
 
         def content_as_bytes(self) -> t.IO | None:
@@ -85,6 +89,9 @@ class SinglefileData(Data):
         """
         super().__init__(**kwargs)
 
+        self.filename = str(filename) or self.DEFAULT_FILENAME
+        print(self.filename)
+
         if file is not None and content is not None:
             raise ValueError('cannot specify both `file` and `content`.')
 
@@ -105,6 +112,14 @@ class SinglefileData(Data):
         :return: the filename under which the file is stored in the repository
         """
         return self.base.attributes.get('filename')
+
+    @filename.setter
+    def filename(self, value: str) -> None:
+        """Set the name of the file stored.
+
+        :param value: the filename under which the file is stored in the repository
+        """
+        self.base.attributes.set('filename', value)
 
     @t.overload
     @contextlib.contextmanager

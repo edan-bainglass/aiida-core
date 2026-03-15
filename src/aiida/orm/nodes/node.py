@@ -217,7 +217,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     identity_field: ClassVar[str] = 'uuid'
 
-    class BaseNodeModel(OrmModel):
+    class BaseWriteModel(OrmModel):
         node_type: str = MetadataField(
             description='The type of the node',
             examples=['process.calculation.calcjob.CalcJobNode.'],
@@ -246,7 +246,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         Extended by `Node` subclasses with specific attributes.
         """
 
-    class Model(Entity.Model, BaseNodeModel):
+    class ReadModel(Entity.ReadModel, BaseWriteModel):
         uuid: UUID = MetadataField(
             description='The UUID of the node',
             read_only=True,
@@ -277,7 +277,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             examples=['2024-01-02T12:00:00+00:00'],
         )
         attributes: Node.AttributesModel = MetadataField(
-            default_factory=lambda: Node.AttributesModel(),
             description='The node attributes',
             orm_to_model=lambda node: cast(Node, node).base.attributes.all,
             may_be_large=True,
@@ -304,81 +303,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             """Serialize UUID to string."""
             return str(value)
 
-    ConstructorModel = None
-
-    def __init_subclass__(cls, **kwargs) -> None:
-        """Customize subclass creation.
-
-        This method ensures that each `Node` subclass has its own dedicated `Model`, and that the model's `attributes`
-        field points to the subclass's dedicated `AttributesModel`. The method takes care of dynamically assigning
-        models in case they are not explicitly defined in the subclass. This ensures proper namespacing and avoids
-        leaking of base class models into subclasses.
-        """
-        super().__init_subclass__(**kwargs)
-
-        AttributesModel = cast(type[Node.AttributesModel], getattr(cls, 'AttributesModel'))  # noqa: N806
-        if 'AttributesModel' in cls.__dict__:
-            AttributesModel.model_rebuild(force=True)
-        else:
-            AttributesModel = cast(  # noqa: N806
-                type[Node.AttributesModel],
-                type(
-                    'AttributesModel',
-                    (AttributesModel,),
-                    {
-                        '__module__': cls.__module__,
-                        '__qualname__': f'{cls.__qualname__}.AttributesModel',
-                    },
-                ),
-            )
-            cls.AttributesModel = AttributesModel  # type: ignore[misc]
-
-        if 'Model' in cls.__dict__:
-            base_field = deepcopy(cls.Model.model_fields['attributes'])
-            base_field.annotation = AttributesModel
-            base_field.default_factory = AttributesModel
-            cls.Model.model_fields['attributes'] = base_field
-            cls.Model.__annotations__ = dict(getattr(cls.Model, '__annotations__', {}))
-            cls.Model.__annotations__['attributes'] = AttributesModel
-            cls.Model.model_rebuild(force=True)
-        else:
-            parent_model = cast(type[Node.Model], getattr(cls, 'Model'))
-
-            base_field = deepcopy(parent_model.model_fields['attributes'])
-            base_field.annotation = AttributesModel
-            base_field.default_factory = AttributesModel
-
-            Model = cast(  # noqa: N806
-                type[Node.Model],
-                create_model(
-                    'Model',
-                    __base__=parent_model,
-                    __module__=cls.__module__,
-                    __qualname__=f'{cls.__qualname__}.Model',
-                    attributes=(AttributesModel, base_field),
-                ),
-            )
-            cls.Model = Model  # type: ignore[misc]
-
-        ConstructorModel = getattr(cls, 'ConstructorModel', None)  # noqa: N806
-
-        if 'ConstructorModel' in cls.__dict__:
-            if ConstructorModel is not None:
-                cast(type[Node.BaseNodeModel], ConstructorModel).model_rebuild(force=True)
-        elif ConstructorModel is not None:
-            ConstructorModel = cast(  # noqa: N806
-                type[Node.BaseNodeModel],
-                type(
-                    'ConstructorModel',
-                    (ConstructorModel,),
-                    {
-                        '__module__': cls.__module__,
-                        '__qualname__': f'{cls.__qualname__}.ConstructorModel',
-                    },
-                ),
-            )
-            ConstructorModel.model_rebuild(force=True)
-            cls.ConstructorModel = ConstructorModel  # type: ignore[misc]
+    ConstructorModel: ClassVar[type[Node.BaseWriteModel]] | None = None
 
     def __init__(
         self,
@@ -408,10 +333,43 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         if extras:
             self.base.extras.set_many(extras)
 
+    def __init_subclass__(cls, **kwargs) -> None:
+        """Patch subclass models.
+
+        The following methods ensure that each subclass carries its own models.
+        """
+        super().__init_subclass__(**kwargs)
+        cls._patch_attributes_model()
+        cls._patch_read_model()
+        cls._patch_constructor_model()
+
     @cached_property
     def base(self) -> NodeBase:
         """Return the node base namespace."""
         return NodeBase(self)
+
+    @classmethod
+    def from_model(cls, model: BaseWriteModel) -> Self:
+        print(cls.ConstructorModel)
+        print(isinstance(model, cls.ConstructorModel))
+        if cls.ConstructorModel is not None and isinstance(model, cls.ConstructorModel):
+            # Constructor-based node creation
+            print('here')
+            fields = cls.model_to_orm_field_values(model, cls.ConstructorModel)
+            return cls(**fields)
+        else:
+            print('there')
+            # Attributes-based node creation
+            fields = cls.model_to_orm_field_values(model, cls.WriteModel)
+            attributes = fields.pop('attributes', None)
+            if attributes is None:
+                raise ValueError('the model is missing the required `attributes` field')
+            instance = Node(**fields)
+            instance.base.attributes.set_many(attributes)
+        # TODO recheck this!
+        if cls is Node:
+            return cast(Self, instance)
+        return cast(Self, from_backend_entity(cls, instance.backend_entity))
 
     def serialize(
         self,
@@ -471,7 +429,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         from aiida.repository import Repository
 
-        instance = cls.from_model(cls.CreateModel(**serialized))
+        instance = cls.from_model(cls.WriteModel(**serialized))
         repository_metadata = serialized.get('repository_metadata', {})
 
         if repository_metadata:
@@ -1016,3 +974,70 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             return getattr(self.base.links, new_name)
 
         raise AttributeError(name)
+
+    @classmethod
+    def _patch_attributes_model(cls):
+        if 'AttributesModel' in cls.__dict__:
+            # The subclass explicitly overrides `AttributesModel`
+            cls.AttributesModel.model_rebuild(force=True)
+        else:
+            AttributesModel = cast(  # noqa: N806
+                type[Node.AttributesModel],
+                type(
+                    'AttributesModel',
+                    (cls.AttributesModel,),
+                    {
+                        '__module__': cls.__module__,
+                        '__qualname__': f'{cls.__qualname__}.AttributesModel',
+                    },
+                ),
+            )
+            cls.AttributesModel = AttributesModel  # type: ignore[misc]
+
+    @classmethod
+    def _patch_read_model(cls):
+        if 'ReadModel' in cls.__dict__:
+            # The subclass explicitly overrides `ReadModel`
+            base_field = deepcopy(cls.ReadModel.model_fields['attributes'])
+            base_field.annotation = cls.AttributesModel
+            cls.ReadModel.model_fields['attributes'] = base_field
+            cls.ReadModel.__annotations__ = dict(getattr(cls.ReadModel, '__annotations__', {}))
+            cls.ReadModel.__annotations__['attributes'] = cls.AttributesModel
+            cls.ReadModel.model_rebuild(force=True)
+        else:
+            parent_model = cast(type[Node.ReadModel], getattr(cls, 'ReadModel'))
+
+            base_field = deepcopy(parent_model.model_fields['attributes'])
+            base_field.annotation = cls.AttributesModel
+
+            Model = cast(  # noqa: N806
+                type[Node.ReadModel],
+                create_model(
+                    'ReadModel',
+                    __base__=parent_model,
+                    __module__=cls.__module__,
+                    __qualname__=f'{cls.__qualname__}.ReadModel',
+                    attributes=(cls.AttributesModel, base_field),
+                ),
+            )
+            cls.ReadModel = Model  # type: ignore[misc]
+
+    @classmethod
+    def _patch_constructor_model(cls):
+        if 'ConstructorModel' in cls.__dict__:
+            # The subclass explicitly overrides `ConstructorModel`
+            cls.ConstructorModel.model_rebuild(force=True)
+        elif cls.ConstructorModel is not None:
+            ConstructorModel = cast(  # noqa: N806
+                type[Node.BaseWriteModel],
+                type(
+                    'ConstructorModel',
+                    (cls.ConstructorModel,),
+                    {
+                        '__module__': cls.__module__,
+                        '__qualname__': f'{cls.__qualname__}.ConstructorModel',
+                    },
+                ),
+            )
+            ConstructorModel.model_rebuild(force=True)
+            cls.ConstructorModel = ConstructorModel  # type: ignore[misc]

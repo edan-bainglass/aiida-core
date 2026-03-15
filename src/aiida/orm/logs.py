@@ -138,7 +138,7 @@ class Log(entities.Entity['BackendLog', LogCollection]):
 
     identity_field: ClassVar[str] = 'uuid'
 
-    class Model(entities.Entity.Model):
+    class ReadModel(entities.Entity.ReadModel):
         uuid: UUID = MetadataField(
             description='The UUID of the node',
             read_only=True,

@@ -96,9 +96,9 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
         """Call the ``command`` after validating the provided inputs."""
         from pydantic import ValidationError
 
-        if hasattr(cls, 'Model'):
+        if hasattr(cls, 'ReadModel'):
             try:
-                Model = getattr(cls, 'CreateModel', cls.Model)  # noqa: N806
+                Model = getattr(cls, 'WriteModel', cls.ReadModel)  # noqa: N806
                 if 'attributes' in Model.model_fields:
                     attr_field = Model.model_fields['attributes']
                     AttributesModel = t.cast(OrmModel, attr_field.annotation)  # noqa: N806
@@ -162,7 +162,7 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
 
         cls = self.factory(entry_point)
 
-        if not hasattr(cls, 'Model'):
+        if not hasattr(cls, 'ReadModel'):
             from aiida.common.warnings import warn_deprecation
 
             warn_deprecation(
@@ -173,7 +173,7 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
             options_spec = self.factory(entry_point).get_cli_options()  # type: ignore[union-attr]
             return [self.create_option(*item) for item in options_spec]
 
-        Model = getattr(cls, 'CreateModel', cls.Model)  # noqa: N806
+        Model = getattr(cls, 'WriteModel', cls.ReadModel)  # noqa: N806
 
         options_spec = {}
 
