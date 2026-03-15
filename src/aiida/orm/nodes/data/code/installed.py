@@ -51,7 +51,7 @@ class InstalledCode(Code):
 
     # TODO this one might break things - need to have a look at how cmd_computer works with it
     # TODO likely CLI needs to switch to using constructor models (can't use attributes from CLI)
-    class ConstructorModel(AbstractCode.BaseWriteModel):
+    class ConstructorModel(AbstractCode.BaseNodeModel):
         filepath_executable: str = MetadataField(
             title='Filepath executable',
             description='Filepath of the executable on the remote computer',

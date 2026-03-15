@@ -65,7 +65,7 @@ class PortableCode(Code):
             orm_to_model=lambda node: str(cast(PortableCode, node).filepath_executable),
         )
 
-    class ConstructorModel(AbstractCode.BaseWriteModel):
+    class ConstructorModel(AbstractCode.BaseNodeModel):
         """Model describing required information to create an instance."""
 
         filepath_executable: str = MetadataField(

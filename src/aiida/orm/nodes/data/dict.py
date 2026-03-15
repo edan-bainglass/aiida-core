@@ -61,7 +61,7 @@ class Dict(Data):
             extra='allow',
         )
 
-    class ConstructorModel(Data.BaseWriteModel):
+    class ConstructorModel(Data.BaseNodeModel):
         value: dict[str, t.Any] = MetadataField(
             description='The dictionary content',
             write_only=True,

@@ -37,7 +37,7 @@ class SinglefileData(Data):
             orm_to_model=lambda node: t.cast(SinglefileData, node).base.attributes.get('filename', 'file.txt'),
         )
 
-    class ConstructorModel(Data.BaseWriteModel):
+    class ConstructorModel(Data.BaseNodeModel):
         filename: str = MetadataField(  # TODO not DRY! rethink
             'file.txt',
             description='The name of the stored file',
