@@ -58,6 +58,7 @@ class Dict(Data):
             json_schema_extra={
                 'additionalProperties': True,
             },
+            extra='allow',
         )
 
     class ConstructorModel(Data.BaseWriteModel):

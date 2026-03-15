@@ -90,7 +90,6 @@ class SinglefileData(Data):
         super().__init__(**kwargs)
 
         self.filename = str(filename) or self.DEFAULT_FILENAME
-        print(self.filename)
 
         if file is not None and content is not None:
             raise ValueError('cannot specify both `file` and `content`.')
