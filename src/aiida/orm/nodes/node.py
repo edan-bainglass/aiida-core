@@ -34,7 +34,6 @@ from typing import (
 from uuid import UUID
 
 from pydantic import create_model, field_serializer
-from pydantic.fields import FieldInfo
 from typing_extensions import Self
 
 from aiida.common import exceptions
@@ -357,7 +356,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         cls._patch_attributes_model()
         cls._patch_base_node_model()
         cls._patch_read_model()
-        cls._patch_write_models()
+        cls._patch_constructor_model()
 
     @cached_property
     def base(self) -> NodeBase:
@@ -365,19 +364,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return NodeBase(self)
 
     @classmethod
-    def model_to_orm_field_values(
-        cls,
-        valid_model: OrmModel,
-        schema: type[OrmModel],
-    ) -> dict[str, Any]:
-        """Map model fields to constructor kwargs, excluding discriminator-only fields."""
-        fields = super().model_to_orm_field_values(valid_model, schema)
-        fields.pop('write_mode', None)
-        return fields
-
-    @classmethod
     def from_model(cls, model: OrmModel) -> Self:
-        if model.write_mode == 'attributes':
+        if isinstance(model, cls.WriteModel):
             # Attributes-based node creation
             attributes = model.attributes.model_dump()
             fields = cls.model_to_orm_field_values(model, cls.WriteModel)
@@ -387,7 +375,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             instance = Node(**fields)
             instance.base.attributes.set_many(attributes)
             return cast(Self, instance if cls is Node else from_backend_entity(cls, instance.backend_entity))
-        elif model.write_mode == 'constructor':
+        elif cls.ConstructorModel is not None and isinstance(model, cls.ConstructorModel):
             # Constructor-based node creation
             if cls.ConstructorModel is None or cls.ConstructorArgsModel is None:
                 raise ValueError('the model does not support constructor-based creation')
@@ -400,7 +388,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             fields.pop('args', None)
             return cls(**fields)
         else:
-            raise ValueError(f'unknown write mode `{model.write_mode}`')
+            raise ValueError(f'cannot create {cls.__name__} from model of type {type(model).__name__}')
 
     def serialize(
         self,
@@ -460,7 +448,16 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         from aiida.repository import Repository
 
-        instance = cls.from_model(cls.WriteModel(**serialized))
+        if 'attributes' in serialized:
+            Model = cls.WriteModel
+        elif 'args' in serialized:
+            if cls.ConstructorModel is None or cls.ConstructorArgsModel is None:
+                raise ValueError('the model does not support constructor-based creation')
+            Model = cls.ConstructorModel
+        else:
+            raise ValueError('the serialized data does not contain the required `attributes` or `args` field')
+
+        instance = cls.from_model(Model(**serialized))
         repository_metadata = serialized.get('repository_metadata', {})
 
         if repository_metadata:
@@ -1083,33 +1080,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         cls.ReadModel.model_rebuild(force=True)
 
     @classmethod
-    def _patch_write_models(cls):
-        """Patch `WriteModel` and `ConstructorModel` with the correct `write_mode` `Literal` for this subclass."""
-        # The write and constructor models patch this template in with the correct write_mode field
-        write_mode_template = MetadataField(
-            description='The mode to use when writing the node, either "attributes" or "constructor".',
-            write_only=True,
-            exclude=True,
-            examples=['attributes'],
-        )
-        cls._patch_write_model(write_mode_template)
-        cls._patch_constructor_model(write_mode_template)
-
-    @classmethod
-    def _patch_write_model(cls, write_mode_template: FieldInfo):
-        """Patch `WriteModel` `write_mode` field as a `Literal` field."""
-        write_mode_annotation = Literal['attributes']
-        write_mode_field = deepcopy(write_mode_template)
-        write_mode_field.annotation = write_mode_annotation
-        write_mode_field.default = 'attributes'
-        cls.WriteModel.model_fields['write_mode'] = write_mode_field
-        cls.WriteModel.__annotations__ = dict(getattr(cls.WriteModel, '__annotations__', {}))
-        cls.WriteModel.__annotations__['write_mode'] = write_mode_annotation
-        cls.WriteModel.model_rebuild(force=True)
-
-    @classmethod
-    def _patch_constructor_model(cls, write_mode_template: FieldInfo):
-        """Patch `ConstructorModel` by synthesizing it and patching `write_mode`."""
+    def _patch_constructor_model(cls):
+        """Patch `ConstructorModel` by synthesizing it from `BaseNodeModel` and `ConstructorArgsModel`."""
         if cls.ConstructorArgsModel is None:
             cls.ConstructorModel = None
             return
@@ -1131,11 +1103,4 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             ),
         )
 
-        write_mode_annotation = Literal['constructor']
-        write_mode_field = deepcopy(write_mode_template)
-        write_mode_field.annotation = write_mode_annotation
-        write_mode_field.default = 'constructor'
-        cls.ConstructorModel.model_fields['write_mode'] = write_mode_field
-        cls.ConstructorModel.__annotations__ = dict(getattr(cls.ConstructorModel, '__annotations__', {}))
-        cls.ConstructorModel.__annotations__['write_mode'] = write_mode_annotation
         cls.ConstructorModel.model_rebuild(force=True)
