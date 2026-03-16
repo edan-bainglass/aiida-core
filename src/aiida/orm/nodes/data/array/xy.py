@@ -88,7 +88,7 @@ class XyData(ArrayData):
             description='The units of the y arrays',
         )
 
-    class ConstructorModel(ArrayData.ConstructorModel):
+    class ConstructorArgsModel(ArrayData.ConstructorArgsModel):
         x_array: Sequence = MetadataField(
             description='The x array, which must be a 1D numpy array of floats.',
             write_only=True,

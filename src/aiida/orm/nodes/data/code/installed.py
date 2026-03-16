@@ -19,8 +19,6 @@ from __future__ import annotations
 import pathlib
 from typing import cast
 
-from pydantic import model_validator
-
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_level
@@ -51,7 +49,7 @@ class InstalledCode(Code):
 
     # TODO this one might break things - need to have a look at how cmd_computer works with it
     # TODO likely CLI needs to switch to using constructor models (can't use attributes from CLI)
-    class ConstructorModel(AbstractCode.BaseNodeModel):
+    class ConstructorArgsModel(AbstractCode.ConstructorArgsModel):
         filepath_executable: str = MetadataField(
             title='Filepath executable',
             description='Filepath of the executable on the remote computer',
@@ -64,25 +62,8 @@ class InstalledCode(Code):
             short_name='-Y',
             priority=2,
             write_only=True,
-            model_to_orm=lambda model: load_computer(cast(InstalledCode.ConstructorModel, model).computer),
+            model_to_orm=lambda model: load_computer(cast(InstalledCode.ConstructorArgsModel, model).computer),
         )
-
-    class ReadModel(AbstractCode.ReadModel):
-        @model_validator(mode='before')
-        @classmethod
-        def pass_computer_label_to_attributes(cls, values: dict) -> dict:
-            """Pass the computer label to the attributes so that it can be used in the ``AttributesModel``."""
-            attributes: dict = values.get('attributes', {})
-            if values.get('computer') is not None and not attributes.get('computer'):
-                try:
-                    computer = load_computer(values.pop('computer'))
-                except Exception as exception:
-                    raise exceptions.ValidationError(
-                        'Could not load the computer provided to the `computer` field.'
-                    ) from exception
-                attributes['computer'] = computer.label
-                values['attributes'] = attributes
-            return values
 
     def __init__(
         self,

@@ -34,7 +34,6 @@ from typing import (
 from uuid import UUID
 
 from pydantic import create_model, field_serializer
-from pydantic.fields import FieldInfo
 from typing_extensions import Self
 
 from aiida.common import exceptions
@@ -236,11 +235,9 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             may_be_large=True,
             examples=[{'extra_key': 'extra_value'}],
         )
-
-    class NodeWriteModel(BaseNodeModel):
-        write_mode: Literal['attributes', 'constructor'] = MetadataField(
-            description='The mode to use when writing the node, either "attributes" or "constructor".',
-            examples=['attributes'],
+        node_type: str = MetadataField(
+            description='The type of the node.',
+            examples=['process.calculation.calcjob.CalcJobNode.'],
         )
 
     class AttributesModel(OrmModel):
@@ -250,10 +247,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """
 
     class ReadModel(Entity.ReadModel, BaseNodeModel):
-        node_type: str = MetadataField(
-            description='The type of the node',
-            examples=['process.calculation.calcjob.CalcJobNode.'],
-        )
         uuid: UUID = MetadataField(
             description='The UUID of the node',
             read_only=True,
@@ -310,15 +303,27 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             """Serialize UUID to string."""
             return str(value)
 
-    ConstructorModel: type[Node.NodeWriteModel] | None = None
+    class _WriteModeModel(OrmModel):
+        """This model is only used as a template for patching the write models."""
+
+        write_mode: Literal['attributes', 'constructor'] = MetadataField(
+            description='The mode to use when writing the node, either "attributes" or "constructor".',
+            write_only=True,
+            exclude=True,
+            examples=['attributes'],
+        )
+
+    ConstructorArgsModel: type[OrmModel] | None = None
+
+    ConstructorModel: type[OrmModel] | None = None
 
     @classproperty
-    def WriteModel(cls) -> type[Node.NodeWriteModel]:  # noqa: N802, N805
+    def WriteModel(cls) -> type[OrmModel]:  # noqa: N802, N805
         """Return the attributes-based creation version of the model class for this entity.
 
         :return: The attributes-based creation model class, with read-only fields removed.
         """
-        return cast(type[Node.NodeWriteModel], cls.ReadModel._as_write_model())
+        return cast(type[OrmModel], cls.ReadModel._as_write_model())
 
     def __init__(
         self,
@@ -326,6 +331,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         user: Optional[User] = None,
         computer: Optional[Computer] = None,
         extras: Optional[Dict[str, Any]] = None,
+        node_type: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         backend = backend or get_manager().get_profile_storage()
@@ -340,7 +346,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             raise ValueError('the user cannot be None')
 
         backend_entity = backend.nodes.create(
-            node_type=self.class_node_type,
+            node_type=node_type or self.class_node_type,
             user=user.backend_entity,
             computer=backend_computer,
             **kwargs,
@@ -358,6 +364,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         super().__init_subclass__(**kwargs)
         # Order matters!
         cls._patch_attributes_model()
+        cls._patch_base_node_model()
         cls._patch_read_model()
         cls._patch_write_model()
         cls._patch_constructor_model()
@@ -375,12 +382,11 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     ) -> dict[str, Any]:
         """Map model fields to constructor kwargs, excluding discriminator-only fields."""
         fields = super().model_to_orm_field_values(valid_model, schema)
-        fields.pop('node_type', None)
         fields.pop('write_mode', None)
         return fields
 
     @classmethod
-    def from_model(cls, model: NodeWriteModel) -> Self:
+    def from_model(cls, model: OrmModel) -> Self:
         if model.write_mode == 'attributes':
             # Attributes-based node creation
             attributes = model.attributes.model_dump()
@@ -393,9 +399,15 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             return cast(Self, instance if cls is Node else from_backend_entity(cls, instance.backend_entity))
         elif model.write_mode == 'constructor':
             # Constructor-based node creation
-            if cls.ConstructorModel is None:
+            if cls.ConstructorModel is None or cls.ConstructorArgsModel is None:
                 raise ValueError('the model does not support constructor-based creation')
             fields = cls.model_to_orm_field_values(model, cls.ConstructorModel)
+            args_model = getattr(model, 'args', None)
+            if args_model is not None:
+                if not isinstance(args_model, OrmModel):
+                    raise ValueError('the model `args` field must be an OrmModel')
+                fields.update(cls.model_to_orm_field_values(args_model, cls.ConstructorArgsModel))
+            fields.pop('args', None)
             return cls(**fields)
         else:
             raise ValueError(f'unknown write mode `{model.write_mode}`')
@@ -1006,7 +1018,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @classmethod
     def _patch_attributes_model(cls):
-        """Patch ``AttributesModel`` explicitly if inherited."""
+        """Patch `AttributesModel` explicitly if inherited."""
         if 'AttributesModel' not in cls.__dict__:
             # Inherited from parent; create a new type to avoid modifying the parent
             AttributesModel = cast(  # noqa: N806
@@ -1024,44 +1036,67 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             cls.AttributesModel.model_rebuild(force=True)
 
     @classmethod
-    def _patch_read_model(cls):
-        """Patch ``ReadModel`` by assigning the correct `AttributesModel`."""
-        if 'ReadModel' not in cls.__dict__:
+    def _patch_base_node_model(cls):
+        """Patch `BaseNodeModel` with the correct `node_type` `Literal` for this subclass."""
+        if 'BaseNodeModel' not in cls.__dict__:
             # Inherited from parent; create a new type to avoid modifying the parent
-            parent_model = cast(type[Node.ReadModel], getattr(cls, 'ReadModel'))
-            base_field = deepcopy(parent_model.model_fields['attributes'])
-            base_field.annotation = cls.AttributesModel
-            ReadModel = cast(  # noqa: N806
-                type[Node.ReadModel],
-                create_model(
-                    'ReadModel',
-                    __base__=parent_model,
-                    __module__=cls.__module__,
-                    __qualname__=f'{cls.__qualname__}.ReadModel',
-                    attributes=(cls.AttributesModel, base_field),
+            BaseNodeModel = cast(  # noqa: N806
+                type[Node.BaseNodeModel],
+                type(
+                    'BaseNodeModel',
+                    (cls.BaseNodeModel,),
+                    {
+                        '__module__': cls.__module__,
+                        '__qualname__': f'{cls.__qualname__}.BaseNodeModel',
+                    },
                 ),
             )
-            cls.ReadModel = ReadModel  # type: ignore[misc]
-        else:
-            base_field = deepcopy(cls.ReadModel.model_fields['attributes'])
-            base_field.annotation = cls.AttributesModel
-            cls.ReadModel.model_fields['attributes'] = base_field
-            cls.ReadModel.__annotations__ = dict(getattr(cls.ReadModel, '__annotations__', {}))
-            cls.ReadModel.__annotations__['attributes'] = cls.AttributesModel
+            cls.BaseNodeModel = BaseNodeModel  # type: ignore[misc]
+        node_type_annotation = Literal[cls.class_node_type]
+        node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
+        node_type_field.annotation = node_type_annotation
+        node_type_field.default = cls.class_node_type
+        cls.BaseNodeModel.model_fields['node_type'] = node_type_field
+        cls.BaseNodeModel.__annotations__ = dict(getattr(cls.BaseNodeModel, '__annotations__', {}))
+        cls.BaseNodeModel.__annotations__['node_type'] = node_type_annotation
+        cls.BaseNodeModel.model_rebuild(force=True)
+
+    @classmethod
+    def _patch_read_model(cls):
+        """Patch `ReadModel` by wiring `attributes` and inheriting `node_type` from `BaseNodeModel`.
+
+        Subclasses are not expected to declare `ReadModel` directly.
+        """
+        if 'ReadModel' in cls.__dict__:
+            raise TypeError(
+                f'{cls.__name__} should not define `ReadModel`; '
+                'only define `AttributesModel` and optionally `ConstructorArgsModel`.'
+            )
+
+        # Inherited from parent; create a new type to avoid modifying the parent.
+        parent_model = cast(type[Node.ReadModel], getattr(cls, 'ReadModel'))
+        base_field = deepcopy(parent_model.model_fields['attributes'])
+        base_field.annotation = cls.AttributesModel
+        node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
+        ReadModel = cast(  # noqa: N806
+            type[Node.ReadModel],
+            create_model(
+                'ReadModel',
+                __base__=parent_model,
+                __module__=cls.__module__,
+                __qualname__=f'{cls.__qualname__}.ReadModel',
+                node_type=(node_type_field.annotation, node_type_field),
+                attributes=(cls.AttributesModel, base_field),
+            ),
+        )
+        cls.ReadModel = ReadModel  # type: ignore[misc]
         cls.ReadModel.model_rebuild(force=True)
 
     @classmethod
     def _patch_write_model(cls):
-        """Patch ``WriteModel`` `node_type` and `write_mode` fields as `Literal` fields."""
-        node_type_annotation = Literal[cls.class_node_type]
-        node_type_field = deepcopy(cls.WriteModel.model_fields.get('node_type', FieldInfo()))
-        node_type_field.annotation = node_type_annotation
-        node_type_field.default = cls.class_node_type
-        cls.WriteModel.model_fields['node_type'] = node_type_field
-        cls.WriteModel.__annotations__ = dict(getattr(cls.WriteModel, '__annotations__', {}))
-        cls.WriteModel.__annotations__['node_type'] = node_type_annotation
+        """Patch `WriteModel` `write_mode` field as a `Literal` field."""
         write_mode_annotation = Literal['attributes']
-        write_mode_field = deepcopy(cls.WriteModel.model_fields.get('write_mode', FieldInfo()))
+        write_mode_field = deepcopy(Node._WriteModeModel.model_fields['write_mode'])
         write_mode_field.annotation = write_mode_annotation
         write_mode_field.default = 'attributes'
         cls.WriteModel.model_fields['write_mode'] = write_mode_field
@@ -1071,34 +1106,31 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @classmethod
     def _patch_constructor_model(cls):
-        """Patch ``ConstructorModel`` `node_type` and `write_mode` fields as `Literal` fields."""
-        if cls.ConstructorModel is None:
+        """Patch `ConstructorModel` by synthesizing it and patching `write_mode`."""
+        if cls.ConstructorArgsModel is None:
+            cls.ConstructorModel = None
             return
 
-        if 'ConstructorModel' not in cls.__dict__:
-            # Inherited from parent; create a new type to avoid modifying the parent
-            ConstructorModel = cast(  # noqa: N806
-                type[Node.BaseNodeModel],
-                type(
-                    'ConstructorModel',
-                    (cls.ConstructorModel,),
-                    {
-                        '__module__': cls.__module__,
-                        '__qualname__': f'{cls.__qualname__}.ConstructorModel',
-                    },
-                ),
-            )
-            cls.ConstructorModel = ConstructorModel  # type: ignore[misc]
+        args_field = MetadataField(
+            description='The constructor arguments.',
+            write_only=True,
+            exclude=True,
+        )
+        args_field.annotation = cls.ConstructorArgsModel
 
-        node_type_annotation = Literal[cls.class_node_type]
-        node_type_field = deepcopy(cls.ConstructorModel.model_fields.get('node_type', FieldInfo()))
-        node_type_field.annotation = node_type_annotation
-        node_type_field.default = cls.class_node_type
-        cls.ConstructorModel.model_fields['node_type'] = node_type_field
-        cls.ConstructorModel.__annotations__ = dict(getattr(cls.ConstructorModel, '__annotations__', {}))
-        cls.ConstructorModel.__annotations__['node_type'] = node_type_annotation
+        cls.ConstructorModel = cast(
+            type[OrmModel],
+            create_model(
+                'ConstructorModel',
+                __base__=cls.BaseNodeModel,
+                __module__=cls.__module__,
+                __qualname__=f'{cls.__qualname__}.ConstructorModel',
+                args=(cls.ConstructorArgsModel, args_field),
+            ),
+        )
+
         write_mode_annotation = Literal['constructor']
-        write_mode_field = deepcopy(cls.ConstructorModel.model_fields.get('write_mode', FieldInfo()))
+        write_mode_field = deepcopy(Node._WriteModeModel.model_fields['write_mode'])
         write_mode_field.annotation = write_mode_annotation
         write_mode_field.default = 'constructor'
         cls.ConstructorModel.model_fields['write_mode'] = write_mode_field
