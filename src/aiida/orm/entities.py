@@ -306,15 +306,15 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
                 if get_metadata(field, 'may_be_large') and minimal:
                     continue
 
-                annotation = field.annotation
-                if isinstance(annotation, type) and issubclass(annotation, OrmModel):
-                    fields[key] = get_model_field_values(annotation)
-                    continue
-
+                # orm_to_model callables take precedence over nested OrmModel recursion
                 if orm_to_model := get_metadata(field, 'orm_to_model'):
                     fields[key] = call_orm_to_model(orm_to_model)
                 else:
-                    fields[key] = getattr(self, key, field.default)
+                    annotation = field.annotation
+                    if isinstance(annotation, type) and issubclass(annotation, OrmModel):
+                        fields[key] = get_model_field_values(annotation)
+                    else:
+                        fields[key] = getattr(self, key, field.default)
 
             return fields
 

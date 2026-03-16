@@ -34,6 +34,7 @@ from typing import (
 from uuid import UUID
 
 from pydantic import create_model, field_serializer
+from pydantic.fields import FieldInfo
 from typing_extensions import Self
 
 from aiida.common import exceptions
@@ -303,16 +304,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             """Serialize UUID to string."""
             return str(value)
 
-    class _WriteModeModel(OrmModel):
-        """This model is only used as a template for patching the write models."""
-
-        write_mode: Literal['attributes', 'constructor'] = MetadataField(
-            description='The mode to use when writing the node, either "attributes" or "constructor".',
-            write_only=True,
-            exclude=True,
-            examples=['attributes'],
-        )
-
     ConstructorArgsModel: type[OrmModel] | None = None
 
     ConstructorModel: type[OrmModel] | None = None
@@ -366,8 +357,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         cls._patch_attributes_model()
         cls._patch_base_node_model()
         cls._patch_read_model()
-        cls._patch_write_model()
-        cls._patch_constructor_model()
+        cls._patch_write_models()
 
     @cached_property
     def base(self) -> NodeBase:
@@ -1093,10 +1083,23 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         cls.ReadModel.model_rebuild(force=True)
 
     @classmethod
-    def _patch_write_model(cls):
+    def _patch_write_models(cls):
+        """Patch `WriteModel` and `ConstructorModel` with the correct `write_mode` `Literal` for this subclass."""
+        # The write and constructor models patch this template in with the correct write_mode field
+        write_mode_template = MetadataField(
+            description='The mode to use when writing the node, either "attributes" or "constructor".',
+            write_only=True,
+            exclude=True,
+            examples=['attributes'],
+        )
+        cls._patch_write_model(write_mode_template)
+        cls._patch_constructor_model(write_mode_template)
+
+    @classmethod
+    def _patch_write_model(cls, write_mode_template: FieldInfo):
         """Patch `WriteModel` `write_mode` field as a `Literal` field."""
         write_mode_annotation = Literal['attributes']
-        write_mode_field = deepcopy(Node._WriteModeModel.model_fields['write_mode'])
+        write_mode_field = deepcopy(write_mode_template)
         write_mode_field.annotation = write_mode_annotation
         write_mode_field.default = 'attributes'
         cls.WriteModel.model_fields['write_mode'] = write_mode_field
@@ -1105,7 +1108,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         cls.WriteModel.model_rebuild(force=True)
 
     @classmethod
-    def _patch_constructor_model(cls):
+    def _patch_constructor_model(cls, write_mode_template: FieldInfo):
         """Patch `ConstructorModel` by synthesizing it and patching `write_mode`."""
         if cls.ConstructorArgsModel is None:
             cls.ConstructorModel = None
@@ -1114,7 +1117,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         args_field = MetadataField(
             description='The constructor arguments.',
             write_only=True,
-            exclude=True,
         )
         args_field.annotation = cls.ConstructorArgsModel
 
@@ -1130,7 +1132,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         )
 
         write_mode_annotation = Literal['constructor']
-        write_mode_field = deepcopy(Node._WriteModeModel.model_fields['write_mode'])
+        write_mode_field = deepcopy(write_mode_template)
         write_mode_field.annotation = write_mode_annotation
         write_mode_field.default = 'constructor'
         cls.ConstructorModel.model_fields['write_mode'] = write_mode_field
