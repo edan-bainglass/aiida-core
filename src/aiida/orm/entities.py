@@ -197,7 +197,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
     _CLS_COLLECTION: Type[CollectionType] = Collection  # type: ignore[assignment]
     _logger = log.AIIDA_LOGGER.getChild('orm.entities')
 
-    identity_field: ClassVar[str] = 'pk'
+    identity_field = 'pk'
 
     class ReadModel(OrmModel):
         pk: int = MetadataField(

@@ -216,7 +216,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     _storable = False
     _unstorable_message = 'only Data, WorkflowNode, CalculationNode or their subclasses can be stored'
 
-    identity_field: ClassVar[str] = 'uuid'
+    identity_field = 'uuid'
 
     class BaseNodeModel(OrmModel):
         label: str = MetadataField(
@@ -310,7 +310,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             """Serialize UUID to string."""
             return str(value)
 
-    ConstructorModel: ClassVar[type[Node.NodeWriteModel]] | None = None
+    ConstructorModel: type[Node.NodeWriteModel] | None = None
 
     @classproperty
     def WriteModel(cls) -> type[Node.NodeWriteModel]:  # noqa: N802, N805
@@ -1008,6 +1008,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def _patch_attributes_model(cls):
         """Patch ``AttributesModel`` explicitly if inherited."""
         if 'AttributesModel' not in cls.__dict__:
+            # Inherited from parent; create a new type to avoid modifying the parent
             AttributesModel = cast(  # noqa: N806
                 type[Node.AttributesModel],
                 type(
@@ -1026,6 +1027,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def _patch_read_model(cls):
         """Patch ``ReadModel`` by assigning the correct `AttributesModel`."""
         if 'ReadModel' not in cls.__dict__:
+            # Inherited from parent; create a new type to avoid modifying the parent
             parent_model = cast(type[Node.ReadModel], getattr(cls, 'ReadModel'))
             base_field = deepcopy(parent_model.model_fields['attributes'])
             base_field.annotation = cls.AttributesModel
@@ -1070,7 +1072,11 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     @classmethod
     def _patch_constructor_model(cls):
         """Patch ``ConstructorModel`` `node_type` and `write_mode` fields as `Literal` fields."""
+        if cls.ConstructorModel is None:
+            return
+
         if 'ConstructorModel' not in cls.__dict__:
+            # Inherited from parent; create a new type to avoid modifying the parent
             ConstructorModel = cast(  # noqa: N806
                 type[Node.BaseNodeModel],
                 type(
@@ -1084,20 +1090,18 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             )
             cls.ConstructorModel = ConstructorModel  # type: ignore[misc]
 
-        if cls.ConstructorModel is not None:
-            node_type_annotation = Literal[cls.class_node_type]
-            node_type_field = deepcopy(cls.ConstructorModel.model_fields.get('node_type', FieldInfo()))
-            node_type_field.annotation = node_type_annotation
-            node_type_field.default = cls.class_node_type
-            cls.ConstructorModel.model_fields['node_type'] = node_type_field
-            cls.ConstructorModel.__annotations__ = dict(getattr(cls.ConstructorModel, '__annotations__', {}))
-            cls.ConstructorModel.__annotations__['node_type'] = node_type_annotation
-            write_mode_annotation = Literal['constructor']
-            write_mode_field = deepcopy(cls.ConstructorModel.model_fields.get('write_mode', FieldInfo()))
-            write_mode_field.annotation = write_mode_annotation
-            write_mode_field.default = 'constructor'
-            cls.ConstructorModel.model_fields['write_mode'] = write_mode_field
-            cls.ConstructorModel.__annotations__ = dict(getattr(cls.ConstructorModel, '__annotations__', {}))
-            cls.ConstructorModel.__annotations__['write_mode'] = write_mode_annotation
-
+        node_type_annotation = Literal[cls.class_node_type]
+        node_type_field = deepcopy(cls.ConstructorModel.model_fields.get('node_type', FieldInfo()))
+        node_type_field.annotation = node_type_annotation
+        node_type_field.default = cls.class_node_type
+        cls.ConstructorModel.model_fields['node_type'] = node_type_field
+        cls.ConstructorModel.__annotations__ = dict(getattr(cls.ConstructorModel, '__annotations__', {}))
+        cls.ConstructorModel.__annotations__['node_type'] = node_type_annotation
+        write_mode_annotation = Literal['constructor']
+        write_mode_field = deepcopy(cls.ConstructorModel.model_fields.get('write_mode', FieldInfo()))
+        write_mode_field.annotation = write_mode_annotation
+        write_mode_field.default = 'constructor'
+        cls.ConstructorModel.model_fields['write_mode'] = write_mode_field
+        cls.ConstructorModel.__annotations__ = dict(getattr(cls.ConstructorModel, '__annotations__', {}))
+        cls.ConstructorModel.__annotations__['write_mode'] = write_mode_annotation
         cls.ConstructorModel.model_rebuild(force=True)

@@ -116,7 +116,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
 
     __type_string: ClassVar[Optional[str]]
 
-    identity_field: ClassVar[str] = 'uuid'
+    identity_field = 'uuid'
 
     class ReadModel(entities.Entity.ReadModel):
         uuid: UUID = MetadataField(
