@@ -352,9 +352,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         The following methods ensure that each subclass carries its own models, with subclass-specific defaults.
         """
         super().__init_subclass__(**kwargs)
-        # Order matters!
-        cls._patch_attributes_model()
-        cls._patch_base_node_model()
         cls._patch_read_model()
         cls._patch_constructor_model()
 
@@ -367,7 +364,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def from_model(cls, model: OrmModel) -> Self:
         if isinstance(model, cls.WriteModel):
             # Attributes-based node creation
-            attributes = model.attributes.model_dump()
+            attributes = model.attributes.model_dump(exclude_none=True)
             fields = cls.model_to_orm_field_values(model, cls.WriteModel)
             fields.pop('attributes', None)
             if attributes is None:
@@ -1004,55 +1001,10 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         raise AttributeError(name)
 
     @classmethod
-    def _patch_attributes_model(cls):
-        """Patch `AttributesModel` explicitly if inherited."""
-        if 'AttributesModel' not in cls.__dict__:
-            # Inherited from parent; create a new type to avoid modifying the parent
-            AttributesModel = cast(  # noqa: N806
-                type[Node.AttributesModel],
-                type(
-                    'AttributesModel',
-                    (cls.AttributesModel,),
-                    {
-                        '__module__': cls.__module__,
-                        '__qualname__': f'{cls.__qualname__}.AttributesModel',
-                    },
-                ),
-            )
-            cls.AttributesModel = AttributesModel  # type: ignore[misc]
-            cls.AttributesModel.model_rebuild(force=True)
-
-    @classmethod
-    def _patch_base_node_model(cls):
-        """Patch `BaseNodeModel` with the correct `node_type` `Literal` for this subclass."""
-        if 'BaseNodeModel' not in cls.__dict__:
-            # Inherited from parent; create a new type to avoid modifying the parent
-            BaseNodeModel = cast(  # noqa: N806
-                type[Node.BaseNodeModel],
-                type(
-                    'BaseNodeModel',
-                    (cls.BaseNodeModel,),
-                    {
-                        '__module__': cls.__module__,
-                        '__qualname__': f'{cls.__qualname__}.BaseNodeModel',
-                    },
-                ),
-            )
-            cls.BaseNodeModel = BaseNodeModel  # type: ignore[misc]
-        node_type_annotation = Literal[cls.class_node_type]
-        node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
-        node_type_field.annotation = node_type_annotation
-        node_type_field.default = cls.class_node_type
-        cls.BaseNodeModel.model_fields['node_type'] = node_type_field
-        cls.BaseNodeModel.__annotations__ = dict(getattr(cls.BaseNodeModel, '__annotations__', {}))
-        cls.BaseNodeModel.__annotations__['node_type'] = node_type_annotation
-        cls.BaseNodeModel.model_rebuild(force=True)
-
-    @classmethod
     def _patch_read_model(cls):
-        """Patch `ReadModel` by wiring `attributes` and inheriting `node_type` from `BaseNodeModel`.
+        """Patch `ReadModel` by wiring the subclass-specific `attributes` model.
 
-        Subclasses are not expected to declare `ReadModel` directly.
+        Subclasses SHOULD NOT extend `ReadModel`.
         """
         if 'ReadModel' in cls.__dict__:
             raise TypeError(
@@ -1064,7 +1016,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         parent_model = cast(type[Node.ReadModel], getattr(cls, 'ReadModel'))
         base_field = deepcopy(parent_model.model_fields['attributes'])
         base_field.annotation = cls.AttributesModel
-        node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
         ReadModel = cast(  # noqa: N806
             type[Node.ReadModel],
             create_model(
@@ -1072,7 +1023,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 __base__=parent_model,
                 __module__=cls.__module__,
                 __qualname__=f'{cls.__qualname__}.ReadModel',
-                node_type=(node_type_field.annotation, node_type_field),
                 attributes=(cls.AttributesModel, base_field),
             ),
         )

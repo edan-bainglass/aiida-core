@@ -27,6 +27,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 from plumpy.base.utils import call_with_super_check, super_check
@@ -243,7 +244,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
             elif orm_class := get_metadata(field, 'orm_class'):
                 if isinstance(orm_class, str):
                     try:
-                        orm_class = BaseFactory('aiida.orm', orm_class)
+                        orm_class = cast(Entity, BaseFactory('aiida.orm', orm_class))
                     except EntryPointError as exception:
                         raise EntryPointError(
                             f'The `orm_class` of `{cls.__name__}.Model.{key} is invalid: {exception}'
