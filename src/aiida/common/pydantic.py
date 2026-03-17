@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import types
 import typing as t
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
@@ -101,7 +102,7 @@ class OrmModel(BaseModel, defer_build=True):
 
         def mark_as_optional(annotation: t.Any) -> t.Any:
             origin = t.get_origin(annotation)
-            if origin in (t.Union, t.UnionType) and type(None) in t.get_args(annotation):
+            if origin in (t.Union, types.UnionType) and type(None) in t.get_args(annotation):
                 return annotation
             return t.Optional[annotation]
 

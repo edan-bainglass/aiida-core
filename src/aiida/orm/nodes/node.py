@@ -313,7 +313,18 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     ConstructorArgsModel: type[OrmModel] | None = None
 
-    ConstructorModel: type[BaseNodeModel] | None = None
+    _constructor_model: ClassVar[type[BaseNodeModel] | None] = None
+
+    @classproperty
+    def ConstructorModel(cls) -> type[Node.BaseNodeModel]:  # noqa: N802, N805
+        """Return the constructor-based creation model class for this entity.
+
+        :raises AttributeError: if this node type does not support constructor-based creation.
+        :return: The constructor-based creation model class.
+        """
+        if cls._constructor_model is None:
+            raise AttributeError(f'{cls.__name__} does not support constructor-based creation')
+        return cls._constructor_model
 
     def __init__(
         self,
@@ -361,6 +372,11 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return NodeBase(self)
 
     @classmethod
+    def get_constructor_model(cls) -> type[Node.BaseNodeModel] | None:
+        """Return the constructor-based creation model class if supported, otherwise ``None``."""
+        return cls._constructor_model
+
+    @classmethod
     def from_model(cls, model: BaseNodeModel) -> Self:
         """Create a node instance from a model instance.
 
@@ -373,7 +389,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """
         if isinstance(model, cls.WriteModel):
             return cls._from_write_model(model)
-        elif cls.ConstructorModel is not None and isinstance(model, cls.ConstructorModel):
+        elif cls._constructor_model is not None and isinstance(model, cls._constructor_model):
             return cls._from_constructor_model(model)
         else:
             raise ValueError(f'cannot create {cls.__name__} from model of type {type(model).__name__}')
@@ -439,9 +455,9 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         if 'attributes' in serialized:
             Model = cls.WriteModel
         elif 'args' in serialized:
-            if cls.ConstructorModel is None or cls.ConstructorArgsModel is None:
+            if cls._constructor_model is None or cls.ConstructorArgsModel is None:
                 raise ValueError('the model does not support constructor-based creation')
-            Model = cls.ConstructorModel
+            Model = cls._constructor_model
         else:
             raise ValueError('the serialized data does not contain the required `attributes` or `args` field')
 
@@ -1024,7 +1040,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def _patch_constructor_model(cls):
         """Patch `ConstructorModel` by synthesizing it from `BaseNodeModel` and `ConstructorArgsModel`."""
         if cls.ConstructorArgsModel is None:
-            cls.ConstructorModel = None
+            cls._constructor_model = None
             return
 
         args_field = MetadataField(
@@ -1033,7 +1049,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         )
         args_field.annotation = cls.ConstructorArgsModel
 
-        cls.ConstructorModel = cast(
+        cls._constructor_model = cast(
             type[Node.BaseNodeModel],
             create_model(
                 'ConstructorModel',
@@ -1044,7 +1060,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             ),
         )
 
-        cls.ConstructorModel.model_rebuild(force=True)
+        cls._constructor_model.model_rebuild(force=True)
 
     @classmethod
     def _from_write_model(cls, model: Node.WriteModel) -> Self:
@@ -1063,15 +1079,15 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return cast(Self, from_backend_entity(cls, instance.backend_entity))
 
     @classmethod
-    def _from_constructor_model(cls, model: BaseNodeModel) -> Self:
+    def _from_constructor_model(cls, model: Node.ConstructorModel) -> Self:
         """Construct a node instance from the constructor-based creation model.
 
         :param model: the model instance to construct from
         :return: the constructed node instance
         """
-        if cls.ConstructorModel is None or cls.ConstructorArgsModel is None:
+        if cls._constructor_model is None or cls.ConstructorArgsModel is None:
             raise ValueError('the model does not support constructor-based creation')
-        fields = cls.model_to_orm_field_values(model, cls.ConstructorModel)
+        fields = cls.model_to_orm_field_values(model, cls._constructor_model)
         args_model = getattr(model, 'args', None)
         if args_model is not None:
             if not isinstance(args_model, OrmModel):
