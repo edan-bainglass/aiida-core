@@ -99,6 +99,24 @@ class OrmModel(BaseModel, defer_build=True):
 
         WriteModel.model_rebuild(force=True)
 
+        def mark_as_optional(annotation: t.Any) -> t.Any:
+            origin = t.get_origin(annotation)
+            if origin in (t.Union, t.UnionType) and type(None) in t.get_args(annotation):
+                return annotation
+            return t.Optional[annotation]
+
+        # Convert nested OrmModel annotations to their write variants and mark
+        # fields tagged `optional_write` as optional in the write model only.
+        for field in WriteModel.model_fields.values():
+            annotation = field.annotation
+            if isinstance(annotation, type) and issubclass(annotation, OrmModel):
+                field.annotation = annotation._as_write_model()
+            if get_metadata(field, 'optional_write', False):
+                field.annotation = mark_as_optional(field.annotation)
+                field.description = (field.description or '') + ' (derived if not provided)'
+                field.default = None
+                field.default_factory = None
+
         readonly_fields: t.List[str] = []
         for key, field in WriteModel.model_fields.items():
             if get_metadata(field, 'read_only'):
@@ -143,6 +161,7 @@ def MetadataField(  # noqa: N802
     model_to_orm: t.Callable[[OrmModel], t.Any] | None = None,
     read_only: bool = False,
     write_only: bool = False,
+    optional_write: bool = False,
     may_be_large: bool = False,
     **kwargs: t.Any,
 ) -> t.Any:
@@ -182,6 +201,7 @@ def MetadataField(  # noqa: N802
         through ``Entity.from_model``.
     :param write_only: When set to ``True``, this field value will not be populated when constructing the model from an
         ORM entity through ``Entity.to_model``.
+    :param optional_write: When set to ``True``, this field is converted to optional in the derived write model.
     :param may_be_large: Whether the field value may be large. This is used to determine whether to include the field
         when serializing the entity for various purposes, such as exporting or logging.
     """
@@ -210,6 +230,7 @@ def MetadataField(  # noqa: N802
         ('model_to_orm', model_to_orm),
         ('read_only', read_only),
         ('write_only', write_only),
+        ('optional_write', optional_write),
         ('may_be_large', may_be_large),
     ):
         if value is not None:

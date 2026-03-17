@@ -12,7 +12,7 @@ import pytest
 from importlib_metadata import entry_points
 
 from aiida import orm
-from aiida.common.pydantic import MetadataField
+from aiida.common.pydantic import MetadataField, OrmModel
 from aiida.orm.fields import add_field
 from aiida.plugins import load_entry_point
 
@@ -172,6 +172,26 @@ def test_filter_comparators():
             },
         ]
     }
+
+
+def test_optional_write_metadata_nested_model():
+    """Test that `optional_write=True` is applied in nested write models only."""
+
+    class ChildModel(OrmModel):
+        filename: str = MetadataField(optional_write=True)
+
+    class ParentModel(OrmModel):
+        child: ChildModel = MetadataField()
+
+    child_read = ChildModel.model_fields['filename']
+    assert child_read.is_required()
+
+    parent_write = ParentModel._as_write_model()
+    child_write_model = parent_write.model_fields['child'].annotation
+    assert isinstance(child_write_model, type) and issubclass(child_write_model, OrmModel)
+    child_write = child_write_model.model_fields['filename']
+    assert not child_write.is_required()
+    assert child_write.default is None
 
 
 @pytest.mark.usefixtures('aiida_profile_clean')

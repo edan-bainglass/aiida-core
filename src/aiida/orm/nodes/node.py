@@ -303,17 +303,17 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             """Serialize UUID to string."""
             return str(value)
 
-    ConstructorArgsModel: type[OrmModel] | None = None
-
-    ConstructorModel: type[OrmModel] | None = None
-
     @classproperty
-    def WriteModel(cls) -> type[OrmModel]:  # noqa: N802, N805
+    def WriteModel(cls) -> type[Node.BaseNodeModel]:  # noqa: N802, N805
         """Return the attributes-based creation version of the model class for this entity.
 
         :return: The attributes-based creation model class, with read-only fields removed.
         """
-        return cast(type[OrmModel], cls.ReadModel._as_write_model())
+        return cast(type[Node.BaseNodeModel], cls.ReadModel._as_write_model())
+
+    ConstructorArgsModel: type[OrmModel] | None = None
+
+    ConstructorModel: type[BaseNodeModel] | None = None
 
     def __init__(
         self,
@@ -361,29 +361,20 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return NodeBase(self)
 
     @classmethod
-    def from_model(cls, model: OrmModel) -> Self:
+    def from_model(cls, model: BaseNodeModel) -> Self:
+        """Create a node instance from a model instance.
+
+        The creation branch is determined by the model type:
+        - `WriteModel`: attributes-based creation (expects `attributes`)
+        - `ConstructorModel`: constructor-based creation (expects `args`)
+
+        :param model: The model instance to create the node from.
+        :return: The created node instance.
+        """
         if isinstance(model, cls.WriteModel):
-            # Attributes-based node creation
-            attributes = model.attributes.model_dump(exclude_none=True)
-            fields = cls.model_to_orm_field_values(model, cls.WriteModel)
-            fields.pop('attributes', None)
-            if attributes is None:
-                raise ValueError('the model is missing the required `attributes` field')
-            instance = Node(**fields)
-            instance.base.attributes.set_many(attributes)
-            return cast(Self, instance if cls is Node else from_backend_entity(cls, instance.backend_entity))
+            return cls._from_write_model(model)
         elif cls.ConstructorModel is not None and isinstance(model, cls.ConstructorModel):
-            # Constructor-based node creation
-            if cls.ConstructorModel is None or cls.ConstructorArgsModel is None:
-                raise ValueError('the model does not support constructor-based creation')
-            fields = cls.model_to_orm_field_values(model, cls.ConstructorModel)
-            args_model = getattr(model, 'args', None)
-            if args_model is not None:
-                if not isinstance(args_model, OrmModel):
-                    raise ValueError('the model `args` field must be an OrmModel')
-                fields.update(cls.model_to_orm_field_values(args_model, cls.ConstructorArgsModel))
-            fields.pop('args', None)
-            return cls(**fields)
+            return cls._from_constructor_model(model)
         else:
             raise ValueError(f'cannot create {cls.__name__} from model of type {type(model).__name__}')
 
@@ -1043,7 +1034,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         args_field.annotation = cls.ConstructorArgsModel
 
         cls.ConstructorModel = cast(
-            type[OrmModel],
+            type[Node.BaseNodeModel],
             create_model(
                 'ConstructorModel',
                 __base__=cls.BaseNodeModel,
@@ -1054,3 +1045,37 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         )
 
         cls.ConstructorModel.model_rebuild(force=True)
+
+    @classmethod
+    def _from_write_model(cls, model: Node.WriteModel) -> Self:
+        """Construct a node instance from the attributes-based creation model.
+
+        :param model: the model instance to construct from
+        :return: the constructed node instance
+        """
+        attributes = model.attributes.model_dump(exclude_none=True)
+        fields = cls.model_to_orm_field_values(model, cls.WriteModel)
+        fields.pop('attributes', None)
+        if attributes is None:
+            raise ValueError('the model is missing the required `attributes` field')
+        instance = Node(**fields)
+        instance.base.attributes.set_many(attributes)
+        return cast(Self, from_backend_entity(cls, instance.backend_entity))
+
+    @classmethod
+    def _from_constructor_model(cls, model: BaseNodeModel) -> Self:
+        """Construct a node instance from the constructor-based creation model.
+
+        :param model: the model instance to construct from
+        :return: the constructed node instance
+        """
+        if cls.ConstructorModel is None or cls.ConstructorArgsModel is None:
+            raise ValueError('the model does not support constructor-based creation')
+        fields = cls.model_to_orm_field_values(model, cls.ConstructorModel)
+        args_model = getattr(model, 'args', None)
+        if args_model is not None:
+            if not isinstance(args_model, OrmModel):
+                raise ValueError('the model `args` field must be an OrmModel')
+            fields.update(cls.model_to_orm_field_values(args_model, cls.ConstructorArgsModel))
+        fields.pop('args', None)
+        return cls(**fields)

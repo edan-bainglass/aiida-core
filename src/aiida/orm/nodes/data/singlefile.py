@@ -32,14 +32,14 @@ class SinglefileData(Data):
 
     class AttributesModel(Data.AttributesModel):
         filename: str = MetadataField(
-            'file.txt',
             description='The name of the stored file',
-            orm_to_model=lambda node: t.cast(SinglefileData, node).base.attributes.get('filename', 'file.txt'),
+            orm_to_model=lambda node: t.cast(SinglefileData, node).filename,
+            optional_write=True,
         )
 
     class ConstructorArgsModel(OrmModel):
-        filename: str = MetadataField(  # TODO not DRY! rethink
-            'file.txt',
+        filename: t.Optional[str] = MetadataField(  # TODO not DRY! rethink
+            None,
             description='The name of the stored file',
         )
         content: str = MetadataField(
@@ -54,7 +54,7 @@ class SinglefileData(Data):
             :return: the content as bytes
             :raises ValueError: if the content is not set
             """
-            return io.BytesIO(self.content.encode()) if self.content else None
+            return io.StringIO(self.content) if self.content else None
 
     @classmethod
     def from_string(cls, content: str, filename: str | pathlib.Path | None = None, **kwargs: t.Any) -> SinglefileData:
@@ -89,16 +89,19 @@ class SinglefileData(Data):
         """
         super().__init__(**kwargs)
 
-        self.filename = str(filename) or self.DEFAULT_FILENAME
-
         if file is not None and content is not None:
             raise ValueError('cannot specify both `file` and `content`.')
 
         if content is not None:
+            if isinstance(content, (str, pathlib.Path)):
+                content = io.StringIO(content)
             file = content
 
         if file is not None:
             self.set_file(file, filename=filename)
+            return
+
+        raise ValueError('either `file` or `content` must be specified.')
 
     @property
     def content(self) -> bytes:
@@ -110,7 +113,18 @@ class SinglefileData(Data):
 
         :return: the filename under which the file is stored in the repository
         """
-        return self.base.attributes.get('filename')
+        try:
+            return self.base.attributes.get('filename')
+        except AttributeError:
+            objects = self.base.repository.list_object_names()
+            if len(objects) != 1:
+                raise exceptions.ValidationError(
+                    f'filename not explicitly set; attempted to derive it from the repository file '
+                    f'but found {len(objects)} files'
+                )
+            filename = objects[0]
+            self.filename = filename
+            return filename
 
     @filename.setter
     def filename(self, value: str) -> None:
@@ -220,15 +234,13 @@ class SinglefileData(Data):
         for existing_key in existing_object_names:
             self.base.repository.delete_object(existing_key)
 
-        self.base.attributes.set('filename', key)
+        self.filename = key
 
     def _validate(self) -> bool:
         """Validate the node before storing.
 
-        This check ensures that there is one object stored in the repository,
-        whose key matches the value set for the `filename` attribute. If no
-        `filename` attribute is set, it will be set to the key of the stored
-        object. If there are no objects stored, a ValidationError is raised.
+        This check ensures that there is exactly one object stored in the repository,
+        and that the filename attributes matches the key of the stored object.
 
         :return: True if the node is valid
         :raises ValidationError: if the node is not valid
@@ -236,17 +248,18 @@ class SinglefileData(Data):
         super()._validate()
 
         objects = self.base.repository.list_object_names()
+        if len(objects) != 1:
+            raise exceptions.ValidationError(f'expected exactly one repository file, found {len(objects)}')
 
+        filename = self.filename
         try:
-            filename = self.filename
-        except AttributeError:
-            if not objects:
-                raise exceptions.ValidationError('the `filename` attribute is not set.')
-            if len(objects) > 1:
-                raise exceptions.ValidationError(f'multiple repository files {objects} found.')
-            filename = objects[0]
-            if self.base.repository.get_object(filename).is_dir():
-                raise exceptions.ValidationError(f'repository object `{filename}` is a directory.')
+            fileobj = self.base.repository.get_object(filename)
+        except FileNotFoundError:
+            raise exceptions.ValidationError(
+                f'filename `{filename}` does not correspond to any repository file; found: {objects}'
+            )
+        if fileobj.is_dir():
+            raise exceptions.ValidationError(f'repository object `{filename}` is a directory.')
 
         if [filename] != objects:
             raise exceptions.ValidationError(
