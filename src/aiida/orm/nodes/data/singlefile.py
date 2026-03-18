@@ -34,12 +34,13 @@ class SinglefileData(Data):
         filename: str = MetadataField(
             description='The name of the stored file',
             orm_to_model=lambda node: t.cast(SinglefileData, node).filename,
+            read_only=True,
             optional_write=True,
         )
 
     class ConstructorArgsModel(OrmModel):
-        filename: t.Optional[str] = MetadataField(  # TODO not DRY! rethink
-            None,
+        filename: str = MetadataField(
+            'file.txt',
             description='The name of the stored file',
         )
         content: str = MetadataField(
@@ -113,18 +114,7 @@ class SinglefileData(Data):
 
         :return: the filename under which the file is stored in the repository
         """
-        try:
-            return self.base.attributes.get('filename')
-        except AttributeError:
-            objects = self.base.repository.list_object_names()
-            if len(objects) != 1:
-                raise exceptions.ValidationError(
-                    f'filename not explicitly set; attempted to derive it from the repository file '
-                    f'but found {len(objects)} files'
-                )
-            filename = objects[0]
-            self.filename = filename
-            return filename
+        return self.base.attributes.get('filename')
 
     @filename.setter
     def filename(self, value: str) -> None:
@@ -239,8 +229,8 @@ class SinglefileData(Data):
     def _validate(self) -> bool:
         """Validate the node before storing.
 
-        This check ensures that there is exactly one object stored in the repository,
-        and that the filename attributes matches the key of the stored object.
+        This check ensures that there is exactly one file object stored in the repository,
+        and that the filename attribute is set to the name of that object (forced).
 
         :return: True if the node is valid
         :raises ValidationError: if the node is not valid
@@ -248,22 +238,15 @@ class SinglefileData(Data):
         super()._validate()
 
         objects = self.base.repository.list_object_names()
+
         if len(objects) != 1:
-            raise exceptions.ValidationError(f'expected exactly one repository file, found {len(objects)}')
+            raise exceptions.ValidationError(f'expected exactly one repository file, found {len(objects)}: {objects}')
 
-        filename = self.filename
-        try:
-            fileobj = self.base.repository.get_object(filename)
-        except FileNotFoundError:
-            raise exceptions.ValidationError(
-                f'filename `{filename}` does not correspond to any repository file; found: {objects}'
-            )
+        filename = objects[0]
+        fileobj = self.base.repository.get_object(filename)
         if fileobj.is_dir():
-            raise exceptions.ValidationError(f'repository object `{filename}` is a directory.')
+            raise exceptions.ValidationError('expected a file, found a directory')
 
-        if [filename] != objects:
-            raise exceptions.ValidationError(
-                f'repository files {objects} do not match the `filename` attribute `{filename}`.'
-            )
+        self.filename = filename
 
         return True
