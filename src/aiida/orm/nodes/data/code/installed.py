@@ -65,29 +65,15 @@ class InstalledCode(Code):
             model_to_orm=lambda model: load_computer(cast(InstalledCode.ConstructorArgsModel, model).computer),
         )
 
-    def __init__(
-        self,
-        computer: Computer | str,
-        filepath_executable: str,
-        **kwargs,
-    ):
+    def __init__(self, computer: Computer, filepath_executable: str, **kwargs):
         """Construct a new instance.
 
-        :param computer: The remote computer (instance or label) on which the executable is located.
+        :param computer: The remote computer on which the executable is located.
         :param filepath_executable: The absolute filepath of the executable on the remote computer.
         """
-        computer = computer or kwargs.get('attributes', {}).pop('computer', None)
-        filepath = filepath_executable or kwargs.get('attributes', {}).pop(
-            self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, None
-        )
-
-        if isinstance(computer, str):
-            computer = load_computer(computer)
-
         super().__init__(**kwargs)
-
         self.computer = computer
-        self.filepath_executable = filepath
+        self.filepath_executable = filepath_executable
 
     def _validate(self):
         """Validate the instance by checking that a computer has been defined.
