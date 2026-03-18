@@ -84,6 +84,14 @@ class Dict(Data):
         if dictionary:
             self.set_dict(dictionary)
 
+    @classmethod
+    def model_to_orm_field_values(
+        cls,
+        valid_model: OrmModel,
+        schema: OrmModel,
+    ) -> dict[str, t.Any]:
+        return valid_model.model_dump(exclude_none=True)
+
     def __getitem__(self, key):
         try:
             return self.base.attributes.get(key)
