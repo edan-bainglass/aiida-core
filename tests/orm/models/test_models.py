@@ -206,11 +206,11 @@ def test_model_overrides(required_arguments):
     cls: type[Entity] = required_arguments[0]
     name = cls.__name__
 
-    assert cls.Model.__qualname__ == f'{name}.Model'
-    assert cls.Model.model_config.get('title') == f'{name}Model'
+    assert cls.ReadModel.__qualname__ == f'{name}.ReadModel'
+    assert cls.ReadModel.model_config.get('title') == f'{name}ReadModel'
 
-    assert cls.CreateModel.__qualname__ == f'{name}.CreateModel'
-    assert cls.CreateModel.model_config.get('title') == f'{name}CreateModel'
+    assert cls.WriteModel.__qualname__ == f'{name}.WriteModel'
+    assert cls.WriteModel.model_config.get('title') == f'{name}WriteModel'
 
 
 @pytest.mark.parametrize(
@@ -223,15 +223,15 @@ def test_attributes_model_overrides(required_arguments):
 
     name = cls.__name__
 
-    AttributesModel = cls.Model.model_fields['attributes'].annotation  # noqa: N806
+    AttributesModel = cls.ReadModel.model_fields['attributes'].annotation  # noqa: N806
     assert AttributesModel is cls.AttributesModel
     assert AttributesModel.__qualname__ == f'{name}.AttributesModel'
     assert AttributesModel.model_config.get('title') == f'{name}AttributesModel'
 
-    AttributesCreateModel = cls.CreateModel.model_fields['attributes'].annotation  # noqa: N806
-    assert AttributesCreateModel is cls.AttributesModel._as_create_model()
-    assert AttributesCreateModel.__qualname__ == f'{name}.AttributesCreateModel'
-    assert AttributesCreateModel.model_config.get('title') == f'{name}AttributesCreateModel'
+    AttributesWriteModel = cls.WriteModel.model_fields['attributes'].annotation  # noqa: N806
+    assert AttributesWriteModel is cls.AttributesModel._as_write_model()
+    assert AttributesWriteModel.__qualname__ == f'{name}.AttributesWriteModel'
+    assert AttributesWriteModel.model_config.get('title') == f'{name}AttributesWriteModel'
 
 
 @pytest.mark.parametrize(

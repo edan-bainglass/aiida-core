@@ -40,7 +40,7 @@ from aiida.common import exceptions
 from aiida.common.lang import classproperty, type_check
 from aiida.common.links import LinkType
 from aiida.common.log import AIIDA_LOGGER
-from aiida.common.pydantic import MetadataField, OrmModel
+from aiida.common.pydantic import BaseOrmModel, MetadataField, OrmModel
 from aiida.common.warnings import warn_deprecation
 from aiida.manage import get_manager
 from aiida.orm.utils.node import (
@@ -306,7 +306,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """
         return cast(type[Node.BaseNodeModel], cls.ReadModel._as_write_model())
 
-    ConstructorArgsModel: type[OrmModel] | None = None
+    ConstructorArgsModel: type[BaseOrmModel] | None = None
 
     __ConstructorModel: ClassVar[type[BaseNodeModel] | None] = None
 
@@ -355,6 +355,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """Patch subclass models."""
         super().__init_subclass__(**kwargs)
         cls._patch_base_model()
+        cls._patch_attributes_model()
         cls._patch_read_model()
         cls._patch_constructor_model()
 
@@ -1002,6 +1003,21 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             ),
         )
         cls.BaseNodeModel.model_rebuild(force=True)
+
+    @classmethod
+    def _patch_attributes_model(cls):
+        """Patch `AttributesModel` by wiring the subclass-specific attributes."""
+        if 'AttributesModel' not in cls.__dict__:
+            cls.AttributesModel = cast(
+                type[Node.AttributesModel],
+                create_model(
+                    'AttributesModel',
+                    __base__=cls.AttributesModel,
+                    __module__=cls.__module__,
+                    __qualname__=f'{cls.__qualname__}.AttributesModel',
+                ),
+            )
+        cls.AttributesModel.model_rebuild(force=True)
 
     @classmethod
     def _patch_read_model(cls):

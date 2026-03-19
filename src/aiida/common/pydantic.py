@@ -26,7 +26,7 @@ def get_metadata(field_info: FieldInfo, key: str, default: t.Any | None = None) 
     return default
 
 
-class OrmModel(BaseModel, defer_build=True):
+class BaseOrmModel(BaseModel, defer_build=True):
     """Base class for all ORM entity models."""
 
     model_config = ConfigDict(extra='forbid')
@@ -40,6 +40,10 @@ class OrmModel(BaseModel, defer_build=True):
         """
         super().__pydantic_init_subclass__(**kwargs)
         cls.model_config['title'] = cls.__qualname__.replace('.', '')
+
+
+class OrmModel(BaseOrmModel):
+    """Base class for Read/Write/Attributes models."""
 
     @classmethod
     def _as_minimal_model(cls: t.Type[OrmModel]) -> t.Type[OrmModel]:

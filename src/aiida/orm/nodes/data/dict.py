@@ -16,7 +16,7 @@ import typing as t
 import pydantic as pdt
 
 from aiida.common import exceptions
-from aiida.common.pydantic import MetadataField, OrmModel
+from aiida.common.pydantic import BaseOrmModel, MetadataField, OrmModel
 
 from .base import to_aiida_type
 from .data import Data
@@ -61,7 +61,7 @@ class Dict(Data):
             extra='allow',
         )
 
-    class ConstructorArgsModel(OrmModel):
+    class ConstructorArgsModel(BaseOrmModel):
         value: dict[str, t.Any] = MetadataField(
             description='The dictionary content',
             write_only=True,

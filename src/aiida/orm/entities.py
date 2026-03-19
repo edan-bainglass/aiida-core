@@ -36,7 +36,7 @@ from typing_extensions import Self
 from aiida.common import exceptions, log
 from aiida.common.exceptions import EntryPointError, InvalidOperation, NotExistent
 from aiida.common.lang import classproperty, type_check
-from aiida.common.pydantic import MetadataField, OrmModel, get_metadata
+from aiida.common.pydantic import BaseOrmModel, MetadataField, OrmModel, get_metadata
 from aiida.common.warnings import warn_deprecation
 from aiida.manage import get_manager
 
@@ -218,8 +218,8 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
     @classmethod
     def model_to_orm_field_values(
         cls,
-        valid_model: OrmModel,
-        schema: type[OrmModel],
+        valid_model: BaseOrmModel,
+        schema: type[BaseOrmModel],
     ) -> dict[str, Any]:
         """Collect values for the ORM entity's fields from the given model instance and schema.
 
@@ -239,7 +239,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
                 continue
 
             annotation = field.annotation
-            if isinstance(annotation, type) and issubclass(annotation, OrmModel):
+            if isinstance(annotation, type) and issubclass(annotation, BaseOrmModel):
                 fields[key] = cls.model_to_orm_field_values(field_value, annotation)
             elif orm_class := get_metadata(field, 'orm_class'):
                 if isinstance(orm_class, str):
