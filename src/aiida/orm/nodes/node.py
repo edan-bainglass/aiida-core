@@ -314,7 +314,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def ConstructorModel(cls) -> type[Node.BaseNodeModel]:  # noqa: N802, N805
         """Return the constructor-based creation model class for this entity.
 
-        :raises AttributeError: if this node type does not support constructor-based creation.
+        :raises UnsupportedConstructorModel: if this node type does not support creation via a constructor model.
         :return: The constructor-based creation model class.
         """
         if cls.__ConstructorModel is None:
@@ -1025,6 +1025,11 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         Subclasses SHOULD NOT extend `ReadModel`.
         """
+        if 'ReadModel' in cls.__dict__:
+            raise TypeError(
+                f'{cls.__name__} should not define `ReadModel`; '
+                'only define `AttributesModel` and optionally `ConstructorArgsModel`.'
+            )
         attributes_field = deepcopy(cls.ReadModel.model_fields['attributes'])
         attributes_field.annotation = cls.AttributesModel
         node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])

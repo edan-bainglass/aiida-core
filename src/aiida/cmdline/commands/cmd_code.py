@@ -37,10 +37,10 @@ def verdi_code():
     """Setup and manage codes."""
 
 
-def create_code(ctx: click.Context, cls: Code, **kwargs) -> None:
+def create_code(ctx: click.Context, cls: type[Code], **kwargs) -> None:
     """Create a new `Code` instance."""
     try:
-        model = cls.WriteModel(**kwargs)
+        model = cls.ConstructorModel(node_type=cls.class_node_type, **kwargs)
         instance = cls.from_model(model)
     except (TypeError, ValueError) as exception:
         echo.echo_critical(f'Failed to create instance `{cls}`: {exception}')

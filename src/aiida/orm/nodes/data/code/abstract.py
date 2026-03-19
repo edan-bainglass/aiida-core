@@ -19,7 +19,7 @@ from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
-from aiida.common.pydantic import MetadataField
+from aiida.common.pydantic import BaseOrmModel, MetadataField
 from aiida.orm import Computer
 from aiida.plugins import CalculationFactory
 
@@ -43,7 +43,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
     _KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS: str = 'wrap_cmdline_params'
     _KEY_EXTRA_IS_HIDDEN: str = 'hidden'  # Should become ``is_hidden`` once ``Code`` is dropped
 
-    class AttributesModel(Data.AttributesModel):
+    class CommonFieldsModel(BaseOrmModel):
         default_calc_job_plugin: t.Optional[str] = MetadataField(
             None,
             title='Default `CalcJob` plugin',
@@ -88,7 +88,9 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
             ),
         )
 
-    class ReadModel(Data.ReadModel):
+    class AttributesModel(Data.AttributesModel, CommonFieldsModel): ...
+
+    class ConstructorArgsModel(CommonFieldsModel):
         label: str = MetadataField(
             title='Label',
             description='A unique label to identify the code by',

@@ -22,7 +22,6 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
-from typing import cast
 
 from aiida.common import exceptions
 from aiida.common.folders import Folder
@@ -56,20 +55,17 @@ class PortableCode(Code):
     _KEY_ATTRIBUTE_FILEPATH_EXECUTABLE: str = 'filepath_executable'
     _SKIP_MODEL_INHERITANCE_CHECK: bool = True
 
-    class AttributesModel(AbstractCode.AttributesModel):
-        filepath_executable: str = MetadataField(
-            title='Filepath executable',
-            description='Relative filepath of executable with directory of code files',
-            orm_to_model=lambda node: str(cast(PortableCode, node).filepath_executable),
-        )
-
-    class ReadModel(AbstractCode.ReadModel):
+    class CommonFieldsModel(AbstractCode.CommonFieldsModel):
         filepath_executable: str = MetadataField(
             title='Filepath executable',
             description='Relative filepath of executable with directory of code files',
             short_name='-X',
             priority=1,
         )
+
+    class AttributesModel(AbstractCode.AttributesModel, CommonFieldsModel): ...
+
+    class ConstructorArgsModel(AbstractCode.ConstructorArgsModel, CommonFieldsModel):
         filepath_files: str = MetadataField(
             title='Code directory',
             description='Filepath to directory containing code files',
