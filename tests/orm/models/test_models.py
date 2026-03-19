@@ -249,7 +249,7 @@ def test_roundtrip(required_arguments, tmp_path):
 
     # Get the model instance from the entity instance
     context = {'repository_path': tmp_path} if issubclass(cls, Node) else None
-    model = entity.to_model(context=context)
+    model = entity.to_model(context=context, model=cls.WriteModel)
     assert isinstance(model, BaseModel)
 
     # Reconstruct the entity instance from the model instance
@@ -308,9 +308,9 @@ def test_roundtrip_serialization(required_arguments, tmp_path):
     # Get the model instance from the entity instance
     if isinstance(entity, Node):
         context = {'repository_path': tmp_path}
-        serialized_entity = entity.serialize(context=context, mode='python', dump_repo=True)
+        serialized_entity = entity.serialize(context=context, mode='python', dump_repo=True, model=cls.WriteModel)
         files_dict = _generate_files_dict_from_tree(tmp_path)
         entity.from_serialized(serialized_entity, files=files_dict)
     else:
-        serialized_entity = entity.serialize(mode='python')
+        serialized_entity = entity.serialize(mode='python', model=cls.WriteModel)
         entity.from_serialized(serialized_entity)
