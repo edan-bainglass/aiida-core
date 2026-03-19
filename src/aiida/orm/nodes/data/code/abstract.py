@@ -44,8 +44,6 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
     _KEY_EXTRA_IS_HIDDEN: str = 'hidden'  # Should become ``is_hidden`` once ``Code`` is dropped
 
     class AttributesModel(Data.AttributesModel):
-        """Model describing required information to create an instance."""
-
         default_calc_job_plugin: t.Optional[str] = MetadataField(
             None,
             title='Default `CalcJob` plugin',

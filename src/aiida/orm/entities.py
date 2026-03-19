@@ -263,9 +263,9 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
     def orm_to_model_field_values(
         self,
         *,
-        model: type[OrmModel] | None = None,
         context: dict[str, Any] | None = None,
         minimal: bool = False,
+        model: type[OrmModel] | None = None,
     ) -> dict[str, Any]:
         """Collect values for the ``Model``'s fields from this entity.
 
@@ -273,9 +273,9 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         functions and optional filtering based on field metadata (e.g., excluding CLI-only fields).
         The process is recursive, applying metadata field rules to nested models as well.
 
-        :param model: The model class to collect field values for. If not provided, defaults to the entity's ``Model``.
         :param context: Optional context dictionary to pass to ``orm_to_model`` callables.
         :param minimal: Whether to exclude potentially large value fields.
+        :param model: The model class to collect field values for. If not provided, defaults to the entity's ``Model``.
         :return: Mapping of ORM field name to value.
         """
 
@@ -291,9 +291,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
             """
             signature = inspect.signature(orm_to_model)
             parameters = list(signature.parameters.values())
-            if len(parameters) > 1:
-                return orm_to_model(self, context)
-            return orm_to_model(self)
+            return orm_to_model(self) if len(parameters) == 1 else orm_to_model(self, context)
 
         def get_model_field_values(model_cls: type[OrmModel]) -> dict[str, Any]:
             """Recursive helper function to collect field values for a model class.
@@ -307,7 +305,6 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
                 if get_metadata(field, 'may_be_large') and minimal:
                     continue
 
-                # orm_to_model callables take precedence over nested OrmModel recursion
                 if orm_to_model := get_metadata(field, 'orm_to_model'):
                     fields[key] = call_orm_to_model(orm_to_model)
                 else:
@@ -321,15 +318,23 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
 
         return get_model_field_values(model or self.ReadModel)
 
-    def to_model(self, *, context: dict[str, Any] | None = None, minimal: bool = False) -> OrmModel:
+    def to_model(
+        self,
+        *,
+        context: dict[str, Any] | None = None,
+        minimal: bool = False,
+        model: type[OrmModel] | None = None,
+    ) -> OrmModel:
         """Return the entity instance as an instance of its model.
 
         :param context: Optional context dictionary to pass to ``orm_to_model`` callables.
         :param minimal: Whether to exclude potentially large value fields.
+        :param model: The model class to use for the instance.
+            If not provided, defaults to the entity's `ReadModel` if the entity is stored, `WriteModel` otherwise.
         :return: An instance of the entity's model class.
         """
-        fields = self.orm_to_model_field_values(context=context, minimal=minimal)
-        Model = self.ReadModel if self.is_stored else self.WriteModel  # noqa: N806
+        Model = model or (self.ReadModel if self.is_stored else self.WriteModel)  # noqa: N806
+        fields = self.orm_to_model_field_values(context=context, minimal=minimal, model=Model)
         if minimal:
             Model = Model._as_minimal_model()  # noqa: N806
         return Model(**fields)
@@ -349,18 +354,21 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         *,
         context: dict[str, Any] | None = None,
         minimal: bool = False,
+        model: type[OrmModel] | None = None,
         mode: Literal['json', 'python'] = 'json',
     ) -> dict[str, Any]:
         """Serialize the entity instance to JSON.
 
         :param context: Optional context dictionary to pass to ``orm_to_model`` callables.
         :param minimal: Whether to exclude potentially large value fields.
+        :param model: The model class to use for serialization.
+            If not provided, defaults to the entity's `ReadModel` if the entity is stored, `WriteModel` otherwise.
         :param mode: The serialization mode, either 'json' or 'python'. The 'json' mode is the most strict and ensures
             that the output is JSON serializable, whereas the 'python' mode allows for more complex Python types, such
             as `datetime` objects.
         :return: A dictionary that can be serialized to JSON.
         """
-        return self.to_model(context=context, minimal=minimal).model_dump(
+        return self.to_model(context=context, minimal=minimal, model=model).model_dump(
             mode=mode,
             exclude_none=True,
             exclude_unset=minimal,

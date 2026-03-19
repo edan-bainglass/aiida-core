@@ -35,7 +35,6 @@ class SinglefileData(Data):
             description='The name of the stored file',
             orm_to_model=lambda node: t.cast(SinglefileData, node).filename,
             read_only=True,
-            optional_write=True,
         )
 
     class ConstructorArgsModel(OrmModel):

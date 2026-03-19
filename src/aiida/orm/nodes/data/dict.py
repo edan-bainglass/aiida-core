@@ -90,7 +90,26 @@ class Dict(Data):
         valid_model: OrmModel,
         schema: OrmModel,
     ) -> dict[str, t.Any]:
+        # `Dict.AttributesModel` doesn't explicitly define any fields.
+        # `model_to_orm_field_values` will return an empty `attributes` dict.
+        # We dump the model directly.
         return valid_model.model_dump(exclude_none=True)
+
+    def orm_to_model_field_values(
+        self,
+        *,
+        context: dict[str, t.Any] | None = None,
+        minimal: bool = False,
+        model: OrmModel | None = None,
+    ) -> dict[str, t.Any]:
+        # `Dict.AttributesModel` doesn't explicitly define any fields.
+        # `orm_to_model_field_values` will return an empty `attributes` dict.
+        # We patch `attributes` in.
+        return super().orm_to_model_field_values(
+            context=context,
+            minimal=minimal,
+            model=model,
+        ) | {'attributes': self.get_dict()}
 
     def __getitem__(self, key):
         try:

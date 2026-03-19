@@ -50,6 +50,7 @@ __all__ = (
     'TestsNotAllowedError',
     'TransportTaskException',
     'UniquenessError',
+    'UnsupportedConstructorModel',
     'UnsupportedSpeciesError',
     'ValidationError',
 )
@@ -294,3 +295,10 @@ class LockedProfileError(AiidaException):
 
 class LockingProfileError(AiidaException):
     """Raised if the profile can`t be locked"""
+
+
+class UnsupportedConstructorModel(AiidaException):
+    """Raised when a node class does not support creation via a constructor model."""
+
+    def __init__(self, node_type: str) -> None:
+        super().__init__(f'{node_type} does not support creation via a constructor model')

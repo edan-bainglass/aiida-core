@@ -228,17 +228,14 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             description='The node description',
             examples=['This is my node description.'],
         )
-        extras: Dict[str, Any] = MetadataField(
+        extras: dict[str, Any] = MetadataField(
             default_factory=dict,
             description='The node extras',
             orm_to_model=lambda node: cast(Node, node).base.extras.all,
             may_be_large=True,
             examples=[{'extra_key': 'extra_value'}],
         )
-        node_type: str = MetadataField(
-            description='The type of the node.',
-            examples=['process.calculation.calcjob.CalcJobNode.'],
-        )
+        node_type: str = MetadataField(description='The type of the node.')
 
     class AttributesModel(OrmModel):
         """The node attributes.
@@ -258,14 +255,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             read_only=True,
             examples=['aiida.calculations:arithmetic.add.'],
         )
-        repository_metadata: Dict[str, Any] = MetadataField(
-            default_factory=dict,
-            description='Virtual hierarchy of the file repository',
-            orm_to_model=lambda node: cast(Node, node).base.repository.metadata,
-            read_only=True,
-            may_be_large=True,
-            examples=[{'key': 'value'}],
-        )
         ctime: datetime.datetime = MetadataField(
             description='The creation time of the node',
             read_only=True,
@@ -275,12 +264,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             description='The modification time of the node',
             read_only=True,
             examples=['2024-01-02T12:00:00+00:00'],
-        )
-        attributes: Node.AttributesModel = MetadataField(
-            description='The node attributes',
-            orm_to_model=lambda node: cast(Node, node).base.attributes.all,
-            may_be_large=True,
-            examples=[{'attr_key': 'attr_value'}],
         )
         computer: Optional[int] = MetadataField(
             None,
@@ -296,6 +279,18 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             orm_class=User,
             read_only=True,
             examples=[7],
+        )
+        attributes: Node.AttributesModel = MetadataField(
+            description='The node attributes',
+            may_be_large=True,
+            examples=[{'attr_key': 'attr_value'}],
+        )
+        repository_metadata: dict[str, Any] = MetadataField(
+            default_factory=dict,
+            description='Virtual hierarchy of the file repository',
+            orm_to_model=lambda node: cast(Node, node).base.repository.metadata,
+            may_be_large=True,
+            examples=[{'o': {'file.txt': {'k': '<file_hash>'}}}],
         )
 
         @field_serializer('uuid')
@@ -313,7 +308,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     ConstructorArgsModel: type[OrmModel] | None = None
 
-    _constructor_model: ClassVar[type[BaseNodeModel] | None] = None
+    __ConstructorModel: ClassVar[type[BaseNodeModel] | None] = None
 
     @classproperty
     def ConstructorModel(cls) -> type[Node.BaseNodeModel]:  # noqa: N802, N805
@@ -322,9 +317,9 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :raises AttributeError: if this node type does not support constructor-based creation.
         :return: The constructor-based creation model class.
         """
-        if cls._constructor_model is None:
-            raise AttributeError(f'{cls.__name__} does not support constructor-based creation')
-        return cls._constructor_model
+        if cls.__ConstructorModel is None:
+            raise exceptions.UnsupportedConstructorModel(cls.class_node_type)
+        return cls.__ConstructorModel
 
     def __init__(
         self,
@@ -332,7 +327,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         user: Optional[User] = None,
         computer: Optional[Computer] = None,
         extras: Optional[Dict[str, Any]] = None,
-        node_type: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         backend = backend or get_manager().get_profile_storage()
@@ -347,7 +341,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             raise ValueError('the user cannot be None')
 
         backend_entity = backend.nodes.create(
-            node_type=node_type or self.class_node_type,
+            node_type=self.class_node_type,
             user=user.backend_entity,
             computer=backend_computer,
             **kwargs,
@@ -358,11 +352,9 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             self.base.extras.set_many(extras)
 
     def __init_subclass__(cls, **kwargs) -> None:
-        """Patch subclass models.
-
-        The following methods ensure that each subclass carries its own models, with subclass-specific defaults.
-        """
+        """Patch subclass models."""
         super().__init_subclass__(**kwargs)
+        cls._patch_base_model()
         cls._patch_read_model()
         cls._patch_constructor_model()
 
@@ -372,12 +364,11 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return NodeBase(self)
 
     @classmethod
-    def get_constructor_model(cls) -> type[Node.BaseNodeModel] | None:
-        """Return the constructor-based creation model class if supported, otherwise ``None``."""
-        return cls._constructor_model
-
-    @classmethod
-    def from_model(cls, model: BaseNodeModel) -> Self:
+    def from_model(
+        cls,
+        model: Node.WriteModel | Node.ConstructorModel,
+        files: dict[str, io.BufferedReader] | None = None,
+    ) -> Self:
         """Create a node instance from a model instance.
 
         The creation branch is determined by the model type:
@@ -385,11 +376,15 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         - `ConstructorModel`: constructor-based creation (expects `args`)
 
         :param model: The model instance to create the node from.
+        :param files: A dictionary of file-like objects representing the files in the repository.
         :return: The created node instance.
         """
+        node_type = model.node_type
+        if node_type != cls.class_node_type:
+            raise ValueError(f"expected '{cls.class_node_type}', got `{node_type}`")
         if isinstance(model, cls.WriteModel):
-            return cls._from_write_model(model)
-        elif cls._constructor_model is not None and isinstance(model, cls._constructor_model):
+            return cls._from_write_model(model, files=files)
+        elif cls.__ConstructorModel is not None and isinstance(model, cls.ConstructorModel):
             return cls._from_constructor_model(model)
         else:
             raise ValueError(f'cannot create {cls.__name__} from model of type {type(model).__name__}')
@@ -399,6 +394,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         *,
         context: dict[str, Any] | None = None,
         minimal: bool = False,
+        model: type[Node.BaseNodeModel] | None = None,
         mode: Literal['json'] | Literal['python'] = 'json',
         dump_repo: bool = False,
     ) -> dict[str, Any]:
@@ -406,6 +402,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         :param context: Optional context dictionary to pass to ``orm_to_model`` callables.
         :param minimal: Whether to exclude potentially large value fields.
+        :param model: The model class to use for serialization.
+            If not provided, defaults to the entity's `ReadModel` if the entity is stored, `WriteModel` otherwise.
         :param mode: The serialization mode, either 'json' or 'python'. The 'json' mode is the most strict and ensures
             that the output is JSON serializable, whereas the 'python' mode allows for more complex Python types, such
             as `datetime` objects.
@@ -430,6 +428,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return self.to_model(
             context=context,
             minimal=minimal,
+            model=model,
         ).model_dump(
             mode=mode,
             exclude_none=True,
@@ -448,45 +447,15 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :param files: A dictionary of file-like objects representing the files in the repository.
         :return: The constructed node instance.
         """
-        import hashlib
-
-        from aiida.repository import Repository
-
         if 'attributes' in serialized:
             Model = cls.WriteModel
         elif 'args' in serialized:
-            if cls._constructor_model is None or cls.ConstructorArgsModel is None:
-                raise ValueError('the model does not support constructor-based creation')
-            Model = cls._constructor_model
+            if not cls.__ConstructorModel:
+                raise ValueError(f'{cls.__name__} does not support constructor-based creation')
+            Model = cls.ConstructorModel
         else:
             raise ValueError('the serialized data does not contain the required `attributes` or `args` field')
-
-        instance = cls.from_model(Model(**serialized))
-        repository_metadata = serialized.get('repository_metadata', {})
-
-        if repository_metadata:
-            if not files:
-                raise ValueError('No files were provided from which to reconstruct the repository.')
-            flattened_repo = Repository.flatten(repository_metadata)
-
-        seen = set()
-        for filepath, fileobj in (files or {}).items():
-            if filepath in seen:
-                raise ValueError(f'File `{filepath}` already exists in the repository.')
-
-            if repository_metadata:
-                expected_hash = flattened_repo.get(filepath)
-                actual_hash = hashlib.sha256(fileobj.read()).hexdigest()
-                if expected_hash != actual_hash:
-                    raise ValueError(
-                        f'File hash mismatch for `{filepath}`: expected {expected_hash}, got {actual_hash}'
-                    )
-
-            fileobj.seek(0)
-            instance.base.repository.put_object_from_filelike(fileobj, filepath)
-            seen.add(filepath)
-
-        return instance
+        return cls.from_model(Model(**serialized), files=files)
 
     def _check_mutability_attributes(self, keys: Optional[List[str]] = None) -> None:
         """Check if the entity is mutable and raise an exception if not.
@@ -554,6 +523,11 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 'Check that the corresponding plugin is installed '
                 'and that the entry point shows up in `verdi plugin list`.'
             )
+
+    @classproperty
+    def has_constructor_model(cls) -> bool:  # noqa: N805
+        """Return whether this node class supports constructor-based creation."""
+        return cls.__ConstructorModel is not None
 
     @classproperty
     def class_node_type(cls) -> str:  # noqa: N805
@@ -1008,6 +982,28 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         raise AttributeError(name)
 
     @classmethod
+    def _patch_base_model(cls):
+        """Patch `BaseNodeModel` by wiring the subclass-specific `node_type` field."""
+        if 'BaseNodeModel' in cls.__dict__:
+            raise TypeError(
+                f'{cls.__name__} should not define `BaseNodeModel`; only define `AttributesModel` and optionally '
+                '`ConstructorArgsModel`.'
+            )
+        node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
+        node_type_field.annotation = str
+        cls.BaseNodeModel = cast(
+            type[Node.BaseNodeModel],
+            create_model(
+                'BaseNodeModel',
+                __base__=cls.BaseNodeModel,
+                __module__=cls.__module__,
+                __qualname__=f'{cls.__qualname__}.BaseNodeModel',
+                node_type=(Literal[cls.class_node_type], node_type_field),
+            ),
+        )
+        cls.BaseNodeModel.model_rebuild(force=True)
+
+    @classmethod
     def _patch_read_model(cls):
         """Patch `ReadModel` by wiring the subclass-specific `attributes` model.
 
@@ -1018,38 +1014,33 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 f'{cls.__name__} should not define `ReadModel`; '
                 'only define `AttributesModel` and optionally `ConstructorArgsModel`.'
             )
-
-        # Inherited from parent; create a new type to avoid modifying the parent.
-        parent_model = cast(type[Node.ReadModel], getattr(cls, 'ReadModel'))
-        base_field = deepcopy(parent_model.model_fields['attributes'])
-        base_field.annotation = cls.AttributesModel
-        ReadModel = cast(  # noqa: N806
+        attributes_field = deepcopy(cls.ReadModel.model_fields['attributes'])
+        attributes_field.annotation = cls.AttributesModel
+        node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
+        cls.ReadModel = cast(
             type[Node.ReadModel],
             create_model(
                 'ReadModel',
-                __base__=parent_model,
+                __base__=cls.ReadModel,
                 __module__=cls.__module__,
                 __qualname__=f'{cls.__qualname__}.ReadModel',
-                attributes=(cls.AttributesModel, base_field),
+                node_type=(Literal[cls.class_node_type], node_type_field),
+                attributes=(cls.AttributesModel, attributes_field),
             ),
         )
-        cls.ReadModel = ReadModel  # type: ignore[misc]
         cls.ReadModel.model_rebuild(force=True)
 
     @classmethod
     def _patch_constructor_model(cls):
         """Patch `ConstructorModel` by synthesizing it from `BaseNodeModel` and `ConstructorArgsModel`."""
         if cls.ConstructorArgsModel is None:
-            cls._constructor_model = None
             return
-
         args_field = MetadataField(
             description='The constructor arguments.',
             write_only=True,
         )
         args_field.annotation = cls.ConstructorArgsModel
-
-        cls._constructor_model = cast(
+        cls.__ConstructorModel = cast(
             type[Node.BaseNodeModel],
             create_model(
                 'ConstructorModel',
@@ -1059,24 +1050,60 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 args=(cls.ConstructorArgsModel, args_field),
             ),
         )
-
-        cls._constructor_model.model_rebuild(force=True)
+        cls.__ConstructorModel.model_rebuild(force=True)
 
     @classmethod
-    def _from_write_model(cls, model: Node.WriteModel) -> Self:
+    def _from_write_model(cls, model: Node.WriteModel, files: dict[str, io.BufferedReader] | None = None) -> Self:
         """Construct a node instance from the attributes-based creation model.
 
         :param model: the model instance to construct from
+        :param files: A dictionary of file-like objects representing the files in the repository.
         :return: the constructed node instance
         """
-        attributes = model.attributes.model_dump(exclude_none=True)
+        import hashlib
+
+        from aiida.common.hashing import chunked_file_hash
+        from aiida.repository import Repository
+
         fields = cls.model_to_orm_field_values(model, cls.WriteModel)
-        fields.pop('attributes', None)
+        repository_metadata = fields.pop('repository_metadata', {})
+        attributes = fields.pop('attributes', None)
         if attributes is None:
             raise ValueError('the model is missing the required `attributes` field')
-        instance = Node(**fields)
+
+        extras = fields.pop('extras', None)
+
+        backend = get_manager().get_profile_storage()
+        backend_entity = backend.nodes.create(user=backend.default_user.backend_entity, **fields)
+        instance = from_backend_entity(cls, backend_entity)
         instance.base.attributes.set_many(attributes)
-        return cast(Self, from_backend_entity(cls, instance.backend_entity))
+        if extras:
+            instance.base.extras.set_many(extras)
+
+        if repository_metadata:
+            if not files:
+                raise exceptions.ValidationError('No files were provided from which to reconstruct the repository.')
+            flattened_repo = Repository.flatten(repository_metadata)
+
+        seen = set()
+        for filepath, fileobj in (files or {}).items():
+            if filepath in seen:
+                raise exceptions.ValidationError(f'File `{filepath}` already exists in the repository.')
+
+            if repository_metadata:
+                expected_hash = flattened_repo.get(filepath)
+                if expected_hash:
+                    actual_hash = chunked_file_hash(fileobj, hashlib.sha256)
+                    if expected_hash != actual_hash:
+                        raise exceptions.ValidationError(
+                            f'File hash mismatch for `{filepath}`: expected {expected_hash}, computed {actual_hash}'
+                        )
+
+            fileobj.seek(0)
+            instance.base.repository.put_object_from_filelike(fileobj, filepath)
+            seen.add(filepath)
+
+        return instance
 
     @classmethod
     def _from_constructor_model(cls, model: Node.ConstructorModel) -> Self:
@@ -1085,13 +1112,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :param model: the model instance to construct from
         :return: the constructed node instance
         """
-        if cls._constructor_model is None or cls.ConstructorArgsModel is None:
-            raise ValueError('the model does not support constructor-based creation')
-        fields = cls.model_to_orm_field_values(model, cls._constructor_model)
-        args_model = getattr(model, 'args', None)
-        if args_model is not None:
-            if not isinstance(args_model, OrmModel):
-                raise ValueError('the model `args` field must be an OrmModel')
-            fields.update(cls.model_to_orm_field_values(args_model, cls.ConstructorArgsModel))
-        fields.pop('args', None)
+        fields = cls.model_to_orm_field_values(model, cls.ConstructorModel)
+        fields.update(**fields.pop('args'))
+        fields.pop('node_type')
         return cls(**fields)

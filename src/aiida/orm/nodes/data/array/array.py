@@ -57,6 +57,7 @@ class ArrayData(Data):
                         'items': {'type': 'integer'},
                         'minItems': 1,
                         'description': 'Shape of an array stored in the repository',
+                        'readOnly': True,
                     }
                 }
             },
