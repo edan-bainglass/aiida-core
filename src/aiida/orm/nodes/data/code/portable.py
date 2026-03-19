@@ -63,7 +63,7 @@ class PortableCode(Code):
             orm_to_model=lambda node: str(cast(PortableCode, node).filepath_executable),
         )
 
-    class ConstructorArgsModel(AbstractCode.ConstructorArgsModel):
+    class ReadModel(AbstractCode.ReadModel):
         filepath_executable: str = MetadataField(
             title='Filepath executable',
             description='Relative filepath of executable with directory of code files',

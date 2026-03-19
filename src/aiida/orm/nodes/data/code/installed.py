@@ -47,9 +47,7 @@ class InstalledCode(Code):
             orm_to_model=lambda node: str(cast(InstalledCode, node).filepath_executable),
         )
 
-    # TODO this one might break things - need to have a look at how cmd_computer works with it
-    # TODO likely CLI needs to switch to using constructor models (can't use attributes from CLI)
-    class ConstructorArgsModel(AbstractCode.ConstructorArgsModel):
+    class ReadModel(AbstractCode.ReadModel):
         filepath_executable: str = MetadataField(
             title='Filepath executable',
             description='Filepath of the executable on the remote computer',
@@ -62,7 +60,7 @@ class InstalledCode(Code):
             short_name='-Y',
             priority=2,
             write_only=True,
-            model_to_orm=lambda model: load_computer(cast(InstalledCode.ConstructorArgsModel, model).computer),
+            model_to_orm=lambda model: load_computer(cast(InstalledCode.ReadModel, model).computer),
         )
 
     def __init__(self, computer: Computer, filepath_executable: str, **kwargs):

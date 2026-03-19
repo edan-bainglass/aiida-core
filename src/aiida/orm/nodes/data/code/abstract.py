@@ -19,7 +19,7 @@ from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
-from aiida.common.pydantic import BaseOrmModel, MetadataField
+from aiida.common.pydantic import MetadataField
 from aiida.orm import Computer
 from aiida.plugins import CalculationFactory
 
@@ -88,7 +88,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
             ),
         )
 
-    class ConstructorArgsModel(BaseOrmModel):
+    class ReadModel(Data.ReadModel):
         label: str = MetadataField(
             title='Label',
             description='A unique label to identify the code by',

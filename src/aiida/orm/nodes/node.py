@@ -1025,11 +1025,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         Subclasses SHOULD NOT extend `ReadModel`.
         """
-        if 'ReadModel' in cls.__dict__:
-            raise TypeError(
-                f'{cls.__name__} should not define `ReadModel`; '
-                'only define `AttributesModel` and optionally `ConstructorArgsModel`.'
-            )
         attributes_field = deepcopy(cls.ReadModel.model_fields['attributes'])
         attributes_field.annotation = cls.AttributesModel
         node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])

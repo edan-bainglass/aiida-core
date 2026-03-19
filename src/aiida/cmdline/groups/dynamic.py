@@ -167,7 +167,7 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
 
             warn_deprecation(
                 'Relying on `_get_cli_options` is deprecated. The options should be defined through a '
-                '`pydantic.BaseModel` that should be assigned to the `Model` class attribute.',
+                '`pydantic.BaseModel` that should be assigned to the `ReadModel` class attribute.',
                 version=3,
             )
             options_spec = self.factory(entry_point).get_cli_options()  # type: ignore[union-attr]
@@ -180,7 +180,7 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
         fields = dict(Model.model_fields)
         attr_field = fields.get('attributes')
         if attr_field is not None:
-            AttributesModel = t.cast(OrmModel, attr_field.annotation)  # noqa: N806
+            AttributesModel = t.cast(type[OrmModel], attr_field.annotation)  # noqa: N806
             fields |= AttributesModel.model_fields
 
         for key, field_info in fields.items():
