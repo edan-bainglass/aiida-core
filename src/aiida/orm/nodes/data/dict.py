@@ -84,33 +84,6 @@ class Dict(Data):
         if dictionary:
             self.set_dict(dictionary)
 
-    @classmethod
-    def model_to_orm_field_values(
-        cls,
-        valid_model: OrmModel,
-        schema: OrmModel,
-    ) -> dict[str, t.Any]:
-        # `Dict.AttributesModel` doesn't explicitly define any fields.
-        # `model_to_orm_field_values` will return an empty `attributes` dict.
-        # We dump the model directly.
-        return valid_model.model_dump(exclude_none=True)
-
-    def orm_to_model_field_values(
-        self,
-        *,
-        context: dict[str, t.Any] | None = None,
-        minimal: bool = False,
-        model: OrmModel | None = None,
-    ) -> dict[str, t.Any]:
-        # `Dict.AttributesModel` doesn't explicitly define any fields.
-        # `orm_to_model_field_values` will return an empty `attributes` dict.
-        # We patch `attributes` in.
-        return super().orm_to_model_field_values(
-            context=context,
-            minimal=minimal,
-            model=model,
-        ) | {'attributes': self.get_dict()}
-
     def __getitem__(self, key):
         try:
             return self.base.attributes.get(key)
@@ -207,6 +180,40 @@ class Dict(Data):
         from aiida.orm.utils.managers import AttributeManager
 
         return AttributeManager(self)
+
+    @classmethod
+    def _model_to_orm_field_values(
+        cls,
+        valid_model: OrmModel,
+        schema: type[OrmModel],
+    ) -> dict[str, t.Any]:
+        # `Dict.AttributesModel` doesn't explicitly define any fields.
+        # `_model_to_orm_field_values` will return an empty `attributes` dict.
+        # We dump the model directly.
+        return valid_model.model_dump(exclude_none=True)
+
+    def _orm_to_model_field_values(
+        self,
+        *,
+        context: dict[str, t.Any] | None = None,
+        minimal: bool = False,
+        schema: type[OrmModel] | None = None,
+    ) -> dict[str, t.Any]:
+        # `Dict.AttributesModel` doesn't explicitly define any fields.
+        # `_orm_to_model_field_values` will return an empty `attributes` dict.
+        # We need to add the dictionary content to the fields (model-dependent structure).
+        fields = super()._orm_to_model_field_values(
+            context=context,
+            minimal=minimal,
+            schema=schema,
+        )
+        if schema in (self.ReadModel, self.WriteModel):
+            return fields | {'attributes': self.get_dict()}
+        if schema is self.ConstructorModel:
+            return fields | {'args': {'value': self.get_dict()}}
+        if schema is self.ConstructorArgsModel:
+            return {'value': self.get_dict()}
+        raise exceptions.UnsupportedSchemaError(f'unsupported schema: {schema}')
 
 
 @to_aiida_type.register(dict)

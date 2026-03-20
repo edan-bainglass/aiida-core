@@ -318,7 +318,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :return: The constructor-based creation model class.
         """
         if cls.__ConstructorModel is None:
-            raise exceptions.UnsupportedConstructorModel(cls.class_node_type)
+            raise exceptions.UnsupportedConstructorModelError(cls.class_node_type)
         return cls.__ConstructorModel
 
     def __init__(
@@ -395,15 +395,15 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         *,
         context: dict[str, Any] | None = None,
         minimal: bool = False,
-        model: type[Node.BaseNodeModel] | None = None,
+        schema: type[OrmModel] | None = None,
         mode: Literal['json'] | Literal['python'] = 'json',
         dump_repo: bool = False,
     ) -> dict[str, Any]:
         """Serialize the entity instance to JSON.
 
-        :param context: Optional context dictionary to pass to ``orm_to_model`` callables.
+        :param context: Optional context dictionary to pass to `orm_to_model` callables.
         :param minimal: Whether to exclude potentially large value fields.
-        :param model: The model class to use for serialization.
+        :param schema: The schema model to use for serialization.
             If not provided, defaults to the entity's `ReadModel` if the entity is stored, `WriteModel` otherwise.
         :param mode: The serialization mode, either 'json' or 'python'. The 'json' mode is the most strict and ensures
             that the output is JSON serializable, whereas the 'python' mode allows for more complex Python types, such
@@ -429,7 +429,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return self.to_model(
             context=context,
             minimal=minimal,
-            model=model,
+            schema=schema,
         ).model_dump(
             mode=mode,
             exclude_none=True,
@@ -1081,7 +1081,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         from aiida.common.hashing import chunked_file_hash
         from aiida.repository import Repository
 
-        fields = cls.model_to_orm_field_values(model, cls.WriteModel)
+        fields = cls._model_to_orm_field_values(model, cls.WriteModel)
         repository_metadata = fields.pop('repository_metadata', {})
         attributes = fields.pop('attributes', None)
         if attributes is None:
@@ -1128,7 +1128,28 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :param model: the model instance to construct from
         :return: the constructed node instance
         """
-        fields = cls.model_to_orm_field_values(model, cls.ConstructorModel)
+        fields = cls._model_to_orm_field_values(model, cls.ConstructorModel)
         fields.update(**fields.pop('args'))
         fields.pop('node_type')
         return cls(**fields)
+
+    def _orm_to_model_field_values(
+        self,
+        *,
+        context: dict[str, Any] | None = None,
+        minimal: bool = False,
+        schema: type[BaseOrmModel] | None = None,
+    ) -> dict[str, Any]:
+        """Collect values for the model fields from this node.
+
+        For constructor-based schemas, this also reconstructs the `args` payload from
+        `ConstructorArgsModel` fields.
+        """
+        fields = super()._orm_to_model_field_values(context=context, minimal=minimal, schema=schema)
+        if self.has_constructor_model and schema is self.ConstructorModel:
+            fields['args'] = self._orm_to_model_field_values(
+                context=context or {},
+                minimal=minimal,
+                schema=self.ConstructorArgsModel,
+            )
+        return fields

@@ -102,7 +102,7 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
 
         try:
             Model = cls.ConstructorModel  # noqa: N806
-        except exceptions.UnsupportedConstructorModel:
+        except exceptions.UnsupportedConstructorModelError:
             return self._command(ctx, cls, **kwargs)
 
         try:
@@ -168,7 +168,7 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
 
         try:
             Model = cls.ConstructorModel  # noqa: N806
-        except exceptions.UnsupportedConstructorModel:
+        except exceptions.UnsupportedConstructorModelError:
             from aiida.common.warnings import warn_deprecation
 
             warn_deprecation(

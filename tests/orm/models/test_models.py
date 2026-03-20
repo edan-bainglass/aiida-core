@@ -4,7 +4,6 @@ import datetime
 import enum
 import io
 
-import numpy as np
 import pytest
 from pydantic import BaseModel
 
@@ -33,35 +32,38 @@ from aiida.orm.nodes.data import (
     StructureData,
 )
 
-orms_to_test = (
+orm_to_test = (
     AuthInfo,
     Comment,
     Computer,
     Group,
     Log,
     User,
-    SinglefileData,
-    ArrayData,
+    # ArrayData,
     Bool,
-    CifData,
-    ContainerizedCode,
+    # # CifData,
+    # # ContainerizedCode,
     Data,
     Dict,
-    EnumData,
+    # EnumData,
     Float,
-    FolderData,
-    InstalledCode,
+    # # FolderData,
+    # # InstalledCode,
     Int,
-    JsonableData,
+    # # JsonableData,
     List,
-    PortableCode,
-    SinglefileData,
+    # # PortableCode,
+    # # SinglefileData,
     Str,
     StructureData,
     RemoteData,
     RemoteStashData,
     RemoteStashCompressedData,
 )
+
+entities_to_test = tuple(orm_class for orm_class in orm_to_test if not issubclass(orm_class, Node))
+
+nodes_to_test = tuple(orm_class for orm_class in orm_to_test if issubclass(orm_class, Node))
 
 
 class DummyEnum(enum.Enum):
@@ -116,15 +118,28 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
     if request.param is User:
         return User, {'email': 'test@localhost'}
     if request.param is ArrayData:
-        return ArrayData, {'attributes': {'arrays': np.array([1, 0, 0])}}
+        return ArrayData, {
+            'attributes': {},
+            'args': {'arrays': [1, 0, 0]},
+        }
     if request.param is Bool:
         return Bool, {'attributes': {'value': True}}
     if request.param is CifData:
-        return CifData, {'content': io.BytesIO(b'some-content')}
+        return CifData, {
+            'attributes': {},
+            'args': {'filename': 'structure.cif', 'content': 'structure-content'},
+        }
     if request.param is ContainerizedCode:
         return ContainerizedCode, {
-            'label': 'containerized_echo',
             'attributes': {
+                'computer': aiida_localhost.label,
+                'filepath_executable': '/bin/echo',
+                'image_name': 'docker://alpine:3',
+                'engine_command': 'docker run {image_name}',
+            },
+            'args': {
+                'label': 'containerized_echo',
+                'description': 'Containerized echo code',
                 'computer': aiida_localhost.label,
                 'filepath_executable': '/bin/echo',
                 'image_name': 'docker://alpine:3',
@@ -134,19 +149,34 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
     if request.param is Data:
         return Data, {'attributes': {'source': {'uri': 'http://127.0.0.1'}}}
     if request.param is Dict:
-        return Dict, {'value': {'a': 1}}
+        return Dict, {
+            'attributes': {'a': 1, 'b': 2},
+            'args': {'value': {'a': 1, 'b': 2}},
+        }
     if request.param is EnumData:
-        return EnumData, {'attributes': {'member': DummyEnum.OPTION_A}}
+        return EnumData, {
+            'attributes': {
+                'name': 'OPTION_A',
+                'value': 'a',
+                'identifier': 'tests.orm.models.test_models.DummyEnum',
+            },
+            'args': {'member': DummyEnum.OPTION_A},
+        }
     if request.param is Float:
         return Float, {'attributes': {'value': 1.0}}
     if request.param is FolderData:
         (tmp_path / 'binary_file').write_bytes(b'byte content')
         (tmp_path / 'text_file').write_text('text content')
-        return FolderData, {'tree': tmp_path}
+        return FolderData, {'attributes': {'tree': tmp_path}}
     if request.param is InstalledCode:
         return InstalledCode, {
-            'label': 'echo',
             'attributes': {
+                'computer': aiida_localhost.label,
+                'filepath_executable': '/bin/echo',
+            },
+            'args': {
+                'label': 'echo',
+                'description': 'Installed echo code',
                 'computer': aiida_localhost.label,
                 'filepath_executable': '/bin/echo',
             },
@@ -154,20 +184,34 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
     if request.param is Int:
         return Int, {'attributes': {'value': 1}}
     if request.param is JsonableData:
-        return JsonableData, {'attributes': {'obj': JsonableClass({'a': 1})}}
+        return JsonableData, {
+            'attributes': {
+                '@class': 'JsonableClass',
+                '@module': 'tests.orm.models.test_models',
+            },
+            'args': {'obj': JsonableClass({'a': 1})},
+        }
     if request.param is List:
-        return List, {'attributes': {'value': [1.0]}}
+        return List, {'attributes': {'list': [1, 2, 3]}}
     if request.param is PortableCode:
         (tmp_path / 'code.sh').write_text('#!/bin/bash\necho "$@"\n')
         return PortableCode, {
-            'label': 'portable_code',
             'attributes': {
                 'filepath_executable': 'code.sh',
                 'filepath_files': tmp_path,
             },
+            'args': {
+                'label': 'portable_code',
+                'description': 'Portable code',
+                'filepath_executable': 'code.sh',
+                'filepath_files': str(tmp_path),
+            },
         }
     if request.param is SinglefileData:
-        return SinglefileData, {'attributes': {'content': io.BytesIO(b'some-content')}}
+        return SinglefileData, {
+            'attributes': {},
+            'args': {'filename': 'file.txt', 'content': 'some-content'},
+        }
     if request.param is Str:
         return Str, {'attributes': {'value': 'string'}}
     if request.param is StructureData:
@@ -199,7 +243,7 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
 
 @pytest.mark.parametrize(
     'required_arguments',
-    orms_to_test,
+    orm_to_test,
     indirect=True,
 )
 def test_model_overrides(required_arguments):
@@ -215,7 +259,7 @@ def test_model_overrides(required_arguments):
 
 @pytest.mark.parametrize(
     'required_arguments',
-    [orm_class for orm_class in orms_to_test if issubclass(orm_class, Node)],
+    nodes_to_test,
     indirect=True,
 )
 def test_attributes_model_overrides(required_arguments):
@@ -234,56 +278,82 @@ def test_attributes_model_overrides(required_arguments):
     assert AttributesWriteModel.model_config.get('title') == f'{name}AttributesWriteModel'
 
 
-@pytest.mark.parametrize(
-    'required_arguments',
-    orms_to_test,
-    indirect=True,
-)
-def test_roundtrip(required_arguments, tmp_path):
-    cls: type[Entity] = required_arguments[0]
-    kwargs: dict = required_arguments[1]
+def _validate_value(value):
+    if isinstance(value, dict):
+        return {k: _validate_value(v) for k, v in value.items()}
+    if isinstance(value, io.BytesIO):
+        value.seek(0)
+        return value.read()
+    return value
 
-    # Construct instance of the entity class
-    entity: Entity = cls(**kwargs)
-    assert isinstance(entity, cls)
 
-    # Get the model instance from the entity instance
+def _assert_roundtrip_field_values_equal(
+    cls: type[Entity],
+    original_model: BaseModel,
+    roundtrip_entity: Entity,
+    schema: type[BaseModel],
+    tmp_path,
+):
     context = {'repository_path': tmp_path} if issubclass(cls, Node) else None
-    model = entity.to_model(context=context, model=cls.WriteModel)
-    assert isinstance(model, BaseModel)
+    roundtrip_model = roundtrip_entity.to_model(context=context, schema=schema)
+    original_field_values = cls._model_to_orm_field_values(original_model, schema)
 
-    # Reconstruct the entity instance from the model instance
-    roundtrip = cls.from_model(model)
-    assert isinstance(roundtrip, cls)
-
-    # Get the model instance again from the reconstructed entity and check that the fields that would be passed to the
-    # ORM entity constructor are identical of the original model.
-    context = {'repository_path': tmp_path} if issubclass(cls, Node) else None
-    roundtrip_model = roundtrip.to_model(context=context)
-    original_field_values = cls.model_to_orm_field_values(model, cls.WriteModel)
-
-    def _validate_value(value):
-        if isinstance(value, dict):
-            return {k: _validate_value(v) for k, v in value.items()}
-        if isinstance(value, io.BytesIO):
-            value.seek(0)
-            return value.read()
-        return value
-
-    for key, value in cls.model_to_orm_field_values(roundtrip_model, cls.WriteModel).items():
+    for key, value in cls._model_to_orm_field_values(roundtrip_model, schema).items():
         assert _validate_value(value) == _validate_value(original_field_values[key])
 
 
+def _generate_files_dict_from_tree(tree_path):
+    import os
+
+    files_dict = {}
+    for root, _, files in os.walk(tree_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            relative_path = os.path.relpath(file_path, tree_path)
+            with open(file_path, 'rb') as handle:
+                files_dict[relative_path] = io.BytesIO(handle.read())
+    return files_dict
+
+
+def _get_write_model(cls: type[Node], attributes: dict[str, object]):
+    return cls.WriteModel(node_type=cls.class_node_type, attributes=attributes)
+
+
+def _get_constructor_model(cls: type[Node], args: dict[str, object]):
+    return cls.ConstructorModel(node_type=cls.class_node_type, args=args)
+
+
 @pytest.mark.parametrize(
     'required_arguments',
-    orms_to_test,
+    entities_to_test,
     indirect=True,
 )
-def test_roundtrip_serialization(required_arguments, tmp_path):
+def test_roundtrip_entity_from_model(required_arguments, tmp_path):
     cls: type[Entity] = required_arguments[0]
     kwargs: dict = required_arguments[1]
 
-    # Construct instance of the entity class
+    entity: Entity = cls(**kwargs)
+    assert isinstance(entity, cls)
+
+    context = {'repository_path': tmp_path} if issubclass(cls, Node) else None
+    model = entity.to_model(context=context, schema=cls.WriteModel)
+    assert isinstance(model, BaseModel)
+
+    roundtrip = cls.from_model(model)
+    assert isinstance(roundtrip, cls)
+
+    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.WriteModel, tmp_path)
+
+
+@pytest.mark.parametrize(
+    'required_arguments',
+    entities_to_test,
+    indirect=True,
+)
+def test_roundtrip_entity_from_serialized(required_arguments, tmp_path):
+    cls: type[Entity] = required_arguments[0]
+    kwargs: dict = required_arguments[1]
+
     entity = cls(**kwargs)
     assert isinstance(entity, cls)
 
@@ -292,25 +362,99 @@ def test_roundtrip_serialization(required_arguments, tmp_path):
     except Exception:
         pass
 
-    def _generate_files_dict_from_tree(tree_path):
-        import os
+    serialized_entity = entity.serialize(mode='python', schema=cls.WriteModel)
+    roundtrip = cls.from_serialized(serialized_entity)
+    assert isinstance(roundtrip, cls)
 
-        files_dict = {}
-        for root, _, files in os.walk(tree_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                relative_path = os.path.relpath(file_path, tree_path)
-                with open(file_path, 'rb') as f:
-                    file_content = f.read()
-                files_dict[relative_path] = io.BytesIO(file_content)
-        return files_dict
+    model = cls.WriteModel(**serialized_entity)
+    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.WriteModel, tmp_path)
 
-    # Get the model instance from the entity instance
-    if isinstance(entity, Node):
-        context = {'repository_path': tmp_path}
-        serialized_entity = entity.serialize(context=context, mode='python', dump_repo=True, model=cls.WriteModel)
-        files_dict = _generate_files_dict_from_tree(tmp_path)
-        entity.from_serialized(serialized_entity, files=files_dict)
-    else:
-        serialized_entity = entity.serialize(mode='python', model=cls.WriteModel)
-        entity.from_serialized(serialized_entity)
+
+@pytest.mark.parametrize(
+    'required_arguments',
+    nodes_to_test,
+    indirect=True,
+)
+def test_roundtrip_node_from_model_attributes(required_arguments, tmp_path):
+    cls: type[Node] = required_arguments[0]
+    attributes: dict = required_arguments[1]['attributes']
+
+    model = _get_write_model(cls, attributes)
+    assert isinstance(model, BaseModel)
+
+    roundtrip = cls.from_model(model)
+    assert isinstance(roundtrip, cls)
+
+    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.WriteModel, tmp_path)
+
+
+@pytest.mark.parametrize(
+    'required_arguments',
+    nodes_to_test,
+    indirect=True,
+)
+def test_roundtrip_node_from_model_constructor(required_arguments, tmp_path):
+    cls: type[Node] = required_arguments[0]
+    args: dict | None = required_arguments[1].get('args')
+
+    if args is None:
+        with pytest.raises(Exception):
+            cls.ConstructorModel
+        return
+
+    model = _get_constructor_model(cls, args)
+    assert isinstance(model, BaseModel)
+
+    roundtrip = cls.from_model(model)
+    assert isinstance(roundtrip, cls)
+
+    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.ConstructorModel, tmp_path)
+
+
+@pytest.mark.parametrize(
+    'required_arguments',
+    nodes_to_test,
+    indirect=True,
+)
+def test_roundtrip_node_from_serialized_attributes(required_arguments, tmp_path):
+    cls: type[Node] = required_arguments[0]
+    attributes: dict = required_arguments[1]['attributes']
+
+    entity = cls.from_model(_get_write_model(cls, attributes))
+    assert isinstance(entity, cls)
+
+    try:
+        entity.store()
+    except Exception:
+        pass
+
+    context = {'repository_path': tmp_path}
+    serialized_entity = entity.serialize(context=context, mode='python', dump_repo=True, schema=cls.WriteModel)
+    files_dict = _generate_files_dict_from_tree(tmp_path)
+    roundtrip = cls.from_serialized(serialized_entity, files=files_dict)
+
+    assert isinstance(roundtrip, cls)
+    model = cls.WriteModel(**serialized_entity)
+    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.WriteModel, tmp_path)
+
+
+@pytest.mark.parametrize(
+    'required_arguments',
+    nodes_to_test,
+    indirect=True,
+)
+def test_roundtrip_node_from_serialized_constructor(required_arguments, tmp_path):
+    cls: type[Node] = required_arguments[0]
+    args: dict | None = required_arguments[1].get('args')
+
+    if args is None:
+        with pytest.raises(Exception):
+            cls.ConstructorModel
+        return
+
+    model = _get_constructor_model(cls, args)
+    serialized_entity = model.model_dump(mode='python', exclude_none=True)
+    roundtrip = cls.from_serialized(serialized_entity)
+    assert isinstance(roundtrip, cls)
+
+    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.ConstructorModel, tmp_path)

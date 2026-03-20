@@ -29,7 +29,10 @@ def get_metadata(field_info: FieldInfo, key: str, default: t.Any | None = None) 
 class BaseOrmModel(BaseModel, defer_build=True):
     """Base class for all ORM entity models."""
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(
+        extra='forbid',
+        serialize_by_alias=True,
+    )
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: t.Any) -> None:
@@ -89,11 +92,12 @@ class OrmModel(BaseOrmModel):
         if isinstance(cached, type) and issubclass(cached, OrmModel):
             return cached
 
+        qualname = cls.__qualname__.replace(suffix, 'WriteModel')
         WriteModel = create_model(  # noqa: N806
-            'WriteModel',
+            qualname.split('.')[-1],
             __base__=cls,
             __module__=cls.__module__,
-            __qualname__=cls.__qualname__.replace(suffix, 'WriteModel'),
+            __qualname__=qualname,
         )
 
         # Convert nested models to their 'write' variants

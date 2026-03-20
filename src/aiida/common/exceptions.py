@@ -50,7 +50,8 @@ __all__ = (
     'TestsNotAllowedError',
     'TransportTaskException',
     'UniquenessError',
-    'UnsupportedConstructorModel',
+    'UnsupportedConstructorModelError',
+    'UnsupportedSchemaError',
     'UnsupportedSpeciesError',
     'ValidationError',
 )
@@ -297,7 +298,11 @@ class LockingProfileError(AiidaException):
     """Raised if the profile can`t be locked"""
 
 
-class UnsupportedConstructorModel(AiidaException):
+class UnsupportedSchemaError(AiidaException):
+    """Raised when a schema (model) is not supported by the entity."""
+
+
+class UnsupportedConstructorModelError(UnsupportedSchemaError):
     """Raised when a node class does not support creation via a constructor model."""
 
     def __init__(self, node_type: str) -> None:
