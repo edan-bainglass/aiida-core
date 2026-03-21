@@ -59,6 +59,7 @@ class InstalledCode(Code):
             priority=2,
             write_only=True,
             model_to_orm=lambda model: load_computer(cast(InstalledCode.ReadModel, model).computer),
+            orm_to_model=lambda node: cast(InstalledCode, node).computer.label,
         )
 
     def __init__(self, computer: Computer, filepath_executable: str, **kwargs):

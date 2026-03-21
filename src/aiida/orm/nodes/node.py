@@ -369,14 +369,17 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         *,
         context: Dict[str, Any] | None = None,
         minimal: bool = False,
-        schema: type[OrmModel] | None = None,
-    ) -> OrmModel:
+        schema: type[Node.BaseNodeModel] | None = None,
+    ) -> Node.BaseNodeModel:
         supported = ('ReadModel', 'WriteModel', 'ConstructorModel')
         if schema is self.ConstructorArgsModel:
             raise exceptions.UnsupportedSchemaError(
                 f"Cannot serialize against '{schema.__name__}'; supported serialization schemas: {supported}"
             )
-        return super().to_model(context=context, minimal=minimal, schema=schema)
+        return cast(
+            Node.BaseNodeModel,
+            super().to_model(context=context, minimal=minimal, schema=schema),
+        )
 
     @classmethod
     def from_model(

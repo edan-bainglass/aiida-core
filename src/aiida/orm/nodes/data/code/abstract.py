@@ -46,6 +46,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
     class CommonFieldsModel(BaseOrmModel):
         default_calc_job_plugin: t.Optional[str] = MetadataField(
             None,
+            alias='input_plugin',
             title='Default `CalcJob` plugin',
             description='Entry point name of the default plugin (as listed in `verdi plugin list aiida.calculations`)',
             short_name='-P',
@@ -95,11 +96,13 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
             title='Label',
             description='A unique label to identify the code by',
             short_name='-L',
+            priority=4,
         )
         description: str = MetadataField(
             title='Description',
             description='Human-readable description, ideally including version and compilation environment',
             short_name='-D',
+            priority=3,
         )
 
     def __init__(

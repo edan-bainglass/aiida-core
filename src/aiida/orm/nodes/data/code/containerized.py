@@ -36,20 +36,17 @@ class ContainerizedCode(InstalledCode):
             description='The command to run the container. It must contain the placeholder {image_name} that will be '
             'replaced with the `image_name`',
             short_name='-E',
-            priority=3,
         )
         image_name: str = MetadataField(
             title='Image name',
             description='Name of the image container in which to the run the executable',
             short_name='-I',
-            priority=2,
         )
         wrap_cmdline_params: bool = MetadataField(
             False,
             title='Wrap command line parameters',
             description='Whether all command line parameters to be passed to the engine command should be wrapped in '
             'a double quotes to form a single argument. This should be set to `True` for Docker',
-            priority=1,
         )
 
     class AttributesModel(InstalledCode.AttributesModel, CommonFieldsModel): ...

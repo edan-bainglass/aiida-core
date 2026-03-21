@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
+from typing import cast
 
 from aiida.common import exceptions
 from aiida.common.folders import Folder
@@ -61,6 +62,7 @@ class PortableCode(Code):
             description='Relative filepath of executable with directory of code files',
             short_name='-X',
             priority=1,
+            orm_to_model=lambda node: str(cast(PortableCode, node).filepath_executable),
         )
 
     class AttributesModel(AbstractCode.AttributesModel, CommonFieldsModel): ...
@@ -72,6 +74,10 @@ class PortableCode(Code):
             short_name='-F',
             priority=2,
             write_only=True,
+            orm_to_model=lambda node, ctx: _export_filepath_files_from_repo(
+                cast(PortableCode, node),
+                ctx.get('repository_path', pathlib.Path.cwd() / f'{cast(PortableCode, node).label}'),
+            ),
         )
 
     def __init__(
