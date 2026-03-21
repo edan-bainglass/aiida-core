@@ -21,10 +21,9 @@ import typing as t
 from enum import Enum
 
 from plumpy.loaders import get_object_loader
-from pydantic import model_validator
 
 from aiida.common.lang import type_check
-from aiida.common.pydantic import MetadataField
+from aiida.common.pydantic import BaseOrmModel, MetadataField
 
 from .base import to_aiida_type
 from .data import Data
@@ -67,20 +66,11 @@ class EnumData(Data):
             orm_to_model=lambda node: t.cast(EnumData, node).identifier,
         )
 
-        @model_validator(mode='before')
-        @classmethod
-        def derive_member(cls, values: dict[str, t.Any]) -> dict[str, t.Any]:
-            """Derive the member from the stored attributes if not explicitly provided."""
-            if 'member' not in values or values['member'] is None:
-                name = values.get(EnumData.KEY_NAME)
-                value = values.get(EnumData.KEY_VALUE)
-                identifier = values.get(EnumData.KEY_IDENTIFIER)
-
-                if name is not None and value is not None and identifier is not None:
-                    enum_class: type[Enum] = get_object_loader().load_object(identifier)
-                    values['member'] = enum_class(value)
-
-            return values
+    class ConstructorArgsModel(BaseOrmModel):
+        member: Enum = MetadataField(
+            description='The enum member to wrap',
+            write_only=True,
+        )
 
     def __init__(self, member: Enum, *args, **kwargs):
         """Construct the node for the to enum member that is to be wrapped."""
@@ -109,6 +99,11 @@ class EnumData(Data):
     def identifier(self) -> str:
         """Return the identifier of the enum member."""
         return self.base.attributes.get(self.KEY_IDENTIFIER)
+
+    @property
+    def member(self) -> Enum:
+        """Return the enum member wrapped by this node."""
+        return self.get_member()
 
     def get_enum(self) -> t.Type[EnumType]:
         """Return the enum class reconstructed from the serialized identifier stored in the database.

@@ -228,9 +228,18 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         :param schema: The schema model to use for the instance.
             If not provided, defaults to the entity's `ReadModel` if the entity is stored, `WriteModel` otherwise.
         :return: An instance of the entity's model class.
+        :raises UnsupportedSchemaError: if the provided schema is not supported for this entity.
         """
-        if schema is self.ReadModel and not self.is_stored:
-            raise exceptions.UnsupportedSchemaError('Cannot serialize an unstored entity using the ReadModel schema.')
+        if schema is not None:
+            entity = schema.__qualname__.split('.')[0]
+            if entity != self.__class__.__name__:
+                raise exceptions.UnsupportedSchemaError(
+                    f'Cannot serialize {self.__class__.__name__} against a schema of {entity}'
+                )
+            if schema is self.ReadModel and not self.is_stored:
+                raise exceptions.UnsupportedSchemaError(
+                    'Cannot serialize an unstored entity using the ReadModel schema'
+                )
         Model = schema or (self.ReadModel if self.is_stored else self.WriteModel)  # noqa: N806
         fields = self._orm_to_model_field_values(context=context, minimal=minimal, schema=Model)
         if minimal:
@@ -253,7 +262,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         context: dict[str, Any] | None = None,
         minimal: bool = False,
         schema: type[OrmModel] | None = None,
-        mode: Literal['json', 'python'] = 'json',
+        mode: Literal['json', 'python'] = 'python',
     ) -> dict[str, Any]:
         """Serialize the entity instance to JSON.
 
@@ -261,10 +270,10 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
         :param minimal: Whether to exclude potentially large value fields.
         :param schema: The schema model to use for serialization.
             If not provided, defaults to the entity's `ReadModel` if the entity is stored, `WriteModel` otherwise.
-        :param mode: The serialization mode, either 'json' or 'python'. The 'json' mode is the most strict and ensures
-            that the output is JSON serializable, whereas the 'python' mode allows for more complex Python types, such
-            as `datetime` objects.
+        :param mode: The serialization mode, either 'json' or 'python' (default). JSON-based clients (e.g., REST APIs)
+            should use 'json' mode.
         :return: A dictionary that can be serialized to JSON.
+        :raises UnsupportedSchemaError: if the provided schema is not supported for this entity.
         """
         return self.to_model(context=context, minimal=minimal, schema=schema).model_dump(
             mode=mode,

@@ -197,23 +197,19 @@ class Dict(Data):
         *,
         context: dict[str, t.Any] | None = None,
         minimal: bool = False,
-        schema: type[OrmModel] | None = None,
+        schema: type[BaseOrmModel] | None = None,
     ) -> dict[str, t.Any]:
-        # `Dict.AttributesModel` doesn't explicitly define any fields.
-        # `_orm_to_model_field_values` will return an empty `attributes` dict.
-        # We need to add the dictionary content to the fields (model-dependent structure).
         fields = super()._orm_to_model_field_values(
             context=context,
             minimal=minimal,
             schema=schema,
         )
         if schema in (self.ReadModel, self.WriteModel):
+            # `Dict.AttributesModel` doesn't explicitly define any fields.
+            # `_orm_to_model_field_values` will return an empty `attributes` dict.
+            # We wire it in here manually.
             return fields | {'attributes': self.get_dict()}
-        if schema is self.ConstructorModel:
-            return fields | {'args': {'value': self.get_dict()}}
-        if schema is self.ConstructorArgsModel:
-            return {'value': self.get_dict()}
-        raise exceptions.UnsupportedSchemaError(f'unsupported schema: {schema}')
+        return fields
 
 
 @to_aiida_type.register(dict)

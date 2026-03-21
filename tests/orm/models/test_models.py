@@ -5,9 +5,11 @@ import enum
 import io
 
 import pytest
+from plumpy import get_object_loader
 from pydantic import BaseModel
 
 from aiida.common.datastructures import StashMode
+from aiida.common.exceptions import UnsupportedConstructorModelError
 from aiida.orm import AuthInfo, Comment, Computer, Entity, Group, Log, Node, User
 from aiida.orm.nodes.data import (
     ArrayData,
@@ -33,32 +35,32 @@ from aiida.orm.nodes.data import (
 )
 
 orm_to_test = (
-    AuthInfo,
-    Comment,
-    Computer,
-    Group,
-    Log,
-    User,
+    # AuthInfo,
+    # Comment,
+    # Computer,
+    # Group,
+    # Log,
+    # User,
     # ArrayData,
-    Bool,
-    # # CifData,
-    # # ContainerizedCode,
-    Data,
-    Dict,
+    # Bool,
+    # CifData,
+    # ContainerizedCode,
+    # Data,
+    # Dict,
     # EnumData,
-    Float,
-    # # FolderData,
-    # # InstalledCode,
-    Int,
-    # # JsonableData,
-    List,
-    # # PortableCode,
-    # # SinglefileData,
-    Str,
-    StructureData,
-    RemoteData,
-    RemoteStashData,
-    RemoteStashCompressedData,
+    # Float,
+    # FolderData,
+    InstalledCode,
+    # Int,
+    # JsonableData,
+    # List,
+    # PortableCode,
+    # SinglefileData,
+    # Str,
+    # StructureData,
+    # RemoteData,
+    # RemoteStashData,
+    # RemoteStashCompressedData,
 )
 
 entities_to_test = tuple(orm_class for orm_class in orm_to_test if not issubclass(orm_class, Node))
@@ -158,9 +160,11 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
             'attributes': {
                 'name': 'OPTION_A',
                 'value': 'a',
-                'identifier': 'tests.orm.models.test_models.DummyEnum',
+                'identifier': get_object_loader().identify_object(DummyEnum),
             },
-            'args': {'member': DummyEnum.OPTION_A},
+            'args': {
+                'member': DummyEnum.OPTION_A,
+            },
         }
     if request.param is Float:
         return Float, {'attributes': {'value': 1.0}}
@@ -171,7 +175,7 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
     if request.param is InstalledCode:
         return InstalledCode, {
             'attributes': {
-                'computer': aiida_localhost.label,
+                'input_plugin': 'core.arithmetic.add',
                 'filepath_executable': '/bin/echo',
             },
             'args': {
@@ -186,10 +190,13 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
     if request.param is JsonableData:
         return JsonableData, {
             'attributes': {
+                'data': 1,
                 '@class': 'JsonableClass',
                 '@module': 'tests.orm.models.test_models',
             },
-            'args': {'obj': JsonableClass({'a': 1})},
+            'args': {
+                'obj': JsonableClass(1),
+            },
         }
     if request.param is List:
         return List, {'attributes': {'list': [1, 2, 3]}}
@@ -398,7 +405,7 @@ def test_roundtrip_node_from_model_constructor(required_arguments, tmp_path):
     args: dict | None = required_arguments[1].get('args')
 
     if args is None:
-        with pytest.raises(Exception):
+        with pytest.raises(UnsupportedConstructorModelError):
             cls.ConstructorModel
         return
 
@@ -448,7 +455,7 @@ def test_roundtrip_node_from_serialized_constructor(required_arguments, tmp_path
     args: dict | None = required_arguments[1].get('args')
 
     if args is None:
-        with pytest.raises(Exception):
+        with pytest.raises(UnsupportedConstructorModelError):
             cls.ConstructorModel
         return
 

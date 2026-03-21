@@ -314,7 +314,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def ConstructorModel(cls) -> type[Node.BaseNodeModel]:  # noqa: N802, N805
         """Return the constructor-based creation model class for this entity.
 
-        :raises UnsupportedConstructorModel: if this node type does not support creation via a constructor model.
+        :raises UnsupportedConstructorModelError: if this node type does not support creation via a constructor model.
         :return: The constructor-based creation model class.
         """
         if cls.__ConstructorModel is None:
@@ -364,6 +364,20 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """Return the node base namespace."""
         return NodeBase(self)
 
+    def to_model(
+        self,
+        *,
+        context: Dict[str, Any] | None = None,
+        minimal: bool = False,
+        schema: type[OrmModel] | None = None,
+    ) -> OrmModel:
+        supported = ('ReadModel', 'WriteModel', 'ConstructorModel')
+        if schema is self.ConstructorArgsModel:
+            raise exceptions.UnsupportedSchemaError(
+                f"Cannot serialize against '{schema.__name__}'; supported serialization schemas: {supported}"
+            )
+        return super().to_model(context=context, minimal=minimal, schema=schema)
+
     @classmethod
     def from_model(
         cls,
@@ -396,7 +410,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         context: dict[str, Any] | None = None,
         minimal: bool = False,
         schema: type[OrmModel] | None = None,
-        mode: Literal['json'] | Literal['python'] = 'json',
+        mode: Literal['json', 'python'] | None = None,
         dump_repo: bool = False,
     ) -> dict[str, Any]:
         """Serialize the entity instance to JSON.
@@ -405,11 +419,11 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :param minimal: Whether to exclude potentially large value fields.
         :param schema: The schema model to use for serialization.
             If not provided, defaults to the entity's `ReadModel` if the entity is stored, `WriteModel` otherwise.
-        :param mode: The serialization mode, either 'json' or 'python'. The 'json' mode is the most strict and ensures
-            that the output is JSON serializable, whereas the 'python' mode allows for more complex Python types, such
-            as `datetime` objects.
+        :param mode: The serialization mode, either 'json' or 'python' (default). JSON-based clients (e.g., REST APIs)
+            should use 'json' mode.
         :param dump_repo: Whether to dump the repository contents to the serialization directory.
         :return: A dictionary that can be serialized to JSON.
+        :raises UnsupportedSchemaError: if the provided schema is not supported for this entity.
         """
         if dump_repo:
             repository_path = (context or {}).get('repository_path')

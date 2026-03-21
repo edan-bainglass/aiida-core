@@ -6,9 +6,9 @@ import importlib
 import json
 import typing
 
-from pydantic import model_validator
+from pydantic import ConfigDict, WithJsonSchema
 
-from aiida.common.pydantic import MetadataField
+from aiida.common.pydantic import BaseOrmModel, MetadataField, OrmModel
 
 from .data import Data
 
@@ -30,7 +30,7 @@ class JsonableData(Data):
     store an instance as a ``JsonableData`` simply pass an instance as an argument to the constructor as follows::
 
         from pymatgen.core import Molecule
-        molecule = Molecule(['H']. [0, 0, 0])
+        molecule = Molecule(['H'], [0, 0, 0])
         node = JsonableData(molecule)
         node.store()
 
@@ -53,52 +53,44 @@ class JsonableData(Data):
     """
 
     class AttributesModel(Data.AttributesModel):
+        model_config = ConfigDict(
+            arbitrary_types_allowed=True,
+            extra='allow',
+            json_schema_extra={
+                'additionalProperties': True,
+            },
+        )
+
         the_module: str = MetadataField(
-            ...,
             title='Module name',
             alias='@module',
             description='The module name of the wrapped object',
             orm_to_model=lambda node: typing.cast(JsonableData, node).the_module,
         )
         the_class: str = MetadataField(
-            ...,
             title='Class name',
             alias='@class',
             description='The class name of the wrapped object',
             orm_to_model=lambda node: typing.cast(JsonableData, node).the_class,
         )
 
-        @model_validator(mode='before')
-        @classmethod
-        def derive_obj(cls, values: dict[str, typing.Any]) -> dict[str, typing.Any]:
-            """Derive the object from the stored attributes if not explicitly provided."""
-            if 'obj' not in values or values['obj'] is None:
-                module_name = values.get('@module')
-                class_name = values.get('@class')
+    class ConstructorArgsModel(BaseOrmModel):
+        model_config = ConfigDict(arbitrary_types_allowed=True)
 
-                if module_name is not None and class_name is not None:
-                    try:
-                        module = importlib.import_module(module_name)
-                    except ImportError as exc:
-                        raise ImportError(f'the objects module `{module_name}` can not be imported.') from exc
-
-                    try:
-                        cls_ = getattr(module, class_name)
-                    except AttributeError as exc:
-                        raise ImportError(
-                            f'the objects module `{module_name}` does not contain the class `{class_name}`.'
-                        ) from exc
-
-                    if hasattr(cls_, 'from_dict') and callable(getattr(cls_, 'from_dict')):
-                        obj = cls_.from_dict(values)
-                        values['obj'] = obj
-                    else:
-                        raise TypeError(
-                            f'the class `{class_name}` does not have the required `from_dict` method to be able to '
-                            f'reconstruct the object from the stored attributes.'
-                        )
-
-            return values
+        obj: typing.Annotated[
+            JsonSerializableProtocol,
+            WithJsonSchema(
+                {
+                    'type': 'object',
+                    'title': 'JSON-serializable object',
+                    'description': 'The JSON-serializable object',
+                }
+            ),
+            MetadataField(
+                description='The JSON-serializable object',
+                write_only=True,
+            ),
+        ]
 
     def __init__(self, obj: JsonSerializableProtocol, *args, **kwargs):
         """Construct the node for the to be wrapped object."""
@@ -145,6 +137,21 @@ class JsonableData(Data):
     def the_class(self) -> str:
         """Return the class name of the wrapped object."""
         return self.base.attributes.get('@class', '')
+
+    @property
+    def obj(self) -> JsonSerializableProtocol:
+        """Return the wrapped object.
+
+        .. note:: This property caches the deserialized object, this means that when the node is loaded from the
+            database, the object is deserialized only once and stored in memory as an attribute. Subsequent calls will
+            simply return this cached object and not reload it from the database. This is fine, since nodes that are
+            loaded from the database are by definition stored and therefore immutable, making it safe to assume that the
+            object that is represented can not change. Note, however, that the caching also applies to unstored nodes.
+            That means that manually changing the attributes of an unstored ``JsonableData`` can lead to inconsistencies
+            with the object returned by this property.
+
+        """
+        return self._get_object()
 
     @classmethod
     def _deserialize_float_constants(cls, data: typing.Any):
@@ -198,17 +205,33 @@ class JsonableData(Data):
 
             return self._obj
 
-    @property
-    def obj(self) -> JsonSerializableProtocol:
-        """Return the wrapped object.
+    @classmethod
+    def _model_to_orm_field_values(
+        cls,
+        valid_model: OrmModel,
+        schema: type[OrmModel],
+    ) -> dict[str, typing.Any]:
+        # `Dict.AttributesModel` doesn't explicitly define any fields.
+        # `_model_to_orm_field_values` will return an empty `attributes` dict.
+        # We dump the model directly.
+        return valid_model.model_dump(exclude_none=True)
 
-        .. note:: This property caches the deserialized object, this means that when the node is loaded from the
-            database, the object is deserialized only once and stored in memory as an attribute. Subsequent calls will
-            simply return this cached object and not reload it from the database. This is fine, since nodes that are
-            loaded from the database are by definition stored and therefore immutable, making it safe to assume that the
-            object that is represented can not change. Note, however, that the caching also applies to unstored nodes.
-            That means that manually changing the attributes of an unstored ``JsonableData`` can lead to inconsistencies
-            with the object returned by this property.
-
-        """
-        return self._get_object()
+    def _orm_to_model_field_values(
+        self,
+        *,
+        context: dict[str, typing.Any] | None = None,
+        minimal: bool = False,
+        schema: type[BaseOrmModel] | None = None,
+    ) -> dict[str, typing.Any]:
+        fields = super()._orm_to_model_field_values(
+            context=context,
+            minimal=minimal,
+            schema=schema,
+        )
+        if schema in (self.ReadModel, self.WriteModel):
+            # The object's data can be anything and is not explicitly defined on the schema.
+            # `_orm_to_model_field_values` will not pick it up.
+            # We wire it in here manually.
+            fields['attributes'] |= self.obj.as_dict()
+            return fields
+        return fields
