@@ -3,10 +3,11 @@
 import datetime
 import enum
 import io
+import typing as t
 
+import numpy as np
 import pytest
 from plumpy import get_object_loader
-from pydantic import BaseModel
 
 from aiida import orm
 from aiida.common.datastructures import StashMode
@@ -98,16 +99,34 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
     if request.param is orm.User:
         return orm.User, {'email': 'test@localhost'}
     if request.param is orm.ArrayData:
+        buffered_array = io.BytesIO()
+        np.save(buffered_array, np.array([1, 0, 0]), allow_pickle=False)
+        buffered_array.seek(0)
+
+        def assert_derived_array_properties(node: orm.ArrayData):
+            assert node.base.attributes.all == {'array|test_array': [3]}
+            assert node.get_array('test_array').tolist() == [1, 0, 0]
+
         return orm.ArrayData, {
             'attributes': {},
+            'files': {'test_array': buffered_array},
+            'assert_derived': assert_derived_array_properties,
             'args': {'arrays': {'test_array': [1, 0, 0]}},
         }
     if request.param is orm.Bool:
         return orm.Bool, {'attributes': {'value': True}}
     if request.param is orm.CifData:
+
+        def assert_derived_cif_properties(node: orm.CifData):
+            assert node.filename == 'structure.cif'
+            assert node.md5 == '771ee48ec137aba8a57328a1df42fcf4'
+            assert node.get_content(mode='r') == 'data_test\nloop_\n_atom_site_label\nH1\n'
+
         return orm.CifData, {
             'attributes': {},
-            'args': {'filename': 'structure.cif', 'content': 'structure-content'},
+            'files': {'structure.cif': io.StringIO('data_test\nloop_\n_atom_site_label\nH1\n')},
+            'assert_derived': assert_derived_cif_properties,
+            'args': {'filename': 'structure.cif', 'content': 'data_test\nloop_\n_atom_site_label\nH1\n'},
         }
     if request.param is orm.ContainerizedCode:
         return orm.ContainerizedCode, {
@@ -139,20 +158,26 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
                 'value': 'a',
                 'identifier': get_object_loader().identify_object(DummyEnum),
             },
-            'args': {
-                'member': DummyEnum.OPTION_A,
-            },
+            'args': {'member': DummyEnum.OPTION_A},
         }
     if request.param is orm.Float:
         return orm.Float, {'attributes': {'value': 1.0}}
     if request.param is orm.FolderData:
         (tmp_path / 'binary_file').write_bytes(b'byte content')
         (tmp_path / 'text_file').write_text('text content')
+
+        def assert_derived_folder_properties(node: orm.FolderData):
+            assert node.get_object_content('binary_file', mode='rb') == b'byte content'
+            assert node.get_object_content('text_file', mode='r') == 'text content'
+
         return orm.FolderData, {
             'attributes': {},
-            'args': {
-                'tree': tmp_path,
+            'files': {
+                'binary_file': io.BytesIO(b'byte content'),
+                'text_file': io.StringIO('text content'),
             },
+            'assert_derived': assert_derived_folder_properties,
+            'args': {'tree': tmp_path},
         }
     if request.param is orm.InstalledCode:
         return orm.InstalledCode, {
@@ -196,8 +221,15 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
             },
         }
     if request.param is orm.SinglefileData:
+
+        def assert_derived_singlefile_properties(node: orm.SinglefileData):
+            assert node.filename == 'file.txt'
+            assert node.get_content(mode='r') == 'singlefile-content'
+
         return orm.SinglefileData, {
             'attributes': {},
+            'files': {'file.txt': io.StringIO('singlefile-content')},
+            'assert_derived': assert_derived_singlefile_properties,
             'args': {'filename': 'file.txt', 'content': 'some-content'},
         }
     if request.param is orm.Str:
@@ -250,7 +282,7 @@ def test_model_overrides(required_arguments):
     nodes_to_test,
     indirect=True,
 )
-def test_attributes_model_overrides(required_arguments):
+def test_node_attributes_model_overrides(required_arguments):
     cls: type[orm.Node] = required_arguments[0]
 
     name = cls.__name__
@@ -289,17 +321,14 @@ def test_roundtrip_entity_from_model(required_arguments):
     cls: type[orm.Entity] = required_arguments[0]
     kwargs: dict = required_arguments[1]
 
-    entity: orm.Entity = cls(**kwargs)
-    assert isinstance(entity, cls)
-
+    entity = cls(**kwargs)
     model = entity.to_model(schema=cls.WriteModel)
-    assert isinstance(model, BaseModel)
-
-    roundtrip = cls.from_model(model)
-    assert isinstance(roundtrip, cls)
-
-    roundtrip_model = roundtrip.to_model(schema=cls.WriteModel)
-    assert _validate_value(roundtrip_model) == _validate_value(model)
+    assert isinstance(model, cls.WriteModel)
+    new = cls.from_model(model)
+    assert isinstance(new, cls)
+    new_model = new.to_model(schema=cls.WriteModel)
+    assert isinstance(new_model, cls.WriteModel)
+    assert _validate_value(new_model) == _validate_value(model)
 
 
 @pytest.mark.parametrize(
@@ -312,53 +341,28 @@ def test_roundtrip_entity_from_serialized(required_arguments):
     kwargs: dict = required_arguments[1]
 
     entity = cls(**kwargs)
-    assert isinstance(entity, cls)
-
     serialized_entity = entity.serialize(schema=cls.WriteModel)
-
-    roundtrip = cls.from_serialized(serialized_entity)
-    assert isinstance(roundtrip, cls)
-
-    roundtrip_serialized = roundtrip.serialize(schema=cls.WriteModel)
-    assert roundtrip_serialized == serialized_entity
+    assert set(serialized_entity.keys()) == set(cls.WriteModel.model_fields.keys())
+    new = cls.from_serialized(serialized_entity)
+    assert isinstance(new, cls)
+    serialized_new = new.serialize(schema=cls.WriteModel)
+    assert serialized_new == serialized_entity
 
 
 def _assert_roundtrip_field_values_equal(
     cls: type[orm.Node],
     original_model: orm.Node.BaseNodeModel,
-    roundtrip_entity: orm.Node,
+    new_entity: orm.Node,
     schema: type[orm.Node.BaseNodeModel],
     tmp_path,
 ):
     context = {'repository_path': tmp_path}
-    roundtrip_model = roundtrip_entity.to_model(context=context, schema=schema)
-
-    assert roundtrip_model.node_type == original_model.node_type
+    new_model = new_entity.to_model(context=context, schema=schema)
+    assert new_model.node_type == original_model.node_type
     if isinstance(original_model, cls.WriteModel):
-        assert _validate_value(roundtrip_model.attributes) == _validate_value(original_model.attributes)
+        assert _validate_value(new_model.attributes) == _validate_value(original_model.attributes)
     elif isinstance(original_model, cls.ConstructorModel):
-        assert _validate_value(roundtrip_model.args) == _validate_value(original_model.args)
-
-
-def _generate_files_dict_from_tree(tree_path):
-    import os
-
-    files_dict = {}
-    for root, _, files in os.walk(tree_path):
-        for file in files:
-            file_path = os.path.join(root, file)
-            relative_path = os.path.relpath(file_path, tree_path)
-            with open(file_path, 'rb') as handle:
-                files_dict[relative_path] = io.BytesIO(handle.read())
-    return files_dict
-
-
-def _get_write_model(cls: type[orm.Node], attributes: dict[str, object]):
-    return cls.WriteModel(node_type=cls.class_node_type, attributes=attributes)
-
-
-def _get_constructor_model(cls: type[orm.Node], args: dict[str, object]):
-    return cls.ConstructorModel(node_type=cls.class_node_type, args=args)
+        assert _validate_value(new_model.args) == _validate_value(original_model.args)
 
 
 @pytest.mark.parametrize(
@@ -368,15 +372,16 @@ def _get_constructor_model(cls: type[orm.Node], args: dict[str, object]):
 )
 def test_roundtrip_node_from_model_attributes(required_arguments, tmp_path):
     cls: type[orm.Node] = required_arguments[0]
-    attributes: dict = required_arguments[1]['attributes']
+    payload: dict = required_arguments[1]
+    attributes: dict = payload['attributes']
+    files: dict[str, t.IO] = payload.get('files', {})
+    assert_derived = t.cast(t.Callable[[orm.Node], None], payload.get('assert_derived', lambda _: None))
 
-    model = _get_write_model(cls, attributes)
-    assert isinstance(model, BaseModel)
-
-    roundtrip = cls.from_model(model)
-    assert isinstance(roundtrip, cls)
-
-    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.WriteModel, tmp_path)
+    model = cls.WriteModel(node_type=cls.class_node_type, attributes=attributes)
+    new = cls.from_model(model, files=files)
+    assert isinstance(new, cls)
+    assert_derived(new)
+    _assert_roundtrip_field_values_equal(cls, model, new, cls.WriteModel, tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -393,13 +398,10 @@ def test_roundtrip_node_from_model_constructor(required_arguments, tmp_path):
             cls.ConstructorModel
         return
 
-    model = _get_constructor_model(cls, args)
-    assert isinstance(model, BaseModel)
-
-    roundtrip = cls.from_model(model)
-    assert isinstance(roundtrip, cls)
-
-    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.ConstructorModel, tmp_path)
+    model = cls.ConstructorModel(node_type=cls.class_node_type, args=args)
+    new = cls.from_model(model)
+    assert isinstance(new, cls)
+    _assert_roundtrip_field_values_equal(cls, model, new, cls.ConstructorModel, tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -409,24 +411,17 @@ def test_roundtrip_node_from_model_constructor(required_arguments, tmp_path):
 )
 def test_roundtrip_node_from_serialized_attributes(required_arguments, tmp_path):
     cls: type[orm.Node] = required_arguments[0]
-    attributes: dict = required_arguments[1]['attributes']
+    payload: dict = required_arguments[1]
+    attributes: dict = payload['attributes']
+    files: dict[str, t.IO] = payload.get('files', {})
+    assert_derived = t.cast(t.Callable[[orm.Node], None], payload.get('assert_derived', lambda _: None))
 
-    entity = cls.from_model(_get_write_model(cls, attributes))
-    assert isinstance(entity, cls)
-
-    try:
-        entity.store()
-    except Exception:
-        pass
-
-    context = {'repository_path': tmp_path}
-    serialized_entity = entity.serialize(context=context, mode='python', dump_repo=True, schema=cls.WriteModel)
-    files_dict = _generate_files_dict_from_tree(tmp_path)
-    roundtrip = cls.from_serialized(serialized_entity, files=files_dict)
-
-    assert isinstance(roundtrip, cls)
-    model = cls.WriteModel(**serialized_entity)
-    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.WriteModel, tmp_path)
+    model = cls.WriteModel(node_type=cls.class_node_type, attributes=attributes)
+    serialized = model.model_dump(exclude_none=True)
+    new = cls.from_serialized(serialized, files=files)
+    assert isinstance(new, cls)
+    assert_derived(new)
+    _assert_roundtrip_field_values_equal(cls, model, new, cls.WriteModel, tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -443,9 +438,8 @@ def test_roundtrip_node_from_serialized_constructor(required_arguments, tmp_path
             cls.ConstructorModel
         return
 
-    model = _get_constructor_model(cls, args)
-    serialized_entity = model.model_dump(mode='python', exclude_none=True)
-    roundtrip = cls.from_serialized(serialized_entity)
-    assert isinstance(roundtrip, cls)
-
-    _assert_roundtrip_field_values_equal(cls, model, roundtrip, cls.ConstructorModel, tmp_path)
+    model = cls.ConstructorModel(node_type=cls.class_node_type, args=args)
+    serialized = model.model_dump(exclude_none=True)
+    new = cls.from_serialized(serialized)
+    assert isinstance(new, cls)
+    _assert_roundtrip_field_values_equal(cls, model, new, cls.ConstructorModel, tmp_path)

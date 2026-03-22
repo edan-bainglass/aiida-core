@@ -225,7 +225,7 @@ class SinglefileData(Data):
 
         self.filename = key
 
-    def _validate(self) -> bool:
+    def _validate(self):
         """Validate the node before storing.
 
         This check ensures that there is exactly one file object stored in the repository,
@@ -247,5 +247,3 @@ class SinglefileData(Data):
             raise exceptions.ValidationError('expected a file, found a directory')
 
         self.filename = filename
-
-        return True

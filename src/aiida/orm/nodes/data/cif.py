@@ -262,6 +262,7 @@ class CifData(SinglefileData):
         md5: Optional[str] = MetadataField(
             None,
             description='MD5 checksum of the file contents',
+            read_only=True,
         )
 
     def __init__(self, ase=None, file=None, filename=None, values=None, scan_type=None, parse_policy=None, **kwargs):
@@ -490,6 +491,9 @@ class CifData(SinglefileData):
     def store(self, *args, **kwargs):
         """Store the node."""
         if not self.is_stored:
+            # We need to first run validation on the parent `SinglefileData` to ensure the `filename` is set,
+            # in case the file was added after the node was created (but clearly not yet stored)
+            super()._validate()
             self.base.attributes.set('md5', self.generate_md5())
 
         return super().store(*args, **kwargs)

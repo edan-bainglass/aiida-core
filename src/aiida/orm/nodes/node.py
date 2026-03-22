@@ -36,6 +36,7 @@ from uuid import UUID
 from pydantic import create_model, field_serializer
 from typing_extensions import Self
 
+from aiida import orm
 from aiida.common import exceptions
 from aiida.common.lang import classproperty, type_check
 from aiida.common.links import LinkType
@@ -1127,13 +1128,24 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 expected_hash = flattened_repo.get(filepath)
                 if expected_hash:
                     actual_hash = chunked_file_hash(fileobj, hashlib.sha256)
+                    fileobj.seek(0)
                     if expected_hash != actual_hash:
                         raise exceptions.ValidationError(
                             f'File hash mismatch for `{filepath}`: expected {expected_hash}, computed {actual_hash}'
                         )
 
-            fileobj.seek(0)
-            instance.base.repository.put_object_from_filelike(fileobj, filepath)
+            # Though all node types CAN have files, we limit support here to those that SHOULD
+            # TODO explicitly define file support per node type
+            if isinstance(instance, orm.ArrayData):
+                instance.set_array_from_file(filepath, fileobj)
+            elif isinstance(instance, orm.FolderData):
+                instance.put_object_from_filelike(fileobj, filepath)
+            elif isinstance(instance, orm.SinglefileData):
+                instance.set_file(fileobj, filepath)
+            else:
+                raise exceptions.ValidationError(
+                    f'Node of type `{cls.__name__}` does not support file repository contents.'
+                )
             seen.add(filepath)
 
         return instance

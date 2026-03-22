@@ -98,7 +98,8 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
             short_name='-L',
             priority=4,
         )
-        description: str = MetadataField(
+        description: t.Optional[str] = MetadataField(
+            '',
             title='Description',
             description='Human-readable description, ideally including version and compilation environment',
             short_name='-D',

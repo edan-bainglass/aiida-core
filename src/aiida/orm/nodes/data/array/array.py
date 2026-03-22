@@ -177,8 +177,6 @@ class ArrayData(Data):
             no arrays at all a ``ValueError`` is raised.
         :raises ValueError: If ``name`` is ``None`` and the node contains more than one arrays or no arrays at all.
         """
-        import numpy
-
         if name is None:
             names = self.get_arraynames()
             narrays = len(names)
@@ -199,7 +197,7 @@ class ArrayData(Data):
 
             # Open a handle in binary read mode as the arrays are written as binary files as well
             with self.base.repository.open(filename, mode='rb') as handle:
-                return numpy.load(handle, allow_pickle=False)
+                return np.load(handle, allow_pickle=False)
 
         # Return with proper caching if the node is stored, otherwise always re-read from disk
         if not self.is_stored:
@@ -250,6 +248,18 @@ class ArrayData(Data):
         # Store the array name and shape for querying purposes
         self.base.attributes.set(f'{self.array_prefix}{name}', list(array.shape))
 
+    def set_array_from_file(self, name: str, fileobj: io.IOBase) -> None:
+        """Store a new numpy array inside the node, reading it from a filelike object."
+
+        :param name: The name of the array.
+        :param fileobj: A filelike object containing the array in .npy format.
+        """
+        if not isinstance(fileobj, io.IOBase):
+            raise TypeError('`fileobj` should be a file-like object')
+
+        array = np.load(fileobj, allow_pickle=False)
+        self.set_array(name, array)
+
     def _validate_array_name(self, name: str) -> None:
         """Validate the array name.
 
@@ -288,7 +298,7 @@ class ArrayData(Data):
                 self._validate_array_name(file)
                 try:
                     content = self.base.repository.get_object_content(f'{file}.npy', 'rb')
-                    array = np.load(io.BytesIO(content))
+                    array = np.load(io.BytesIO(content), allow_pickle=False)
                     self.base.attributes.set(f'{self.array_prefix}{file}', list(array.shape))
                 except Exception as exc:
                     raise ValidationError(
@@ -340,8 +350,6 @@ def clean_array(array: np.ndarray) -> list:
     :return: cleaned list to be serialized
     :rtype: list
     """
-    import numpy as np
-
     output = np.reshape(
         np.asarray(
             [entry if not np.isnan(entry) and not np.isinf(entry) else None for entry in array.flatten().tolist()]
