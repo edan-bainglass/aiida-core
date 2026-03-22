@@ -130,6 +130,7 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
         }
     if request.param is orm.ContainerizedCode:
         return orm.ContainerizedCode, {
+            'computer': aiida_localhost.pk,
             'attributes': {
                 'filepath_executable': '/bin/echo',
                 'image_name': 'docker://alpine:3',
@@ -181,6 +182,7 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
         }
     if request.param is orm.InstalledCode:
         return orm.InstalledCode, {
+            'computer': aiida_localhost.pk,
             'attributes': {
                 'input_plugin': 'core.arithmetic.add',
                 'filepath_executable': '/bin/echo',
@@ -246,7 +248,10 @@ def required_arguments(request, default_user, aiida_localhost, tmp_path):
             }
         }
     if request.param is orm.RemoteData:
-        return orm.RemoteData, {'attributes': {'remote_path': '/some/path'}}
+        return orm.RemoteData, {
+            'computer': aiida_localhost.pk,
+            'attributes': {'remote_path': '/some/path'},
+        }
     if request.param is orm.RemoteStashData:
         return orm.RemoteStashData, {'attributes': {'stash_mode': StashMode.COMPRESS_TAR}}
     if request.param is orm.RemoteStashCompressedData:
@@ -376,8 +381,10 @@ def test_roundtrip_node_from_model_attributes(required_arguments, tmp_path):
     attributes: dict = payload['attributes']
     files: dict[str, t.IO] = payload.get('files', {})
     assert_derived = t.cast(t.Callable[[orm.Node], None], payload.get('assert_derived', lambda _: None))
+    computer: str | None = payload.get('computer')
 
-    model = cls.WriteModel(node_type=cls.class_node_type, attributes=attributes)
+    kwargs = {'attributes': attributes} | ({} if computer is None else {'computer': computer})
+    model = cls.WriteModel(node_type=cls.class_node_type, **kwargs)
     new = cls.from_model(model, files=files)
     assert isinstance(new, cls)
     assert_derived(new)
@@ -415,8 +422,10 @@ def test_roundtrip_node_from_serialized_attributes(required_arguments, tmp_path)
     attributes: dict = payload['attributes']
     files: dict[str, t.IO] = payload.get('files', {})
     assert_derived = t.cast(t.Callable[[orm.Node], None], payload.get('assert_derived', lambda _: None))
+    computer: str | None = payload.get('computer')
 
-    model = cls.WriteModel(node_type=cls.class_node_type, attributes=attributes)
+    kwargs = {'attributes': attributes} | ({} if computer is None else {'computer': computer})
+    model = cls.WriteModel(node_type=cls.class_node_type, **kwargs)
     serialized = model.model_dump(exclude_none=True)
     new = cls.from_serialized(serialized, files=files)
     assert isinstance(new, cls)

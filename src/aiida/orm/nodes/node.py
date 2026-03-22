@@ -1041,9 +1041,10 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def _patch_read_model(cls):
         """Patch `ReadModel` by wiring the subclass-specific `attributes` model.
 
-        Subclasses SHOULD NOT extend `ReadModel`.
+        Only `RemoteData` and `InstalledCode` are allowed to override `ReadModel` due to the required computer field.
         """
-        if 'ReadModel' in cls.__dict__:
+        exceptions = ('RemoteData', 'InstalledCode')
+        if 'ReadModel' in cls.__dict__ and cls.__name__ not in exceptions:
             raise TypeError(
                 f'{cls.__name__} should not define `ReadModel`; '
                 'only define `AttributesModel` and optionally `ConstructorArgsModel`.'
@@ -1102,13 +1103,18 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         fields = cls._model_to_orm_field_values(model, cls.WriteModel)
         repository_metadata = fields.pop('repository_metadata', {})
         attributes = fields.pop('attributes', None)
+        computer: Computer | None = fields.pop('computer', None)
         if attributes is None:
             raise ValueError('the model is missing the required `attributes` field')
 
         extras = fields.pop('extras', None)
 
         backend = get_manager().get_profile_storage()
-        backend_entity = backend.nodes.create(user=backend.default_user.backend_entity, **fields)
+        backend_entity = backend.nodes.create(
+            user=backend.default_user.backend_entity,
+            computer=computer.backend_entity if computer else None,
+            **fields,
+        )
         instance = from_backend_entity(cls, backend_entity)
         instance.base.attributes.set_many(attributes)
         if extras:

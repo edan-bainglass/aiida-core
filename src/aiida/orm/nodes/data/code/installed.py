@@ -62,6 +62,14 @@ class InstalledCode(Code):
             orm_to_model=lambda node: cast(InstalledCode, node).computer.label,
         )
 
+    class ReadModel(AbstractCode.ReadModel):
+        computer: int = MetadataField(
+            title='Computer',
+            description='The pk of the remote computer on which the executable resides',
+            orm_to_model=lambda node: cast(InstalledCode, node).computer.pk,
+            orm_class=Computer,
+        )
+
     def __init__(self, computer: Computer, filepath_executable: str, **kwargs):
         """Construct a new instance.
 
