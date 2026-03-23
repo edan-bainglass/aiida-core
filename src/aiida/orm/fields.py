@@ -415,25 +415,24 @@ class EntityFieldMeta(ABCMeta):
     def __init__(cls, name, bases, classdict):
         super().__init__(name, bases, classdict)
 
-        # Only allow an existing fields attribute if has been generated from a subclass
+        # Only allow an existing fields attribute if generated from a subclass
         current_fields = getattr(cls, 'fields', None)
         if current_fields is not None and not isinstance(current_fields, QbFields):
             raise ValueError(f"class '{cls}' already has a `fields` attribute set")
 
         fields: dict[str, t.Any] = {}
 
-        if cls._has_model('ReadModel'):
-            if 'ReadModel' in cls.__dict__:
-                cls._validate_model_inheritance('ReadModel')
+        if 'ReadModel' in cls.__dict__:
+            cls._validate_model_inheritance('ReadModel')
 
-            Model = cls.ReadModel  # type: ignore[attr-defined] # noqa N806
-            for key, field in Model.model_fields.items():
-                fields[key] = add_field(
-                    key,
-                    alias=field.alias,
-                    dtype=field.annotation,
-                    doc=field.description,
-                )
+        Model = cls.ReadModel  # type: ignore[attr-defined] # noqa N806
+        for key, field in Model.model_fields.items():
+            fields[key] = add_field(
+                key,
+                alias=field.alias,
+                dtype=field.annotation,
+                doc=field.description,
+            )
 
         # TODO should this be done more generally/recursively for all nested models?
         if cls._has_model('AttributesModel'):
@@ -488,11 +487,9 @@ class EntityFieldMeta(ABCMeta):
 
         cls_model_bases = {getattr(base, model_name) for base in cls_bases_with_model_leaves} or {OrmModel}
 
-        model_bases = {base for base in getattr(cls, model_name).__bases__ if issubclass(base, OrmModel)}
+        model_bases = {base for base in getattr(cls, model_name).__mro__ if issubclass(base, OrmModel)}
 
-        if model_bases != cls_model_bases and not getattr(cls, '_SKIP_MODEL_INHERITANCE_CHECK', False):
-            # TODO resolve this
-            return
+        if not cls_model_bases.issubset(model_bases) and not getattr(cls, '_SKIP_MODEL_INHERITANCE_CHECK', False):
             bases = [f'{e.__module__}.{e.__name__}.{model_name}' for e in cls_bases_with_model_leaves]
             raise RuntimeError(
                 f'`{cls.__name__}.{model_name}` does not subclass all necessary base classes. It should be: '

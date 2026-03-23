@@ -234,7 +234,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
             entity = schema.__qualname__.split('.')[0]
             if entity != self.__class__.__name__:
                 raise exceptions.UnsupportedSchemaError(
-                    f'Cannot serialize {self.__class__.__name__} against a schema of {entity}'
+                    f'Cannot serialize `{type(self).__name__}` against a schema of `{entity}`'
                 )
             if schema is self.ReadModel and not self.is_stored:
                 raise exceptions.UnsupportedSchemaError(
@@ -444,7 +444,7 @@ class Entity(abc.ABC, Generic[BackendEntityType, CollectionType], metaclass=Enti
                         orm_class = cast(Entity, BaseFactory('aiida.orm', orm_class))
                     except EntryPointError as exception:
                         raise EntryPointError(
-                            f'The `orm_class` of `{cls.__name__}.Model.{key} is invalid: {exception}'
+                            f'The `orm_class` of `{cls.__name__}.Model.{key}` is invalid: {exception}'
                         ) from exception
                 try:
                     fields[field_name] = orm_class.collection.get(id=field_value)

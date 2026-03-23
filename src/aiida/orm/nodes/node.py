@@ -406,7 +406,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         elif cls.__ConstructorModel is not None and isinstance(model, cls.ConstructorModel):
             return cls._from_constructor_model(model)
         else:
-            raise ValueError(f'cannot create {cls.__name__} from model of type {type(model).__name__}')
+            raise ValueError(f'cannot create `{cls.__name__}` from model of type `{type(model).__name__}`')
 
     def serialize(
         self,
@@ -1005,11 +1005,10 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """Patch `BaseNodeModel` by wiring the subclass-specific `node_type` field."""
         if 'BaseNodeModel' in cls.__dict__:
             raise TypeError(
-                f'{cls.__name__} should not define `BaseNodeModel`; only define `AttributesModel` and optionally '
-                '`ConstructorArgsModel`.'
+                f'`{cls.__name__}` should not define `BaseNodeModel`; '
+                'only define `AttributesModel` and optionally `ConstructorArgsModel`'
             )
         node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
-        node_type_field.annotation = str
         cls.BaseNodeModel = cast(
             type[Node.BaseNodeModel],
             create_model(
@@ -1024,7 +1023,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @classmethod
     def _patch_attributes_model(cls):
-        """Patch `AttributesModel` by wiring the subclass-specific attributes."""
+        """Patch `AttributesModel` as a subclass-specific version if not explicitly defined."""
         if 'AttributesModel' not in cls.__dict__:
             cls.AttributesModel = cast(
                 type[Node.AttributesModel],
@@ -1041,26 +1040,41 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def _patch_read_model(cls):
         """Patch `ReadModel` by wiring the subclass-specific `attributes` model.
 
-        Only `RemoteData` and `InstalledCode` are allowed to override `ReadModel` due to the required computer field.
+        Only `RemoteData` and `InstalledCode` are allowed to override `ReadModel` due to
+        their *required* computer field.
         """
         exceptions = ('RemoteData', 'InstalledCode')
-        if 'ReadModel' in cls.__dict__ and cls.__name__ not in exceptions:
-            raise TypeError(
-                f'{cls.__name__} should not define `ReadModel`; '
-                'only define `AttributesModel` and optionally `ConstructorArgsModel`.'
-            )
+
+        BaseReadModel: type[Node.ReadModel] = cls.ReadModel
+        model_fields: dict[str, Any] = {}
+
+        if 'ReadModel' in cls.__dict__:
+            if cls.__name__ not in exceptions:
+                raise TypeError(
+                    f'`{cls.__name__}` should not define `ReadModel`; '
+                    'only define `AttributesModel` and optionally `ConstructorArgsModel`'
+                )
+            # For the exception classes that override `ReadModel`, we need to copy the overridden fields.
+            # We don't know a priori which fields are overridden, so we copy all.
+            BaseReadModel = cls.ReadModel.__bases__[0]
+            model_fields = {
+                key: (field.annotation, deepcopy(field)) for key, field in cls.ReadModel.model_fields.items()
+            }
+
         attributes_field = deepcopy(cls.ReadModel.model_fields['attributes'])
         attributes_field.annotation = cls.AttributesModel
         node_type_field = deepcopy(cls.BaseNodeModel.model_fields['node_type'])
+        model_fields['node_type'] = (Literal[cls.class_node_type], node_type_field)
+        model_fields['attributes'] = (cls.AttributesModel, attributes_field)
+
         cls.ReadModel = cast(
             type[Node.ReadModel],
             create_model(
                 'ReadModel',
-                __base__=cls.ReadModel,
+                __base__=BaseReadModel,
                 __module__=cls.__module__,
                 __qualname__=f'{cls.__qualname__}.ReadModel',
-                node_type=(Literal[cls.class_node_type], node_type_field),
-                attributes=(cls.AttributesModel, attributes_field),
+                **model_fields,
             ),
         )
         cls.ReadModel.model_rebuild(force=True)
@@ -1149,9 +1163,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             elif isinstance(instance, orm.SinglefileData):
                 instance.set_file(fileobj, filepath)
             else:
-                raise exceptions.ValidationError(
-                    f'Node of type `{cls.__name__}` does not support file repository contents.'
-                )
+                raise exceptions.ValidationError(f'`{cls.__name__}` does not support file repository contents')
             seen.add(filepath)
 
         return instance

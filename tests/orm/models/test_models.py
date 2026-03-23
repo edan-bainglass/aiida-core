@@ -405,7 +405,8 @@ def test_roundtrip_node_from_model_constructor(required_arguments, tmp_path):
             cls.ConstructorModel
         return
 
-    model = cls.ConstructorModel(node_type=cls.class_node_type, args=args)
+    kwargs = {'args': args}
+    model = cls.ConstructorModel(node_type=cls.class_node_type, **kwargs)
     new = cls.from_model(model)
     assert isinstance(new, cls)
     _assert_roundtrip_field_values_equal(cls, model, new, cls.ConstructorModel, tmp_path)
@@ -447,7 +448,8 @@ def test_roundtrip_node_from_serialized_constructor(required_arguments, tmp_path
             cls.ConstructorModel
         return
 
-    model = cls.ConstructorModel(node_type=cls.class_node_type, args=args)
+    kwargs = {'args': args}
+    model = cls.ConstructorModel(node_type=cls.class_node_type, **kwargs)
     serialized = model.model_dump(exclude_none=True)
     new = cls.from_serialized(serialized)
     assert isinstance(new, cls)
