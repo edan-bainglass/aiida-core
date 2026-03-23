@@ -15,7 +15,8 @@ md5: QbStrField('attributes.md5', dtype=typing.Optional[str], doc='MD5 checksum 
   the file contents')
 mtime: QbNumericField('mtime', dtype=<class 'datetime.datetime'>, doc='The modification
   time of the node')
-node_type: QbStrField('node_type', dtype=<class 'str'>, doc='The type of the node')
+node_type: QbStrField('node_type', dtype=typing.Literal['data.core.cif.CifData.'],
+  doc='The type of the node.')
 pk: QbNumericField('pk', dtype=<class 'int'>, doc='The primary key of the entity')
 process_type: QbStrField('process_type', dtype=typing.Optional[str], doc='The process
   type of the node')

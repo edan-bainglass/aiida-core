@@ -13,7 +13,8 @@ kinds: QbArrayField('attributes.kinds', dtype=typing.List[dict], doc='The kinds 
 label: QbStrField('label', dtype=<class 'str'>, doc='The node label')
 mtime: QbNumericField('mtime', dtype=<class 'datetime.datetime'>, doc='The modification
   time of the node')
-node_type: QbStrField('node_type', dtype=<class 'str'>, doc='The type of the node')
+node_type: QbStrField('node_type', dtype=typing.Literal['data.core.structure.StructureData.'],
+  doc='The type of the node.')
 pbc1: QbAnyField('attributes.pbc1', dtype=<class 'bool'>, doc='Whether periodic in
   the a direction')
 pbc2: QbAnyField('attributes.pbc2', dtype=<class 'bool'>, doc='Whether periodic in

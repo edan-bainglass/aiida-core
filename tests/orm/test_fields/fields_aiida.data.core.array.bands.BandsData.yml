@@ -19,7 +19,8 @@ mesh: QbArrayField('attributes.mesh', dtype=typing.Optional[typing.List[int]], d
   of kpoints')
 mtime: QbNumericField('mtime', dtype=<class 'datetime.datetime'>, doc='The modification
   time of the node')
-node_type: QbStrField('node_type', dtype=<class 'str'>, doc='The type of the node')
+node_type: QbStrField('node_type', dtype=typing.Literal['data.core.array.bands.BandsData.'],
+  doc='The type of the node.')
 offset: QbArrayField('attributes.offset', dtype=typing.Optional[typing.List[float]],
   doc='Offset of kpoints')
 pbc1: QbAnyField('attributes.pbc1', dtype=typing.Optional[bool], doc='Periodicity

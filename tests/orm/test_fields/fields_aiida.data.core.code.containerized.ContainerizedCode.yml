@@ -2,14 +2,13 @@ append_text: QbStrField('attributes.append_text', dtype=<class 'str'>, doc='Bash
   that should be appended to the run line in all submit scripts for this code')
 attributes: QbAttributesField('attributes', dtype=<class 'aiida.orm.nodes.data.code.containerized.ContainerizedCode.AttributesModel'>,
   doc='The node attributes')
-computer: QbNumericField('computer', dtype=typing.Optional[int], doc='The PK of the
-  computer')
+computer: QbNumericField('computer', dtype=<class 'int'>, doc='The pk of the remote
+  computer on which the executable resides')
 ctime: QbNumericField('ctime', dtype=<class 'datetime.datetime'>, doc='The creation
   time of the node')
-default_calc_job_plugin: QbStrField('attributes.default_calc_job_plugin', dtype=typing.Optional[str],
+default_calc_job_plugin: QbStrField('attributes.input_plugin', 'input_plugin', dtype=typing.Optional[str],
   doc='Entry point name of the default plugin (as listed in `verdi plugin list aiida.calculations`)')
-description: QbStrField('description', dtype=<class 'str'>, doc='Human-readable description,
-  ideally including version and compilation environment')
+description: QbStrField('description', dtype=<class 'str'>, doc='The node description')
 engine_command: QbStrField('attributes.engine_command', dtype=<class 'str'>, doc='The
   command to run the container. It must contain the placeholder {image_name} that
   will be replaced with the `image_name`')
@@ -18,11 +17,11 @@ filepath_executable: QbStrField('attributes.filepath_executable', dtype=<class '
   doc='Filepath of the executable on the remote computer')
 image_name: QbStrField('attributes.image_name', dtype=<class 'str'>, doc='Name of
   the image container in which to the run the executable')
-label: QbStrField('label', dtype=<class 'str'>, doc='A unique label to identify the
-  code by')
+label: QbStrField('label', dtype=<class 'str'>, doc='The node label')
 mtime: QbNumericField('mtime', dtype=<class 'datetime.datetime'>, doc='The modification
   time of the node')
-node_type: QbStrField('node_type', dtype=<class 'str'>, doc='The type of the node')
+node_type: QbStrField('node_type', dtype=typing.Literal['data.core.code.containerized.ContainerizedCode.'],
+  doc='The type of the node.')
 pk: QbNumericField('pk', dtype=<class 'int'>, doc='The primary key of the entity')
 prepend_text: QbStrField('attributes.prepend_text', dtype=<class 'str'>, doc='Bash
   commands that should be prepended to the run line in all submit scripts for this

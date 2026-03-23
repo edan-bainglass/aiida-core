@@ -539,7 +539,7 @@ def add_field(
         return QbNumericField(**kwargs)
     elif root_type in (list, tuple):
         return QbArrayField(**kwargs)
-    elif root_type is str:
+    elif root_type in (str, t.Literal):
         return QbStrField(**kwargs)
     elif root_type is dict:
         return QbDictField(**kwargs)

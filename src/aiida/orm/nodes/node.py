@@ -229,7 +229,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             description='The node description',
             examples=['This is my node description.'],
         )
-        extras: dict[str, Any] = MetadataField(
+        extras: Dict[str, Any] = MetadataField(
             default_factory=dict,
             description='The node extras',
             orm_to_model=lambda node: cast(Node, node).base.extras.all,
@@ -286,7 +286,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             may_be_large=True,
             examples=[{'attr_key': 'attr_value'}],
         )
-        repository_metadata: dict[str, Any] = MetadataField(
+        repository_metadata: Dict[str, Any] = MetadataField(
             default_factory=dict,
             description='Virtual hierarchy of the file repository',
             orm_to_model=lambda node: cast(Node, node).base.repository.metadata,

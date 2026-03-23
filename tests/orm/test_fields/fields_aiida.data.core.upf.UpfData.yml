@@ -11,7 +11,8 @@ filename: QbStrField('attributes.filename', dtype=<class 'str'>, doc='The name o
 label: QbStrField('label', dtype=<class 'str'>, doc='The node label')
 mtime: QbNumericField('mtime', dtype=<class 'datetime.datetime'>, doc='The modification
   time of the node')
-node_type: QbStrField('node_type', dtype=<class 'str'>, doc='The type of the node')
+node_type: QbStrField('node_type', dtype=typing.Literal['data.core.upf.UpfData.'],
+  doc='The type of the node.')
 pk: QbNumericField('pk', dtype=<class 'int'>, doc='The primary key of the entity')
 process_type: QbStrField('process_type', dtype=typing.Optional[str], doc='The process
   type of the node')
