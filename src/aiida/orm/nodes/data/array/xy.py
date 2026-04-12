@@ -16,8 +16,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Sequence
 
 import numpy as np
+from pydantic import field_validator
 
 from aiida.common.exceptions import NotExistent
+from aiida.orm.pydantic import OrmMetadataField
 
 from .array import ArrayData
 
@@ -47,6 +49,58 @@ class XyData(ArrayData):
     Y arrays, which can be considered functions of X.
     """
 
+    class AttributesModel(ArrayData.AttributesModel):
+        x_name: str = OrmMetadataField(
+            description='The name of the x array',
+        )
+        x_units: str = OrmMetadataField(
+            description='The units of the x array',
+        )
+        y_names: Sequence[str] = OrmMetadataField(
+            description='The names of the y arrays',
+        )
+        y_units: Sequence[str] = OrmMetadataField(
+            description='The units of the y arrays',
+        )
+
+    class ConstructorArgsModel(ArrayData.ConstructorArgsModel):
+        x_array: Sequence = OrmMetadataField(
+            description='The x array, which must be a 1D numpy array of floats.',
+            write_only=True,
+        )
+        y_arrays: Sequence = OrmMetadataField(
+            description='The y array(s), which must be 1D numpy arrays of floats with the same shape as the x array.',
+            write_only=True,
+        )
+
+        @field_validator('x_array', mode='before')
+        @classmethod
+        def normalize_x_array(
+            cls,
+            value: Sequence | np.ndarray,
+        ) -> Sequence:
+            if isinstance(value, Sequence):
+                return value
+            if isinstance(value, np.ndarray):
+                return value.tolist()
+            else:
+                raise TypeError(f'`x_array` should be an iterable but got: {value}')
+
+        @field_validator('y_arrays', mode='before')
+        @classmethod
+        def normalize_y_arrays(
+            cls,
+            value: Sequence | np.ndarray | list[np.ndarray],
+        ) -> Sequence:
+            if isinstance(value, list) and all(isinstance(v, np.ndarray) for v in value):
+                return [v.tolist() for v in value]
+            if isinstance(value, np.ndarray):
+                return value.tolist()
+            if isinstance(value, Sequence):
+                return value
+            else:
+                raise TypeError(f'`y_arrays` should be an iterable but got: {value}')
+
     def __init__(
         self,
         x_array: 'ndarray' | None = None,
@@ -72,6 +126,7 @@ class XyData(ArrayData):
         super().__init__(**kwargs)
 
         if x_array is not None:
+            # TODO we shouldn't ignore the arg-type problem, but rather ensure that there are proper names!
             self.set_x(x_array, x_name, x_units)  # type: ignore[arg-type]
             self.set_y(y_arrays, y_names, y_units)  # type: ignore[arg-type]
 

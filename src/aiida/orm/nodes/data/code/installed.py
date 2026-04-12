@@ -17,16 +17,16 @@ using an ``InstalledCode``, it will run its executable on the associated compute
 from __future__ import annotations
 
 import pathlib
-
-from pydantic import field_serializer, field_validator
+from typing import cast
 
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_level
-from aiida.common.pydantic import MetadataField
 from aiida.orm import Computer
 from aiida.orm.entities import from_backend_entity
+from aiida.orm.pydantic import OrmMetadataField
 
+from ....utils.loaders import load_computer
 from .abstract import AbstractCode
 from .legacy import Code
 
@@ -40,40 +40,35 @@ class InstalledCode(Code):
     _KEY_ATTRIBUTE_FILEPATH_EXECUTABLE: str = 'filepath_executable'
     _SKIP_MODEL_INHERITANCE_CHECK: bool = True
 
-    class Model(AbstractCode.Model):
-        """Model describing required information to create an instance."""
-
-        computer: str = MetadataField(  # type: ignore[assignment]
-            ...,
-            title='Computer',
-            description='The remote computer on which the executable resides.',
-            orm_to_model=lambda node, _: node.computer.label,
-            short_name='-Y',
-            priority=2,
-        )
-        filepath_executable: str = MetadataField(
-            ...,
+    class CommonField(AbstractCode.CommonFields):
+        filepath_executable: str = OrmMetadataField(
             title='Filepath executable',
-            description='Filepath of the executable on the remote computer.',
-            orm_to_model=lambda node, _: str(node.filepath_executable),  # type: ignore[attr-defined]
+            description='Filepath of the executable on the remote computer',
+            orm_to_model=lambda node: str(cast(InstalledCode, node).filepath_executable),
             short_name='-X',
             priority=1,
         )
 
-        @field_validator('computer')
-        @classmethod
-        def validate_computer(cls, value: str) -> Computer:
-            """Override the validator for the ``label`` of the base class since uniqueness is defined on full label."""
-            from aiida.orm import load_computer
+    class AttributesModel(CommonField, AbstractCode.AttributesModel): ...
 
-            try:
-                return load_computer(value)
-            except exceptions.NotExistent as exception:
-                raise ValueError(exception) from exception
+    class ConstructorArgsModel(CommonField, AbstractCode.ConstructorArgsModel):
+        computer: str = OrmMetadataField(
+            title='Computer',
+            description='The label of the remote computer on which the executable resides',
+            short_name='-Y',
+            priority=2,
+            write_only=True,
+            model_to_orm=lambda model: load_computer(cast(InstalledCode.ReadModel, model).computer),
+            orm_to_model=lambda node: cast(InstalledCode, node).computer.label,
+        )
 
-        @field_serializer('computer')
-        def serialize_computer(self, computer: Computer, _info):
-            return computer.label
+    class ReadModel(AbstractCode.ReadModel):
+        computer: int = OrmMetadataField(
+            title='Computer',
+            description='The pk of the remote computer on which the executable resides',
+            orm_to_model=lambda node: cast(InstalledCode, node).computer.pk,
+            orm_class=Computer,
+        )
 
     def __init__(self, computer: Computer, filepath_executable: str, **kwargs):
         """Construct a new instance.

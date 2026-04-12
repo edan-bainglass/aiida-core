@@ -79,6 +79,7 @@ __all__ = (
     'TestsNotAllowedError',
     'TransportTaskException',
     'UniquenessError',
+    'UnsupportedSchemaError',
     'UnsupportedSpeciesError',
     'ValidationError',
     'assert_never',
