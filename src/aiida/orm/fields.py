@@ -93,6 +93,11 @@ class QbField:
         return self._backend_key
 
     @property
+    def doc(self) -> str:
+        """Return the field documentation string."""
+        return self._doc
+
+    @property
     def dtype(self) -> t.Any | None:
         """Return the primitive root type."""
         return extract_root_type(self._dtype)
