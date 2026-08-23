@@ -26,7 +26,7 @@ class User(Entity[BackendUser]):
         )
         super().__init__(backend_entity, **kwargs)
 
-    @field
+    @field(required=True)
     def email(self) -> str:
         """The email of the user."""
         return self._backend_entity.email
@@ -35,6 +35,10 @@ class User(Entity[BackendUser]):
     def first_name(self) -> str:
         """The first name of the user."""
         return self._backend_entity.first_name
+
+    @first_name.setter
+    def first_name(self, value: str) -> None:
+        self._backend_entity.first_name = value
 
     @field(default='')
     def last_name(self) -> str:
