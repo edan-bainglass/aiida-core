@@ -115,11 +115,11 @@ class OrmField(property, t.Generic[_OwnerT, _ValueT, _FieldT]):
 
         default = self._kwargs.get('default', _UNSET)
 
-        required = self._kwargs.get('required', False)
-        if required and default is not _UNSET:
-            raise TypeError(f'{self._name} cannot be required and have a default')
         if default is _UNSET:
+            required = not _type_allows_none(value_type)
             default = None
+        else:
+            required = False
 
         return FieldSpec(
             name=self._name,
@@ -192,7 +192,6 @@ class OrmFieldDecorator:
         backend_key: str | None = None,
         value_type: type | None = None,
         default: t.Any = _UNSET,
-        required: bool = False,
         readonly: bool = False,
         description: str | None = None,
         example: t.Any | None = None,
@@ -207,8 +206,6 @@ class OrmFieldDecorator:
         :type value_type: type, optional
         :param default: the default value of the field
         :type default: any, optional
-        :param required: whether the field is required (cannot be None)
-        :type required: bool, optional
         :param readonly: whether the field is read-only (cannot be set)
         :type readonly: bool, optional
         :param description: the description of the field
@@ -247,3 +244,15 @@ def iter_fields(entity: type) -> dict[str, OrmField]:
             if isinstance(value, OrmField):
                 result[name] = value
     return result
+
+
+def _type_allows_none(value_type: t.Any) -> bool:
+    """Return whether a type annotation explicitly allows None."""
+    origin = t.get_origin(value_type)
+    if origin is not None and (
+        origin is t.Union  # t.Union[str, None]
+        or origin is t.Optional  # t.Optional[str]
+        or str(origin.__name__) == 'UnionType'  # PEP 604: str | None
+    ):
+        return type(None) in t.get_args(value_type)
+    return False

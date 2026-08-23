@@ -22,7 +22,6 @@ class Entity(abc.ABC, t.Generic[BackendEntityType]):
     @field(
         backend_key='id',
         readonly=True,
-        required=True,
     )
     def pk(self) -> int:
         """The primary key of the entity."""
