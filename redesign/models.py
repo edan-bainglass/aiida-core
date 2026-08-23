@@ -5,6 +5,9 @@ import typing as t
 import pydantic as pdt
 from fields import iter_fields
 
+if t.TYPE_CHECKING:
+    from entity import Entity
+
 
 class OrmModel(pdt.BaseModel):
     """Base model for all ORM schemas."""
@@ -18,22 +21,44 @@ class UnsupportedModelError(Exception):
     """Exception raised when an unsupported model is requested."""
 
 
-class ModelsNamespace:
+_EntityT = t.TypeVar('_EntityT', bound='Entity')
+_ModelName = t.Literal['read', 'create', 'update']
+
+
+class ModelsNamespace(t.Generic[_EntityT]):
     """Lazily generated model projections for one entity class."""
 
-    _names = {'read', 'create', 'update'}
+    _names: t.ClassVar[set[_ModelName]] = {'read', 'create', 'update'}
 
     def __init__(self) -> None:
-        self._entity: type | None = None
+        self._entity: type[_EntityT] | None = None
         self._models: dict[str, type[OrmModel]] = {}
 
-    def __get__(self, instance, owner: type | None = None) -> ModelsNamespace:
+    @t.overload
+    def __get__(self, instance: None, owner: type[_EntityT]) -> ModelsNamespace[_EntityT]: ...
+
+    @t.overload
+    def __get__(self, instance: object, owner: type[_EntityT] | None = None) -> ModelsNamespace[_EntityT]: ...
+
+    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> ModelsNamespace[_EntityT]:
         if owner is None:
             raise AttributeError('models must be accessed through an entity class')
         namespace = type(self)()
         namespace._entity = owner
         namespace._models = self._models.setdefault(owner, {})
         return namespace
+
+    @t.overload
+    def __getattr__(self, name: t.Literal['read']) -> type[OrmModel]: ...
+
+    @t.overload
+    def __getattr__(self, name: t.Literal['create']) -> type[OrmModel]: ...
+
+    @t.overload
+    def __getattr__(self, name: t.Literal['update']) -> type[OrmModel]: ...
+
+    @t.overload
+    def __getattr__(self, name: str) -> type[OrmModel]: ...
 
     def __getattr__(self, name: str) -> type[OrmModel]:
         if name.startswith('_'):
@@ -48,7 +73,7 @@ class ModelsNamespace:
         return self._models[name]
 
     def __dir__(self) -> list[str]:
-        return sorted(set(super().__dir__()) | self._names)
+        return sorted(set(super().__dir__()) | sorted(self._names))
 
     def _build_model(self, name: str) -> type[OrmModel]:
         fields: dict[str, tuple[t.Any, t.Any]] = {}
