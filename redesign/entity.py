@@ -13,7 +13,7 @@ BackendEntityType = t.TypeVar('BackendEntityType', bound=BackendEntity)
 
 
 class Entity(abc.ABC, t.Generic[BackendEntityType]):
-    models = ModelsNamespace()
+    models: ModelsNamespace[Entity[BackendEntityType]] = ModelsNamespace()
 
     def __init__(self, backend_entity: BackendEntityType, **kwargs):
         super().__init__(**kwargs)
