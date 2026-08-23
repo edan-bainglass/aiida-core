@@ -4,7 +4,7 @@ import abc
 import typing as t
 
 from fields import field
-from schemas import SchemasNamespace
+from models import ModelsNamespace
 
 from aiida.orm.implementation import BackendEntity
 
@@ -13,7 +13,7 @@ BackendEntityType = t.TypeVar('BackendEntityType', bound=BackendEntity)
 
 
 class Entity(abc.ABC, t.Generic[BackendEntityType]):
-    schemas = SchemasNamespace()
+    models = ModelsNamespace()
 
     def __init__(self, backend_entity: BackendEntityType, **kwargs):
         super().__init__(**kwargs)
