@@ -17,8 +17,8 @@ class OrmModel(pdt.BaseModel):
     )
 
 
-class UnsupportedModelError(Exception):
-    """Exception raised when an unsupported model is requested."""
+class UnsupportedModelError(AttributeError):
+    """Error raised when an unsupported model is requested."""
 
 
 _EntityT = t.TypeVar('_EntityT', bound='Entity')
@@ -61,8 +61,6 @@ class ModelsNamespace(t.Generic[_EntityT]):
     def __getattr__(self, name: str) -> type[OrmModel]: ...
 
     def __getattr__(self, name: str) -> type[OrmModel]:
-        if name.startswith('_'):
-            raise AttributeError(name)
         if name not in self._models:
             if name not in self._names:
                 models = ', '.join(sorted(self._names))
