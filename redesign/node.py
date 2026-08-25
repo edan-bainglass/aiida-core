@@ -15,7 +15,7 @@ from aiida.orm.utils.node import get_type_string_from_class
 class Node(Entity[BackendNode]):
     __plugin_type_string: t.ClassVar[str]
 
-    def __init__(  # noqa: PLR0917
+    def __init__(
         self,
         label: str | None = None,
         description: str | None = None,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from entity import Entity
-from fields import field
+from fields import ModelField, field
 
 from aiida.manage.manager import get_manager
 from aiida.orm.implementation import BackendUser, StorageBackend
@@ -31,17 +31,17 @@ class User(Entity[BackendUser]):
         """The email of the user."""
         return self._backend_entity.email
 
-    @field(default='')
+    @field(model_field_info=ModelField(''))
     def first_name(self) -> str:
         """The first name of the user."""
         return self._backend_entity.first_name
 
-    @field(default='')
+    @field(model_field_info=ModelField(''))
     def last_name(self) -> str:
         """The last name of the user."""
         return self._backend_entity.last_name
 
-    @field(default='')
+    @field(model_field_info=ModelField(''))
     def institution(self) -> str:
         """The institution of the user."""
         return self._backend_entity.institution
