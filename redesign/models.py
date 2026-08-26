@@ -62,7 +62,7 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
         for name, orm_field in cls._orm_fields.items():
             value = getattr(entity, name)
 
-            if adapter := orm_field.model_adapter:
+            if value is not None and (adapter := orm_field.model_adapter):
                 value = adapter.to_model(value)
 
             values[name] = value
@@ -88,7 +88,7 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
             orm_field = self.__class__._orm_fields[name]
             value = getattr(self, name)
 
-            if adapter := orm_field.model_adapter:
+            if value is not None and (adapter := orm_field.model_adapter):
                 value = adapter.to_orm(value)
 
             values[name] = value
