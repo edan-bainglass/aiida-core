@@ -35,6 +35,11 @@ class Entity(abc.ABC, t.Generic[BackendEntityType]):
         """Get the implementing class for this object"""
         return self._backend_entity
 
+    @property
+    def is_stored(self) -> bool:
+        """Return whether the entity is stored."""
+        return self._backend_entity.is_stored
+
     @classmethod
     def get_one(cls, pk: int) -> Self | None:
         """Get an entity by primary key."""
