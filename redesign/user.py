@@ -3,6 +3,7 @@ from __future__ import annotations
 from entity import Entity
 from fields import ModelField, field
 
+from aiida import orm
 from aiida.manage.manager import get_manager
 from aiida.orm.implementation import BackendUser, StorageBackend
 
@@ -45,3 +46,8 @@ class User(Entity[BackendUser]):
     def institution(self) -> str:
         """The institution of the user."""
         return self._backend_entity.institution
+
+    @classmethod
+    def get_one(cls, pk: int) -> User | None:
+        """Get a user by primary key."""
+        return orm.User.collection.get(pk=pk)
