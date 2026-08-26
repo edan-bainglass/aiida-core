@@ -9,6 +9,7 @@ from collections.abc import Callable
 
 from pydantic import Field as ModelField
 from pydantic.fields import FieldInfo as ModelFieldInfo
+from typing_extensions import Self
 
 from aiida.orm import fields as qb_fields
 
@@ -117,7 +118,7 @@ class _FieldConfig:
     cli_field_info: CliFieldInfo | None = None
 
 
-class OrmField(property, t.Generic[_OwnerT, _ValueT, _QbFieldT]):
+class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
     """Descriptor implementing an ORM field."""
 
     def __init__(
@@ -129,7 +130,10 @@ class OrmField(property, t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         *,
         config: _FieldConfig | None = None,
     ) -> None:
-        super().__init__(fget, fset, fdel, doc)
+        self.fget = fget
+        self.fset = fset
+        self.fdel = fdel
+        self.__doc__ = doc if doc is not None else getattr(fget, '__doc__', None)
 
         self._owner: type[_OwnerT] | None = None
         self._name: str | None = None
@@ -147,6 +151,7 @@ class OrmField(property, t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         """Return the lazily resolved field specification."""
         if self._spec is None:
             self._spec = self._build_spec()
+
         return self._spec
 
     @property
@@ -155,7 +160,7 @@ class OrmField(property, t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         return self._config.model_field_info
 
     @property
-    def model_adapter(self) -> ModelAdapter[t.Any, t.Any] | None:
+    def model_adapter(self) -> ModelAdapter[t.Any, t.Any, t.Any] | None:
         """Return the ORM/model value adapter."""
         return self._config.model_adapter
 
@@ -169,6 +174,7 @@ class OrmField(property, t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         """Return the lazily generated QueryBuilder field."""
         if self._qb_field is None:
             spec = self.spec
+
             self._qb_field = t.cast(
                 _QbFieldT,
                 qb_fields.add_field(
@@ -203,11 +209,17 @@ class OrmField(property, t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         if instance is None:
             return self.qb_field
 
-        return t.cast(_ValueT, super().__get__(instance, owner))
+        if self.fget is None:
+            if self._name is None:
+                raise AttributeError('unreadable ORM field')
+
+            raise AttributeError(f"'{self._name}' is not readable")
+
+        return self.fget(instance)
 
     def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
-        assert self._owner is not None
-        assert self._name is not None
+        if self._owner is None or self._name is None:
+            raise RuntimeError('field has not been assigned to an entity')
 
         if self.spec.readonly:
             raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
@@ -215,49 +227,47 @@ class OrmField(property, t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         if self.spec.immutable:
             raise AttributeError(f'{self._owner.__name__}.{self._name} is immutable')
 
-        super().__set__(instance, value)
+        if self.fset is None:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
 
-    def getter(
-        self,
-        fget: Callable[[_OwnerT], _ValueT],
-        /,
-    ) -> OrmField[_OwnerT, _ValueT, _QbFieldT]:
-        """Return a copy with a different getter."""
-        result = t.cast(
-            OrmField[_OwnerT, _ValueT, _QbFieldT],
-            super().getter(fget),
-        )
-        result._config = self._config
-        return result
+        self.fset(instance, value)
 
-    def setter(
-        self,
-        fset: Callable[[_OwnerT, _ValueT], None],
-        /,
-    ) -> OrmField[_OwnerT, _ValueT, _QbFieldT]:
-        """Return a copy with a different setter."""
+    def __delete__(self, instance: _OwnerT) -> None:
+        if self._owner is None or self._name is None:
+            raise RuntimeError('field has not been assigned to an entity')
+
+        if self.fdel is None:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} has no deleter')
+
+        self.fdel(instance)
+
+    def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
+        """Set the getter and return this descriptor."""
+        self.fget = fget
+        self.__doc__ = getattr(fget, '__doc__', None)
+
+        # The getter may affect the inferred type and description.
+        self._spec = None
+        self._qb_field = None
+
+        return self
+
+    def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
+        """Set the setter and return this descriptor."""
         if self._config.readonly:
             raise TypeError('cannot define a setter for a read-only ORM field')
 
-        result = t.cast(
-            OrmField[_OwnerT, _ValueT, _QbFieldT],
-            super().setter(fset),
-        )
-        result._config = self._config
-        return result
+        self.fset = fset
 
-    def deleter(
-        self,
-        fdel: Callable[[_OwnerT], None],
-        /,
-    ) -> OrmField[_OwnerT, _ValueT, _QbFieldT]:
-        """Return a copy with a different deleter."""
-        result = t.cast(
-            OrmField[_OwnerT, _ValueT, _QbFieldT],
-            super().deleter(fdel),
-        )
-        result._config = self._config
-        return result
+        # Setter existence determines CREATE_ONLY vs MUTABLE.
+        self._spec = None
+
+        return self
+
+    def deleter(self, fdel: Callable[[_OwnerT], None], /) -> Self:
+        """Set the deleter and return this descriptor."""
+        self.fdel = fdel
+        return self
 
     def _build_spec(self) -> FieldSpec:
         """Resolve descriptor structure into the canonical `FieldSpec`."""
@@ -313,11 +323,7 @@ class OrmFieldDecorator:
         self,
         fget: Callable[[_OwnerT], datetime.datetime],
         /,
-    ) -> OrmField[
-        _OwnerT,
-        datetime.datetime,
-        qb_fields.QbNumericField,
-    ]: ...
+    ) -> OrmField[_OwnerT, datetime.datetime, qb_fields.QbNumericField]: ...
 
     @t.overload
     def __call__(
@@ -331,44 +337,28 @@ class OrmFieldDecorator:
         self,
         fget: Callable[[_OwnerT], list[_ValueT]],
         /,
-    ) -> OrmField[
-        _OwnerT,
-        list[_ValueT],
-        qb_fields.QbArrayField,
-    ]: ...
+    ) -> OrmField[_OwnerT, list[_ValueT], qb_fields.QbArrayField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], tuple[_ValueT, ...]],
         /,
-    ) -> OrmField[
-        _OwnerT,
-        tuple[_ValueT, ...],
-        qb_fields.QbArrayField,
-    ]: ...
+    ) -> OrmField[_OwnerT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], dict[str, _ValueT]],
         /,
-    ) -> OrmField[
-        _OwnerT,
-        dict[str, _ValueT],
-        qb_fields.QbDictField,
-    ]: ...
+    ) -> OrmField[_OwnerT, dict[str, _ValueT], qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], _ValueT],
         /,
-    ) -> OrmField[
-        _OwnerT,
-        _ValueT,
-        qb_fields.QbAnyField,
-    ]: ...
+    ) -> OrmField[_OwnerT, _ValueT, qb_fields.QbAnyField]: ...
 
     @t.overload
     def __call__(
@@ -377,7 +367,7 @@ class OrmFieldDecorator:
         backend_key: str | None = None,
         readonly: bool = False,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[t.Any, t.Any] | None = None,
+        model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None,
         cli_field_info: CliFieldInfo | None = None,
     ) -> t.Self: ...
 
