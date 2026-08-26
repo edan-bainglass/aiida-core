@@ -13,6 +13,8 @@ class EntityPkAdapter(ModelAdapter['Entity', int]):
         self._entity_type = entity_type
 
     def to_model(self, value: Entity) -> int:
+        if value.pk is None:
+            raise ValueError('entity must be stored to be represented by PK')
         return value.pk
 
     def to_orm(self, value: int) -> Entity:
