@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import typing as t
 
 import pydantic as pdt
@@ -19,7 +20,6 @@ __all__ = (
     'ModelsNamespace',
     'OrmModel',
     'ReadModel',
-    'UnsupportedModelError',
     'UpdateModel',
 )
 
@@ -39,7 +39,7 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
     )
 
     # Shadowing Pydantic's `from_orm` classmethod to disable
-    # its default (and deprecated) implementation
+    # its default (and deprecated) implementation.
     from_orm: t.ClassVar[None] = None
 
     # Set on each dynamically generated model class.
@@ -132,25 +132,21 @@ class UpdateModel(OrmModel[_EntityT]):
         return entity
 
 
-class UnsupportedModelError(AttributeError):
-    """Raised when an unsupported model projection is requested."""
-
-
 class ModelsNamespace(t.Generic[_EntityT]):
     """Lazily generated model projections for one entity class."""
 
-    _names: t.ClassVar[set[_ModelName]] = {
-        'read',
-        'create',
-        'update',
-    }
+    def __init__(
+        self,
+        *,
+        entity: type[_EntityT] | None = None,
+    ) -> None:
+        self._entity = entity
 
-    def __init__(self) -> None:
-        self._entity: type[_EntityT] | None = None
-        self._models: dict[
-            type[_EntityT],
-            dict[_ModelName, type[OrmModel[t.Any]]],
-        ] = {}
+        if entity is None:
+            self._namespaces: dict[
+                type[_EntityT],
+                ModelsNamespace[_EntityT],
+            ] = {}
 
     @t.overload
     def __get__(
@@ -164,7 +160,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
         self,
         instance: object,
         owner: type[_EntityT] | None = None,
-    ) -> ModelsNamespace[_EntityT]: ...
+    ) -> t.Never: ...
 
     def __get__(
         self,
@@ -174,51 +170,31 @@ class ModelsNamespace(t.Generic[_EntityT]):
         if owner is None:
             raise AttributeError('models must be accessed through an entity class')
 
-        namespace = type(self)()
-        namespace._entity = owner
-        namespace._models = self._models
+        if instance is not None:
+            raise AttributeError(f"'models' must be accessed through the entity class; use {owner.__name__}.models")
+
+        namespace = self._namespaces.get(owner)
+
+        if namespace is None:
+            namespace = type(self)(entity=owner)
+            self._namespaces[owner] = namespace
 
         return namespace
 
-    @t.overload
-    def __getattr__(
-        self,
-        name: t.Literal['read'],
-    ) -> type[ReadModel[_EntityT]]: ...
+    @functools.cached_property
+    def read(self) -> type[ReadModel[_EntityT]]:
+        """Return the read projection for the entity."""
+        return t.cast(type[ReadModel[_EntityT]], self._build_model('read'))
 
-    @t.overload
-    def __getattr__(
-        self,
-        name: t.Literal['create'],
-    ) -> type[CreateModel[_EntityT]]: ...
+    @functools.cached_property
+    def create(self) -> type[CreateModel[_EntityT]]:
+        """Return the create projection for the entity."""
+        return t.cast(type[CreateModel[_EntityT]], self._build_model('create'))
 
-    @t.overload
-    def __getattr__(
-        self,
-        name: t.Literal['update'],
-    ) -> type[UpdateModel[_EntityT]]: ...
-
-    def __getattr__(
-        self,
-        name: str,
-    ) -> type[OrmModel[t.Any]]:
-        if name not in self._names:
-            models = ', '.join(sorted(self._names))
-            raise UnsupportedModelError(f"'{name}' model is not supported; valid projections: {models}")
-
-        if self._entity is None:
-            raise RuntimeError('model namespace is not bound to an entity class')
-
-        projection = t.cast(_ModelName, name)
-        models = self._models.setdefault(self._entity, {})
-
-        if projection not in models:
-            models[projection] = self._build_model(projection)
-
-        return models[projection]
-
-    def __dir__(self) -> list[str]:
-        return sorted(set(super().__dir__()) | self._names)
+    @functools.cached_property
+    def update(self) -> type[UpdateModel[_EntityT]]:
+        """Return the update projection for the entity."""
+        return t.cast(type[UpdateModel[_EntityT]], self._build_model('update'))
 
     def _build_model(
         self,
@@ -242,14 +218,13 @@ class ModelsNamespace(t.Generic[_EntityT]):
             )
             orm_fields[name] = orm_field
 
-        model_base = _model_base(projection)
         class_name = f'{projection.capitalize()}Model'
 
         model = t.cast(
             type[OrmModel[_EntityT]],
             pdt.create_model(
                 f'{self._entity.__name__}{class_name}',
-                __base__=model_base,
+                __base__=_model_base(projection),
                 __module__=self._entity.__module__,
                 __qualname__=(f'{self._entity.__qualname__}.{class_name}'),
                 **model_fields,
@@ -262,9 +237,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
         return t.cast(type[OrmModel[t.Any]], model)
 
 
-def _model_base(
-    projection: _ModelName,
-) -> type[OrmModel[t.Any]]:
+def _model_base(projection: _ModelName) -> type[OrmModel[t.Any]]:
     """Return the base class for a model projection."""
     if projection == 'read':
         return ReadModel
@@ -300,7 +273,6 @@ def _build_model_field(
     spec: FieldSpec,
 ) -> tuple[t.Any, t.Any]:
     """Build the Pydantic declaration for an ORM field."""
-
     model_type = orm_field.model_adapter.model_type if orm_field.model_adapter is not None else spec.value_type
 
     field_info = orm_field.model_field_info if orm_field.model_field_info is not None else ModelField()
@@ -320,13 +292,19 @@ def _build_model_field(
         json_schema_extra = attributes['json_schema_extra']
 
         if json_schema_extra is None:
-            json_schema_extra = {}
-        elif not isinstance(json_schema_extra, dict):
-            raise TypeError('callable `json_schema_extra` is not supported for read-only ORM fields')
-        else:
-            json_schema_extra = dict(json_schema_extra)
+            json_schema_extra = {'readOnly': True}
 
-        json_schema_extra.setdefault('readOnly', True)
+        elif isinstance(json_schema_extra, dict):
+            json_schema_extra = dict(json_schema_extra)
+            json_schema_extra.setdefault('readOnly', True)
+
+        else:  # Pydantic supports callable `json_schema_extra`
+            original_json_schema_extra = json_schema_extra
+
+            def json_schema_extra(schema: dict[str, t.Any]) -> None:
+                original_json_schema_extra(schema)
+                schema.setdefault('readOnly', True)
+
         attributes['json_schema_extra'] = json_schema_extra
 
     annotation = _make_annotated(
