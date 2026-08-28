@@ -131,10 +131,6 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         self._spec: EntityFieldSpec | None = None
         self._qb_field: _QbFieldT | None = None
 
-    def __set_name__(self, owner: type[_OwnerT], name: str) -> None:
-        self._owner = owner
-        self._name = name
-
     @property
     def spec(self) -> EntityFieldSpec:
         """Return the lazily resolved field specification."""
@@ -158,6 +154,33 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         """Return optional CLI-specific field configuration."""
         return self._config.cli_field_info
 
+    def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
+        """Set the getter and return this descriptor."""
+        self.fget = fget
+        self.__doc__ = getattr(fget, '__doc__', None)
+
+        self._spec = None
+        self._qb_field = None
+
+        return self
+
+    def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
+        """Set the setter and return this descriptor."""
+        if self._config.readonly:
+            raise TypeError('cannot define a setter for a read-only ORM field')
+
+        self.fset = fset
+
+        # Setter existence determines CREATE_ONLY versus MUTABLE.
+        self._spec = None
+
+        return self
+
+    def deleter(self, fdel: Callable[[_OwnerT], None], /) -> Self:
+        """Set the deleter and return this descriptor."""
+        self.fdel = fdel
+        return self
+
     def _get_qb_field(self, owner: type[_OwnerT]) -> _QbFieldT:
         """Return the lazily generated QueryBuilder field."""
         if self._qb_field is None:
@@ -173,6 +196,38 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
             )
 
         return self._qb_field
+
+    def _build_spec(self) -> EntityFieldSpec:
+        """Resolve descriptor structure into the canonical `FieldSpec`."""
+        if self._name is None:
+            raise RuntimeError('field has not been assigned to an entity')
+
+        if self.fget is None:
+            raise TypeError(f'{self._name} has no getter')
+
+        if self._config.readonly and self.fset is not None:
+            raise TypeError(f'{self._name!r} is declared read-only but defines a setter')
+
+        value_type = t.get_type_hints(self.fget).get('return', t.Any)
+
+        if self._config.readonly:
+            access = FieldAccess.READ_ONLY
+        elif self.fset is None:
+            access = FieldAccess.CREATE_ONLY
+        else:
+            access = FieldAccess.MUTABLE
+
+        return EntityFieldSpec(
+            name=self._name,
+            value_type=value_type,
+            backend_key=self._config.backend_key or self._name,
+            access=access,
+            description=(self.__doc__ or '').strip(),
+        )
+
+    def __set_name__(self, owner: type[_OwnerT], name: str) -> None:
+        self._owner = owner
+        self._name = name
 
     @t.overload
     def __get__(self, instance: None, owner: type[_OwnerT]) -> _QbFieldT: ...
@@ -219,61 +274,6 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
             raise AttributeError(f'{self._owner.__name__}.{self._name} has no deleter')
 
         self.fdel(instance)
-
-    def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
-        """Set the getter and return this descriptor."""
-        self.fget = fget
-        self.__doc__ = getattr(fget, '__doc__', None)
-
-        self._spec = None
-        self._qb_field = None
-
-        return self
-
-    def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
-        """Set the setter and return this descriptor."""
-        if self._config.readonly:
-            raise TypeError('cannot define a setter for a read-only ORM field')
-
-        self.fset = fset
-
-        # Setter existence determines CREATE_ONLY versus MUTABLE.
-        self._spec = None
-
-        return self
-
-    def deleter(self, fdel: Callable[[_OwnerT], None], /) -> Self:
-        """Set the deleter and return this descriptor."""
-        self.fdel = fdel
-        return self
-
-    def _build_spec(self) -> EntityFieldSpec:
-        """Resolve descriptor structure into the canonical `FieldSpec`."""
-        if self._name is None:
-            raise RuntimeError('field has not been assigned to an entity')
-
-        if self.fget is None:
-            raise TypeError(f'{self._name} has no getter')
-
-        if self._config.readonly and self.fset is not None:
-            raise TypeError(f'{self._name!r} is declared read-only but defines a setter')
-
-        value_type = t.get_type_hints(self.fget).get('return', t.Any)
-
-        if self._config.readonly:
-            access = FieldAccess.READ_ONLY
-        elif self.fset is None:
-            access = FieldAccess.CREATE_ONLY
-        else:
-            access = FieldAccess.MUTABLE
-
-        return EntityFieldSpec(
-            name=self._name,
-            value_type=value_type,
-            backend_key=self._config.backend_key or self._name,
-            access=access,
-            description=(self.__doc__ or '').strip(),
-        )
 
 
 class OrmFieldDecorator:

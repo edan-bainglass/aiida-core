@@ -142,27 +142,6 @@ class ModelsNamespace(t.Generic[_EntityT]):
         self._entity = entity
         self._namespaces: dict[type[_EntityT], ModelsNamespace[_EntityT]] = {}
 
-    @t.overload
-    def __get__(self, instance: None, owner: type[_EntityT]) -> ModelsNamespace[_EntityT]: ...
-
-    @t.overload
-    def __get__(self, instance: object, owner: type[_EntityT] | None = None) -> t.Never: ...
-
-    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> ModelsNamespace[_EntityT]:
-        if owner is None:
-            raise AttributeError('models must be accessed through an entity class')
-
-        if instance is not None:
-            raise AttributeError(f"'models' must be accessed through the entity class; use {owner.__name__}.models")
-
-        namespace = self._namespaces.get(owner)
-
-        if namespace is None:
-            namespace = type(self)(entity=owner)
-            self._namespaces[owner] = namespace
-
-        return namespace
-
     @functools.cached_property
     def read(self) -> type[ReadModel[_EntityT]]:
         """Return the read projection for the entity."""
@@ -241,6 +220,27 @@ class ModelsNamespace(t.Generic[_EntityT]):
         model._orm_fields = orm_fields
 
         return model
+
+    @t.overload
+    def __get__(self, instance: None, owner: type[_EntityT]) -> ModelsNamespace[_EntityT]: ...
+
+    @t.overload
+    def __get__(self, instance: object, owner: type[_EntityT] | None = None) -> t.Never: ...
+
+    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> ModelsNamespace[_EntityT]:
+        if owner is None:
+            raise AttributeError('models must be accessed through an entity class')
+
+        if instance is not None:
+            raise AttributeError(f"'models' must be accessed through the entity class; use {owner.__name__}.models")
+
+        namespace = self._namespaces.get(owner)
+
+        if namespace is None:
+            namespace = type(self)(entity=owner)
+            self._namespaces[owner] = namespace
+
+        return namespace
 
 
 def _model_base(projection: _ModelName) -> type[OrmModel[t.Any]]:
