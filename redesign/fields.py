@@ -19,8 +19,8 @@ if t.TYPE_CHECKING:
 
 __all__ = (
     'CliFieldInfo',
+    'EntityFieldSpec',
     'FieldAccess',
-    'FieldSpec',
     'ModelField',
     'ModelFieldInfo',
     'OrmField',
@@ -43,14 +43,20 @@ class FieldAccess(enum.Enum):
 
 
 @dataclasses.dataclass(frozen=True)
-class FieldSpec:
-    """Canonical semantic description of an ORM field."""
+class BaseFieldSpec:
+    """Base class for field specifications."""
 
     name: str
     value_type: t.Any
+    description: str
+
+
+@dataclasses.dataclass(frozen=True)
+class EntityFieldSpec(BaseFieldSpec):
+    """Canonical semantic description of an ORM entity field."""
+
     backend_key: str
     access: FieldAccess
-    description: str
 
     @property
     def readonly(self) -> bool:
@@ -120,7 +126,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         self._name: str | None = None
         self._config = config or _FieldConfig()
 
-        self._spec: FieldSpec | None = None
+        self._spec: EntityFieldSpec | None = None
         self._qb_field: _QbFieldT | None = None
 
     def __set_name__(self, owner: type[_OwnerT], name: str) -> None:
@@ -128,7 +134,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         self._name = name
 
     @property
-    def spec(self) -> FieldSpec:
+    def spec(self) -> EntityFieldSpec:
         """Return the lazily resolved field specification."""
         if self._spec is None:
             self._spec = self._build_spec()
@@ -239,7 +245,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         self.fdel = fdel
         return self
 
-    def _build_spec(self) -> FieldSpec:
+    def _build_spec(self) -> EntityFieldSpec:
         """Resolve descriptor structure into the canonical `FieldSpec`."""
         if self._name is None:
             raise RuntimeError('field has not been assigned to an entity')
@@ -259,7 +265,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         else:
             access = FieldAccess.MUTABLE
 
-        return FieldSpec(
+        return EntityFieldSpec(
             name=self._name,
             value_type=value_type,
             backend_key=self._config.backend_key or self._name,

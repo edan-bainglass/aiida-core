@@ -5,7 +5,7 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
-from fields import ModelFieldInfo, OrmField
+from fields import BaseFieldSpec, ModelFieldInfo, OrmField
 
 from aiida.orm import fields as qb_fields
 
@@ -30,12 +30,8 @@ _QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
 
 
 @dataclasses.dataclass(frozen=True)
-class NodeAttributeSpec:
+class NodeAttributeSpec(BaseFieldSpec):
     """Canonical semantic description of a typed Node attribute."""
-
-    name: str
-    value_type: t.Any
-    description: str
 
 
 @dataclasses.dataclass(frozen=True)

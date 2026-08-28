@@ -6,7 +6,7 @@ import typing as t
 
 import pydantic as pdt
 from attributes import NodeAttributesField, iter_attributes
-from fields import FieldSpec, ModelField, ModelFieldInfo, OrmField, iter_fields
+from fields import EntityFieldSpec, ModelField, ModelFieldInfo, OrmField, iter_fields
 
 if t.TYPE_CHECKING:
     from entity import Entity
@@ -61,7 +61,7 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
     _orm_fields: t.ClassVar[dict[str, OrmField]]
 
     @classmethod
-    def field_spec(cls, name: str) -> FieldSpec:
+    def field_spec(cls, name: str) -> EntityFieldSpec:
         """Return the canonical ORM specification for a model field."""
         return cls._orm_fields[name].spec
 
@@ -257,7 +257,7 @@ def _model_base(projection: _ModelName) -> type[OrmModel[t.Any]]:
     t.assert_never(projection)
 
 
-def _include_field(spec: FieldSpec, projection: _ModelName) -> bool:
+def _include_field(spec: EntityFieldSpec, projection: _ModelName) -> bool:
     """Return whether a field belongs to a model projection."""
     if projection == 'read':
         return True
