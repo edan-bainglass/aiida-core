@@ -19,11 +19,11 @@ if t.TYPE_CHECKING:
 
 __all__ = (
     'CliFieldInfo',
+    'EntityField',
     'EntityFieldSpec',
     'FieldAccess',
     'ModelField',
     'ModelFieldInfo',
-    'OrmField',
     'field',
     'iter_fields',
 )
@@ -35,7 +35,7 @@ _QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
 
 
 class FieldAccess(enum.Enum):
-    """Access semantics of an ORM field."""
+    """Access semantics of an ORM entity field."""
 
     READ_ONLY = 'read_only'
     CREATE_ONLY = 'create_only'
@@ -76,7 +76,7 @@ class EntityFieldSpec(BaseFieldSpec):
 
 @dataclasses.dataclass(frozen=True)
 class CliFieldInfo:
-    """Optional Click-specific configuration for an ORM field.
+    """Optional Click-specific configuration for an ORM entity field.
 
     Validation, defaults and constraints are expected to come from the generated Pydantic model.
     This class contains only CLI-specific interaction and presentation settings.
@@ -98,7 +98,7 @@ class BaseFieldConfig:
 
 
 @dataclasses.dataclass(frozen=True)
-class FieldConfig(BaseFieldConfig):
+class EntityFieldConfig(BaseFieldConfig):
     """Unresolved configuration supplied to the `field` decorator."""
 
     backend_key: str | None = None
@@ -107,8 +107,8 @@ class FieldConfig(BaseFieldConfig):
     cli_field_info: CliFieldInfo | None = None
 
 
-class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
-    """Descriptor implementing an ORM field."""
+class EntityField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
+    """Descriptor declaring an ORM entity field."""
 
     def __init__(
         self,
@@ -117,7 +117,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         fdel: Callable[[_OwnerT], None] | None = None,
         doc: str | None = None,
         *,
-        config: FieldConfig | None = None,
+        config: EntityFieldConfig | None = None,
     ) -> None:
         self.fget = fget
         self.fset = fset
@@ -126,7 +126,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
 
         self._owner: type[_OwnerT] | None = None
         self._name: str | None = None
-        self._config = config or FieldConfig()
+        self._config = config or EntityFieldConfig()
 
         self._spec: EntityFieldSpec | None = None
         self._qb_field: _QbFieldT | None = None
@@ -167,7 +167,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
     def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
         """Set the setter and return this descriptor."""
         if self._config.readonly:
-            raise TypeError('cannot define a setter for a read-only ORM field')
+            raise TypeError('cannot define a setter for a read-only ORM entity field')
 
         self.fset = fset
 
@@ -242,7 +242,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
     ) -> _ValueT | _QbFieldT:
         if instance is None:
             if owner is None:
-                raise AttributeError('ORM field must be accessed through an entity class')
+                raise AttributeError('ORM entity field must be accessed through an entity class')
 
             return self._get_qb_field(owner)
 
@@ -276,67 +276,67 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         self.fdel(instance)
 
 
-class OrmFieldDecorator:
-    """Decorator factory for ORM fields."""
+class EntityFieldDecorator:
+    """Decorator factory for ORM entity fields."""
 
-    def __init__(self, config: FieldConfig | None = None) -> None:
-        self._config = config or FieldConfig()
+    def __init__(self, config: EntityFieldConfig | None = None) -> None:
+        self._config = config or EntityFieldConfig()
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], int],
         /,
-    ) -> OrmField[_OwnerT, int, qb_fields.QbNumericField]: ...
+    ) -> EntityField[_OwnerT, int, qb_fields.QbNumericField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], float],
         /,
-    ) -> OrmField[_OwnerT, float, qb_fields.QbNumericField]: ...
+    ) -> EntityField[_OwnerT, float, qb_fields.QbNumericField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], datetime.datetime],
         /,
-    ) -> OrmField[_OwnerT, datetime.datetime, qb_fields.QbNumericField]: ...
+    ) -> EntityField[_OwnerT, datetime.datetime, qb_fields.QbNumericField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], str],
         /,
-    ) -> OrmField[_OwnerT, str, qb_fields.QbStrField]: ...
+    ) -> EntityField[_OwnerT, str, qb_fields.QbStrField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], list[_ValueT]],
         /,
-    ) -> OrmField[_OwnerT, list[_ValueT], qb_fields.QbArrayField]: ...
+    ) -> EntityField[_OwnerT, list[_ValueT], qb_fields.QbArrayField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], tuple[_ValueT, ...]],
         /,
-    ) -> OrmField[_OwnerT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
+    ) -> EntityField[_OwnerT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], dict[str, _ValueT]],
         /,
-    ) -> OrmField[_OwnerT, dict[str, _ValueT], qb_fields.QbDictField]: ...
+    ) -> EntityField[_OwnerT, dict[str, _ValueT], qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(
         self,
         fget: Callable[[_OwnerT], _ValueT],
         /,
-    ) -> OrmField[_OwnerT, _ValueT, qb_fields.QbAnyField]: ...
+    ) -> EntityField[_OwnerT, _ValueT, qb_fields.QbAnyField]: ...
 
     @t.overload
     def __call__(
@@ -356,21 +356,21 @@ class OrmFieldDecorator:
         **kwargs: t.Any,
     ) -> t.Any:
         if fget is None:
-            return type(self)(FieldConfig(**kwargs))
+            return type(self)(EntityFieldConfig(**kwargs))
 
-        return OrmField(fget, config=self._config)
-
-
-field = OrmFieldDecorator()
+        return EntityField(fget, config=self._config)
 
 
-def iter_fields(entity: type) -> dict[str, OrmField]:
-    """Return all effective ORM fields on an entity hierarchy."""
-    result: dict[str, OrmField] = {}
+field = EntityFieldDecorator()
+
+
+def iter_fields(entity: type) -> dict[str, EntityField]:
+    """Return all effective ORM entity fields on an entity hierarchy."""
+    result: dict[str, EntityField] = {}
 
     for base in reversed(entity.__mro__):
         for name, value in vars(base).items():
-            if isinstance(value, OrmField):
+            if isinstance(value, EntityField):
                 result[name] = value
             elif name in result:
                 del result[name]

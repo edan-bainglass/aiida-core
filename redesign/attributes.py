@@ -5,7 +5,7 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
-from fields import BaseFieldConfig, BaseFieldSpec, ModelFieldInfo, OrmField
+from fields import BaseFieldConfig, BaseFieldSpec, EntityField, ModelFieldInfo
 
 from aiida.orm import fields as qb_fields
 
@@ -204,8 +204,8 @@ def iter_attributes(entity: type) -> dict[str, NodeAttribute]:
     return result
 
 
-class NodeAttributesField(OrmField[_NodeT, dict[str, t.Any], qb_fields.QbAttributesField]):
-    """ORM field representing the typed Node attributes mapping."""
+class NodeAttributesField(EntityField[_NodeT, dict[str, t.Any], qb_fields.QbAttributesField]):
+    """ORM entity field representing the typed Node attributes mapping."""
 
     def __init__(self, fget: Callable[[_NodeT], dict[str, t.Any]]) -> None:
         super().__init__(fget)
