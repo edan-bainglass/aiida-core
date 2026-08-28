@@ -29,11 +29,6 @@ __all__ = (
 )
 
 
-_OwnerT = t.TypeVar('_OwnerT', bound='Entity')
-_ValueT = t.TypeVar('_ValueT')
-_QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
-
-
 class FieldAccess(enum.Enum):
     """Access semantics of an ORM entity field."""
 
@@ -107,32 +102,32 @@ class EntityFieldConfig(BaseFieldConfig):
     cli_field_info: CliFieldInfo | None = None
 
 
-class EntityField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
-    """Descriptor declaring an ORM entity field."""
+_OwnerT = t.TypeVar('_OwnerT', bound='Entity')
+_ValueT = t.TypeVar('_ValueT')
+_QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
+_SpecT = t.TypeVar('_SpecT', bound=BaseFieldSpec)
+_ConfigT = t.TypeVar('_ConfigT', bound=BaseFieldConfig)
 
-    def __init__(
-        self,
-        fget: Callable[[_OwnerT], _ValueT] | None = None,
-        fset: Callable[[_OwnerT, _ValueT], None] | None = None,
-        fdel: Callable[[_OwnerT], None] | None = None,
-        doc: str | None = None,
-        *,
-        config: EntityFieldConfig | None = None,
-    ) -> None:
+
+class BaseField(t.Generic[_OwnerT, _ValueT, _QbFieldT, _SpecT, _ConfigT]):
+    """Common infrastructure for typed ORM field declarations."""
+
+    def __init__(self, fget: Callable[[_OwnerT], _ValueT], *, config: _ConfigT) -> None:
         self.fget = fget
-        self.fset = fset
-        self.fdel = fdel
-        self.__doc__ = doc if doc is not None else getattr(fget, '__doc__', None)
+        self.__doc__ = getattr(fget, '__doc__', None)
+
+        self._name: str | None = None
+        self._config = config
+        self._spec: _SpecT | None = None
 
         self._owner: type[_OwnerT] | None = None
-        self._name: str | None = None
-        self._config = config or EntityFieldConfig()
 
-        self._spec: EntityFieldSpec | None = None
-        self._qb_field: _QbFieldT | None = None
+    def __set_name__(self, owner: type[_OwnerT], name: str) -> None:
+        self._name = name
+        self._owner = owner
 
     @property
-    def spec(self) -> EntityFieldSpec:
+    def spec(self) -> _SpecT:
         """Return the lazily resolved field specification."""
         if self._spec is None:
             self._spec = self._build_spec()
@@ -148,6 +143,48 @@ class EntityField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
     def model_adapter(self) -> ModelAdapter[t.Any, t.Any] | None:
         """Return the ORM/model value adapter."""
         return self._config.model_adapter
+
+    def _build_spec(self) -> _SpecT:
+        raise NotImplementedError
+
+    def _base_spec_values(self) -> dict[str, t.Any]:
+        """Return values shared by all field specifications."""
+        if self._name is None:
+            raise RuntimeError('field has not been assigned to a class')
+
+        value_type = t.get_type_hints(self.fget).get('return', t.Any)
+
+        return {
+            'name': self._name,
+            'value_type': value_type,
+            'description': (self.__doc__ or '').strip(),
+        }
+
+
+class EntityField(
+    BaseField[
+        _OwnerT,
+        _ValueT,
+        _QbFieldT,
+        EntityFieldSpec,
+        EntityFieldConfig,
+    ],
+):
+    """Descriptor declaring an ORM entity field."""
+
+    def __init__(
+        self,
+        fget: Callable[[_OwnerT], _ValueT],
+        fset: Callable[[_OwnerT, _ValueT], None] | None = None,
+        fdel: Callable[[_OwnerT], None] | None = None,
+        *,
+        config: EntityFieldConfig | None = None,
+    ) -> None:
+        super().__init__(fget, config=config or EntityFieldConfig())
+
+        self.fset = fset
+        self.fdel = fdel
+        self._qb_field: _QbFieldT | None = None
 
     @property
     def cli_field_info(self) -> CliFieldInfo | None:
@@ -208,8 +245,6 @@ class EntityField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         if self._config.readonly and self.fset is not None:
             raise TypeError(f'{self._name!r} is declared read-only but defines a setter')
 
-        value_type = t.get_type_hints(self.fget).get('return', t.Any)
-
         if self._config.readonly:
             access = FieldAccess.READ_ONLY
         elif self.fset is None:
@@ -218,16 +253,10 @@ class EntityField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
             access = FieldAccess.MUTABLE
 
         return EntityFieldSpec(
-            name=self._name,
-            value_type=value_type,
+            **self._base_spec_values(),
             backend_key=self._config.backend_key or self._name,
             access=access,
-            description=(self.__doc__ or '').strip(),
         )
-
-    def __set_name__(self, owner: type[_OwnerT], name: str) -> None:
-        self._owner = owner
-        self._name = name
 
     @t.overload
     def __get__(self, instance: None, owner: type[_OwnerT]) -> _QbFieldT: ...
