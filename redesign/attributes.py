@@ -5,7 +5,7 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
-from fields import BaseFieldConfig, BaseFieldSpec, EntityField, ModelFieldInfo
+from fields import BaseField, BaseFieldConfig, BaseFieldSpec, EntityField, ModelFieldInfo
 
 from aiida.orm import fields as qb_fields
 
@@ -35,59 +35,32 @@ class NodeAttributeSpec(BaseFieldSpec):
 
 
 @dataclasses.dataclass(frozen=True)
-class AttributeConfig(BaseFieldConfig):
+class NodeAttributeConfig(BaseFieldConfig):
     """Unresolved configuration supplied to the `attribute` decorator."""
 
 
-class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
+class NodeAttribute(
+    BaseField[
+        _NodeT,
+        _ValueT,
+        _QbFieldT,
+        NodeAttributeSpec,
+        NodeAttributeConfig,
+    ],
+):
     """Descriptor declaring a typed key in the Node attributes mapping."""
 
     def __init__(
         self,
         fget: Callable[[_NodeT], _ValueT],
         *,
-        config: AttributeConfig | None = None,
+        config: NodeAttributeConfig | None = None,
     ) -> None:
-        self.fget = fget
-        self.__doc__ = getattr(fget, '__doc__', None)
-
-        self._name: str | None = None
-        self._config = config or AttributeConfig()
-        self._spec: NodeAttributeSpec | None = None
-
-    @property
-    def spec(self) -> NodeAttributeSpec:
-        """Return the lazily resolved attribute specification."""
-        if self._spec is None:
-            self._spec = self._build_spec()
-
-        return self._spec
-
-    @property
-    def model_field_info(self) -> ModelFieldInfo | None:
-        """Return optional Pydantic-specific field configuration."""
-        return self._config.model_field_info
-
-    @property
-    def model_adapter(self) -> ModelAdapter[t.Any, t.Any] | None:
-        """Return the ORM/model value adapter."""
-        return self._config.model_adapter
+        super().__init__(fget, config=config or NodeAttributeConfig())
 
     def _build_spec(self) -> NodeAttributeSpec:
         """Resolve the declaration into the canonical attribute specification."""
-        if self._name is None:
-            raise RuntimeError('attribute has not been assigned to a Node class')
-
-        value_type = t.get_type_hints(self.fget).get('return', t.Any)
-
-        return NodeAttributeSpec(
-            name=self._name,
-            value_type=value_type,
-            description=(self.__doc__ or '').strip(),
-        )
-
-    def __set_name__(self, owner: type[_NodeT], name: str) -> None:
-        self._name = name
+        return NodeAttributeSpec(**self._base_spec_values())
 
     @t.overload
     def __get__(self, instance: None, owner: type[_NodeT]) -> _QbFieldT: ...
@@ -108,8 +81,8 @@ class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
 class NodeAttributeDecorator:
     """Decorator factory for typed Node attributes."""
 
-    def __init__(self, config: AttributeConfig | None = None) -> None:
-        self._config = config or AttributeConfig()
+    def __init__(self, config: NodeAttributeConfig | None = None) -> None:
+        self._config = config or NodeAttributeConfig()
 
     @t.overload
     def __call__(
@@ -182,7 +155,7 @@ class NodeAttributeDecorator:
         **kwargs: t.Any,
     ) -> t.Any:
         if fget is None:
-            return type(self)(AttributeConfig(**kwargs))
+            return type(self)(NodeAttributeConfig(**kwargs))
 
         return NodeAttribute(fget, config=self._config)
 
