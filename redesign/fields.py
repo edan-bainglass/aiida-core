@@ -90,18 +90,20 @@ class CliFieldInfo:
 
 
 @dataclasses.dataclass(frozen=True)
-class _FieldConfig:
-    """Unresolved configuration supplied to the `field` decorator."""
+class BaseFieldConfig:
+    """Base class for field configuration."""
 
-    # ORM
-    backend_key: str | None = None
-    readonly: bool = False
-
-    # Model
     model_field_info: ModelFieldInfo | None = None
     model_adapter: ModelAdapter[t.Any, t.Any] | None = None
 
-    # CLI
+
+@dataclasses.dataclass(frozen=True)
+class FieldConfig(BaseFieldConfig):
+    """Unresolved configuration supplied to the `field` decorator."""
+
+    backend_key: str | None = None
+    readonly: bool = False
+
     cli_field_info: CliFieldInfo | None = None
 
 
@@ -115,7 +117,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         fdel: Callable[[_OwnerT], None] | None = None,
         doc: str | None = None,
         *,
-        config: _FieldConfig | None = None,
+        config: FieldConfig | None = None,
     ) -> None:
         self.fget = fget
         self.fset = fset
@@ -124,7 +126,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
 
         self._owner: type[_OwnerT] | None = None
         self._name: str | None = None
-        self._config = config or _FieldConfig()
+        self._config = config or FieldConfig()
 
         self._spec: EntityFieldSpec | None = None
         self._qb_field: _QbFieldT | None = None
@@ -277,8 +279,8 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
 class OrmFieldDecorator:
     """Decorator factory for ORM fields."""
 
-    def __init__(self, config: _FieldConfig | None = None) -> None:
-        self._config = config or _FieldConfig()
+    def __init__(self, config: FieldConfig | None = None) -> None:
+        self._config = config or FieldConfig()
 
     @t.overload
     def __call__(
@@ -354,7 +356,7 @@ class OrmFieldDecorator:
         **kwargs: t.Any,
     ) -> t.Any:
         if fget is None:
-            return type(self)(_FieldConfig(**kwargs))
+            return type(self)(FieldConfig(**kwargs))
 
         return OrmField(fget, config=self._config)
 
