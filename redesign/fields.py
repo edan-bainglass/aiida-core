@@ -350,9 +350,9 @@ class EntityFieldDecorator(
         _ValueT,
         EntityFieldConfig,
         EntityField[t.Any, t.Any, qb_fields.QbField],
-    ]
+    ],
 ):
-    """Decorator factory for ORM entity fields."""
+    """Decorator for entity fields."""
 
     config_type = EntityFieldConfig
     field_type = EntityField
@@ -367,9 +367,23 @@ class EntityFieldDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_OwnerT], int | None],
+        /,
+    ) -> EntityField[_OwnerT, int | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_OwnerT], float],
         /,
     ) -> EntityField[_OwnerT, float, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_OwnerT], float | None],
+        /,
+    ) -> EntityField[_OwnerT, float | None, qb_fields.QbNumericField]: ...
 
     @t.overload
     def __call__(
@@ -381,9 +395,23 @@ class EntityFieldDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_OwnerT], datetime.datetime | None],
+        /,
+    ) -> EntityField[_OwnerT, datetime.datetime | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_OwnerT], str],
         /,
     ) -> EntityField[_OwnerT, str, qb_fields.QbStrField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_OwnerT], str | None],
+        /,
+    ) -> EntityField[_OwnerT, str | None, qb_fields.QbStrField]: ...
 
     @t.overload
     def __call__(
@@ -395,6 +423,13 @@ class EntityFieldDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_OwnerT], list[_ValueT] | None],
+        /,
+    ) -> EntityField[_OwnerT, list[_ValueT] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_OwnerT], tuple[_ValueT, ...]],
         /,
     ) -> EntityField[_OwnerT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
@@ -402,9 +437,23 @@ class EntityFieldDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_OwnerT], tuple[_ValueT, ...] | None],
+        /,
+    ) -> EntityField[_OwnerT, tuple[_ValueT, ...] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_OwnerT], dict[str, _ValueT]],
         /,
     ) -> EntityField[_OwnerT, dict[str, _ValueT], qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_OwnerT], dict[str, _ValueT] | None],
+        /,
+    ) -> EntityField[_OwnerT, dict[str, _ValueT] | None, qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(
@@ -422,7 +471,7 @@ class EntityFieldDecorator(
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: ModelAdapter[t.Any, t.Any] | None = None,
         cli_field_info: CliFieldInfo | None = None,
-    ) -> t.Self: ...
+    ) -> Self: ...
 
     def __call__(
         self,
