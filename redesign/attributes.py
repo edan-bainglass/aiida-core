@@ -5,7 +5,7 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
-from fields import BaseFieldSpec, ModelFieldInfo, OrmField
+from fields import BaseFieldConfig, BaseFieldSpec, ModelFieldInfo, OrmField
 
 from aiida.orm import fields as qb_fields
 
@@ -35,11 +35,8 @@ class NodeAttributeSpec(BaseFieldSpec):
 
 
 @dataclasses.dataclass(frozen=True)
-class _AttributeConfig:
+class AttributeConfig(BaseFieldConfig):
     """Unresolved configuration supplied to the `attribute` decorator."""
-
-    model_field_info: ModelFieldInfo | None = None
-    model_adapter: ModelAdapter[t.Any, t.Any] | None = None
 
 
 class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
@@ -49,13 +46,13 @@ class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
         self,
         fget: Callable[[_NodeT], _ValueT],
         *,
-        config: _AttributeConfig | None = None,
+        config: AttributeConfig | None = None,
     ) -> None:
         self.fget = fget
         self.__doc__ = getattr(fget, '__doc__', None)
 
         self._name: str | None = None
-        self._config = config or _AttributeConfig()
+        self._config = config or AttributeConfig()
         self._spec: NodeAttributeSpec | None = None
 
     def __set_name__(self, owner: type[_NodeT], name: str) -> None:
@@ -111,8 +108,8 @@ class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
 class NodeAttributeDecorator:
     """Decorator factory for typed Node attributes."""
 
-    def __init__(self, config: _AttributeConfig | None = None) -> None:
-        self._config = config or _AttributeConfig()
+    def __init__(self, config: AttributeConfig | None = None) -> None:
+        self._config = config or AttributeConfig()
 
     @t.overload
     def __call__(
@@ -185,7 +182,7 @@ class NodeAttributeDecorator:
         **kwargs: t.Any,
     ) -> t.Any:
         if fget is None:
-            return type(self)(_AttributeConfig(**kwargs))
+            return type(self)(AttributeConfig(**kwargs))
 
         return NodeAttribute(fget, config=self._config)
 
