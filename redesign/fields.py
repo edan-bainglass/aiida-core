@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import abc
 import dataclasses
 import datetime
 import enum
@@ -15,13 +14,13 @@ from aiida.orm import fields as qb_fields
 
 if t.TYPE_CHECKING:
     from entity import Entity
+    from models import ModelAdapter
 
 
 __all__ = (
     'CliFieldInfo',
     'FieldAccess',
     'FieldSpec',
-    'ModelAdapter',
     'ModelField',
     'ModelFieldInfo',
     'OrmField',
@@ -33,9 +32,6 @@ __all__ = (
 _OwnerT = t.TypeVar('_OwnerT', bound='Entity')
 _ValueT = t.TypeVar('_ValueT')
 _QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
-
-_OrmValueT = t.TypeVar('_OrmValueT')
-_ModelValueT = t.TypeVar('_ModelValueT')
 
 
 class FieldAccess(enum.Enum):
@@ -72,27 +68,12 @@ class FieldSpec:
         return self.access is FieldAccess.MUTABLE
 
 
-class ModelAdapter(t.Generic[_OrmValueT, _ModelValueT], abc.ABC):
-    """Adapt a field value between its ORM and model representations."""
-
-    model_type: t.ClassVar[t.Any]
-
-    @abc.abstractmethod
-    def to_model(self, value: _OrmValueT) -> _ModelValueT:
-        """Convert an ORM value to its model representation."""
-
-    @abc.abstractmethod
-    def to_orm(self, value: _ModelValueT) -> _OrmValueT:
-        """Convert a model value to its ORM representation."""
-
-
 @dataclasses.dataclass(frozen=True)
 class CliFieldInfo:
     """Optional Click-specific configuration for an ORM field.
 
-    Validation, defaults and constraints are expected to come from the
-    generated Pydantic model. This class contains only CLI-specific
-    interaction and presentation settings.
+    Validation, defaults and constraints are expected to come from the generated Pydantic model.
+    This class contains only CLI-specific interaction and presentation settings.
     """
 
     option: str | tuple[str, ...] | None = None
@@ -160,7 +141,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         return self._config.model_field_info
 
     @property
-    def model_adapter(self) -> ModelAdapter[t.Any, t.Any, t.Any] | None:
+    def model_adapter(self) -> ModelAdapter[t.Any, t.Any] | None:
         """Return the ORM/model value adapter."""
         return self._config.model_adapter
 
@@ -169,12 +150,10 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         """Return optional CLI-specific field configuration."""
         return self._config.cli_field_info
 
-    @property
-    def qb_field(self) -> _QbFieldT:
+    def _get_qb_field(self, owner: type[_OwnerT]) -> _QbFieldT:
         """Return the lazily generated QueryBuilder field."""
         if self._qb_field is None:
             spec = self.spec
-
             self._qb_field = t.cast(
                 _QbFieldT,
                 qb_fields.add_field(
@@ -188,18 +167,10 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         return self._qb_field
 
     @t.overload
-    def __get__(
-        self,
-        instance: None,
-        owner: type[_OwnerT],
-    ) -> _QbFieldT: ...
+    def __get__(self, instance: None, owner: type[_OwnerT]) -> _QbFieldT: ...
 
     @t.overload
-    def __get__(
-        self,
-        instance: _OwnerT,
-        owner: type[_OwnerT] | None = None,
-    ) -> _ValueT: ...
+    def __get__(self, instance: _OwnerT, owner: type[_OwnerT] | None = None) -> _ValueT: ...
 
     def __get__(
         self,
@@ -207,13 +178,13 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         owner: type[_OwnerT] | None = None,
     ) -> _ValueT | _QbFieldT:
         if instance is None:
-            return self.qb_field
+            if owner is None:
+                raise AttributeError('ORM field must be accessed through an entity class')
+
+            return self._get_qb_field(owner)
 
         if self.fget is None:
-            if self._name is None:
-                raise AttributeError('unreadable ORM field')
-
-            raise AttributeError(f"'{self._name}' is not readable")
+            raise AttributeError(f"'{self.spec.name}' is not readable")
 
         return self.fget(instance)
 
@@ -246,7 +217,6 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
         self.fget = fget
         self.__doc__ = getattr(fget, '__doc__', None)
 
-        # The getter may affect the inferred type and description.
         self._spec = None
         self._qb_field = None
 
@@ -259,7 +229,7 @@ class OrmField(t.Generic[_OwnerT, _ValueT, _QbFieldT]):
 
         self.fset = fset
 
-        # Setter existence determines CREATE_ONLY vs MUTABLE.
+        # Setter existence determines CREATE_ONLY versus MUTABLE.
         self._spec = None
 
         return self
@@ -367,7 +337,7 @@ class OrmFieldDecorator:
         backend_key: str | None = None,
         readonly: bool = False,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None,
+        model_adapter: ModelAdapter[t.Any, t.Any] | None = None,
         cli_field_info: CliFieldInfo | None = None,
     ) -> t.Self: ...
 

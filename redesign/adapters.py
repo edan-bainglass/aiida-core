@@ -1,7 +1,7 @@
 import typing as t
 
 from entity import Entity
-from fields import ModelAdapter
+from models import ModelAdapter
 
 
 class EntityPkAdapter(ModelAdapter['Entity', int]):
