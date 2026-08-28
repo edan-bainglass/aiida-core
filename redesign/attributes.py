@@ -5,7 +5,16 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
-from fields import BaseField, BaseFieldConfig, BaseFieldSpec, EntityField, ModelFieldInfo
+from fields import (
+    BaseField,
+    BaseFieldConfig,
+    BaseFieldDecorator,
+    BaseFieldSpec,
+    EntityField,
+    ModelFieldInfo,
+    _QbFieldT,
+    _ValueT,
+)
 
 from aiida.orm import fields as qb_fields
 
@@ -24,11 +33,6 @@ __all__ = (
 )
 
 
-_NodeT = t.TypeVar('_NodeT', bound='Node')
-_ValueT = t.TypeVar('_ValueT')
-_QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
-
-
 @dataclasses.dataclass(frozen=True)
 class NodeAttributeSpec(BaseFieldSpec):
     """Canonical semantic description of a typed Node attribute."""
@@ -37,6 +41,9 @@ class NodeAttributeSpec(BaseFieldSpec):
 @dataclasses.dataclass(frozen=True)
 class NodeAttributeConfig(BaseFieldConfig):
     """Unresolved configuration supplied to the `attribute` decorator."""
+
+
+_NodeT = t.TypeVar('_NodeT', bound='Node')
 
 
 class NodeAttribute(
@@ -78,11 +85,18 @@ class NodeAttribute(
         return t.cast(_QbFieldT, getattr(owner.attributes, self.spec.name))
 
 
-class NodeAttributeDecorator:
+class NodeAttributeDecorator(
+    BaseFieldDecorator[
+        _NodeT,
+        _ValueT,
+        NodeAttributeConfig,
+        NodeAttribute[t.Any, t.Any, qb_fields.QbField],
+    ]
+):
     """Decorator factory for typed Node attributes."""
 
-    def __init__(self, config: NodeAttributeConfig | None = None) -> None:
-        self._config = config or NodeAttributeConfig()
+    config_type = NodeAttributeConfig
+    field_type = NodeAttribute
 
     @t.overload
     def __call__(
@@ -154,10 +168,7 @@ class NodeAttributeDecorator:
         /,
         **kwargs: t.Any,
     ) -> t.Any:
-        if fget is None:
-            return type(self)(NodeAttributeConfig(**kwargs))
-
-        return NodeAttribute(fget, config=self._config)
+        return super().__call__(fget, **kwargs)
 
 
 attribute = NodeAttributeDecorator()
