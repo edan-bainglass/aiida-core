@@ -55,9 +55,6 @@ class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
         self._config = config or AttributeConfig()
         self._spec: NodeAttributeSpec | None = None
 
-    def __set_name__(self, owner: type[_NodeT], name: str) -> None:
-        self._name = name
-
     @property
     def spec(self) -> NodeAttributeSpec:
         """Return the lazily resolved attribute specification."""
@@ -76,6 +73,22 @@ class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
         """Return the ORM/model value adapter."""
         return self._config.model_adapter
 
+    def _build_spec(self) -> NodeAttributeSpec:
+        """Resolve the declaration into the canonical attribute specification."""
+        if self._name is None:
+            raise RuntimeError('attribute has not been assigned to a Node class')
+
+        value_type = t.get_type_hints(self.fget).get('return', t.Any)
+
+        return NodeAttributeSpec(
+            name=self._name,
+            value_type=value_type,
+            description=(self.__doc__ or '').strip(),
+        )
+
+    def __set_name__(self, owner: type[_NodeT], name: str) -> None:
+        self._name = name
+
     @t.overload
     def __get__(self, instance: None, owner: type[_NodeT]) -> _QbFieldT: ...
 
@@ -90,19 +103,6 @@ class NodeAttribute(t.Generic[_NodeT, _ValueT, _QbFieldT]):
             raise AttributeError('Node attribute must be accessed through a Node class')
 
         return t.cast(_QbFieldT, getattr(owner.attributes, self.spec.name))
-
-    def _build_spec(self) -> NodeAttributeSpec:
-        """Resolve the declaration into the canonical attribute specification."""
-        if self._name is None:
-            raise RuntimeError('attribute has not been assigned to a Node class')
-
-        value_type = t.get_type_hints(self.fget).get('return', t.Any)
-
-        return NodeAttributeSpec(
-            name=self._name,
-            value_type=value_type,
-            description=(self.__doc__ or '').strip(),
-        )
 
 
 class NodeAttributeDecorator:
