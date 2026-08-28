@@ -6,7 +6,7 @@ import typing as t
 
 import pydantic as pdt
 from attributes import NodeAttributesField, iter_attributes
-from fields import EntityFieldSpec, ModelField, ModelFieldInfo, OrmField, iter_fields
+from fields import EntityField, EntityFieldSpec, ModelField, ModelFieldInfo, iter_fields
 
 if t.TYPE_CHECKING:
     from entity import Entity
@@ -58,7 +58,7 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
 
     # Set on each dynamically generated model class.
     _entity: t.ClassVar[type[_EntityT]]
-    _orm_fields: t.ClassVar[dict[str, OrmField]]
+    _orm_fields: t.ClassVar[dict[str, EntityField]]
 
     @classmethod
     def field_spec(cls, name: str) -> EntityFieldSpec:
@@ -67,7 +67,7 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
 
     @classmethod
     def _from_orm_field_values(cls, entity: _EntityT) -> dict[str, t.Any]:
-        """Convert ORM field values to model-side representations."""
+        """Convert ORM entity field values to model-side representations."""
         values: dict[str, t.Any] = {}
 
         for name, orm_field in cls._orm_fields.items():
@@ -179,7 +179,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
             raise RuntimeError('model namespace is not bound to an entity class')
 
         model_fields: dict[str, tuple[t.Any, t.Any]] = {}
-        orm_fields: dict[str, OrmField] = {}
+        orm_fields: dict[str, EntityField] = {}
 
         for name, orm_field in iter_fields(self._entity).items():
             spec = orm_field.spec
