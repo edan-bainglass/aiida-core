@@ -109,7 +109,15 @@ _SpecT = t.TypeVar('_SpecT', bound=BaseFieldSpec)
 _ConfigT = t.TypeVar('_ConfigT', bound=BaseFieldConfig)
 
 
-class BaseField(t.Generic[_OwnerT, _ValueT, _QbFieldT, _SpecT, _ConfigT]):
+class BaseField(
+    t.Generic[
+        _OwnerT,
+        _ValueT,
+        _QbFieldT,
+        _SpecT,
+        _ConfigT,
+    ]
+):
     """Common infrastructure for typed ORM field declarations."""
 
     def __init__(self, fget: Callable[[_OwnerT], _ValueT], *, config: _ConfigT) -> None:
@@ -305,11 +313,49 @@ class EntityField(
         self.fdel(instance)
 
 
-class EntityFieldDecorator:
+_FieldT = t.TypeVar('_FieldT')
+
+
+class BaseFieldDecorator(
+    t.Generic[
+        _OwnerT,
+        _ValueT,
+        _ConfigT,
+        _FieldT,
+    ]
+):
+    """Common decorator-factory mechanics for typed field declarations."""
+
+    config_type: type[_ConfigT]
+    field_type: type[_FieldT]
+
+    def __init__(self, config: _ConfigT | None = None) -> None:
+        self._config = config or self.config_type()
+
+    def __call__(
+        self,
+        fget: Callable[..., t.Any] | None = None,
+        /,
+        **kwargs: t.Any,
+    ) -> _FieldT | Self:
+        if fget is None:
+            return type(self)(self.config_type(**kwargs))
+
+        return self.field_type(fget, config=self._config)
+
+
+class EntityFieldDecorator(
+    BaseFieldDecorator[
+        _OwnerT,
+        _ValueT,
+        EntityFieldConfig,
+        EntityField[t.Any, t.Any, qb_fields.QbField],
+    ]
+):
     """Decorator factory for ORM entity fields."""
 
-    def __init__(self, config: EntityFieldConfig | None = None) -> None:
-        self._config = config or EntityFieldConfig()
+    config_type = EntityFieldConfig
+    field_type = EntityField
 
     @t.overload
     def __call__(
@@ -384,10 +430,7 @@ class EntityFieldDecorator:
         /,
         **kwargs: t.Any,
     ) -> t.Any:
-        if fget is None:
-            return type(self)(EntityFieldConfig(**kwargs))
-
-        return EntityField(fget, config=self._config)
+        return super().__call__(fget, **kwargs)
 
 
 field = EntityFieldDecorator()
