@@ -1,28 +1,35 @@
 from __future__ import annotations
 
+import datetime
+import functools
 import typing as t
 
-from entity import Entity
-from fields import field
+from adapters import EntityPkAdapter
+from attributes import attributes_field
+from computer import Computer
+from entity import Entity, from_backend_entity
+from fields import ModelField, field
+from user import User
 
+from aiida.common import exceptions
 from aiida.common.lang import classproperty
 from aiida.manage import get_manager
-from aiida.orm import Computer, User
 from aiida.orm.implementation import BackendNode, StorageBackend
+from aiida.orm.nodes.node import NodeBase
 from aiida.orm.utils.node import get_type_string_from_class
 
 
 class Node(Entity[BackendNode]):
     __plugin_type_string: t.ClassVar[str]
 
+    _extra_attributes: t.ClassVar[t.Literal['allow', 'forbid']] = 'forbid'
+
     def __init__(
         self,
-        label: str | None = None,
-        description: str | None = None,
+        label: str = '',
+        description: str = '',
         extras: dict | None = None,
         attributes: dict | None = None,
-        repository_metadata: dict | None = None,
-        files: dict | None = None,
         computer: Computer | None = None,
         user: User | None = None,
         backend: StorageBackend | None = None,
@@ -30,7 +37,7 @@ class Node(Entity[BackendNode]):
     ):
         backend = backend or get_manager().get_profile_storage()
 
-        if computer and not computer.is_stored:
+        if computer is not None and not computer.is_stored:
             raise ValueError('the computer is not stored')
 
         backend_computer = computer.backend_entity if computer else None
@@ -42,9 +49,6 @@ class Node(Entity[BackendNode]):
         backend_entity = backend.nodes.create(
             label=label,
             description=description,
-            extras=extras,
-            attributes=attributes,
-            repository_metadata=repository_metadata,
             node_type=self.class_node_type,
             user=user.backend_entity,
             computer=backend_computer,
@@ -53,11 +57,25 @@ class Node(Entity[BackendNode]):
 
         super().__init__(backend_entity, **kwargs)
 
-        if files:
-            # TODO: Implement the logic to handle files associated with the node.
-            pass
+        if attributes:
+            self.base.attributes.set_many(attributes)
 
-    @field
+        if extras:
+            self.base.extras.set_many(extras)
+
+    def __init_subclass__(
+        cls,
+        *,
+        extra_attributes: t.Literal[
+            'allow',
+            'forbid',
+        ] = 'forbid',
+        **kwargs,
+    ) -> None:
+        super().__init_subclass__(**kwargs)
+        cls._extra_attributes = extra_attributes
+
+    @field(model_field_info=ModelField(default=''))
     def label(self) -> str:
         """The label of the node."""
         return self._backend_entity.label
@@ -66,7 +84,7 @@ class Node(Entity[BackendNode]):
     def label(self, value: str):
         self._backend_entity.label = value
 
-    @field
+    @field(model_field_info=ModelField(default=''))
     def description(self) -> str:
         """The description of the node."""
         return self._backend_entity.description
@@ -75,34 +93,39 @@ class Node(Entity[BackendNode]):
     def description(self, value: str):
         self._backend_entity.description = value
 
-    @field
-    def extras(self) -> dict:
+    @field(model_field_info=ModelField(default_factory=dict))
+    def extras(self) -> dict[str, t.Any]:
         """The extras of the node."""
-        return self._backend_entity.extras
+        return self.base.extras.all
 
     @extras.setter
-    def extras(self, value: dict):
-        self._backend_entity.extras = value
+    def extras(self, value: dict[str, t.Any]):
+        self.base.extras.reset(value)
 
-    @field
-    def attributes(self) -> dict:
+    @attributes_field
+    def attributes(self) -> dict[str, t.Any]:
         """The attributes of the node."""
-        return self._backend_entity.attributes
+        return self.base.attributes.all
 
-    @field
-    def repository_metadata(self) -> dict:
-        """The repository metadata of the node."""
-        return self._backend_entity.repository_metadata
-
-    @field
+    @field(
+        model_field_info=ModelField(
+            description='The PK of the associated user.',
+        ),
+        model_adapter=EntityPkAdapter(User),
+    )
     def user(self) -> User:
         """The user associated with the node."""
-        return Entity.from_backend_entity(User, self._backend_entity.user)
+        return from_backend_entity(User, self._backend_entity.user)
 
-    @field
+    @field(
+        model_field_info=ModelField(
+            description='The PK of the associated computer.',
+        ),
+        model_adapter=EntityPkAdapter(Computer),
+    )
     def computer(self) -> Computer | None:
         """The computer associated with the node."""
-        return Entity.from_backend_entity(Computer, self._backend_entity.computer)
+        return from_backend_entity(Computer, self._backend_entity.computer)
 
     @field(readonly=True)
     def uuid(self) -> str:
@@ -115,21 +138,41 @@ class Node(Entity[BackendNode]):
         return self._backend_entity.node_type
 
     @field(readonly=True)
-    def ctime(self) -> str:
+    def ctime(self) -> datetime.datetime:
         """The creation time of the node."""
         return self._backend_entity.ctime
 
     @field(readonly=True)
-    def mtime(self) -> str:
+    def mtime(self) -> datetime.datetime:
         """The last modification time of the node."""
         return self._backend_entity.mtime
 
+    @field(readonly=True)
+    def repository_metadata(self) -> dict[str, t.Any]:
+        """The repository metadata of the node."""
+        return self.base.repository.metadata
+
+    @functools.cached_property
+    def base(self) -> NodeBase:
+        """Return the base of the node."""
+        return NodeBase(self)
+
     @classproperty
-    def class_node_type(cls) -> str:  # noqa: N805
+    def class_node_type(cls) -> str:
         return cls._plugin_type_string
 
     @classproperty
-    def _plugin_type_string(cls) -> str:  # noqa: N805
+    def _plugin_type_string(cls) -> str:
         if not hasattr(cls, '__plugin_type_string'):
             cls.__plugin_type_string = get_type_string_from_class(cls.__module__, cls.__name__)
         return cls.__plugin_type_string
+
+    def _check_mutability_attributes(self, keys: list[str] | None = None) -> None:
+        """Check if the entity is mutable and raise an exception if not.
+
+        This is called from `NodeAttributes` methods that modify the attributes.
+
+        :param keys: the keys that will be mutated, or all if None
+        """
+        if self.is_stored:
+            raise exceptions.ModificationNotAllowed('the attributes of a stored entity are immutable')
