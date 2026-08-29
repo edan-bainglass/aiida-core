@@ -40,8 +40,8 @@ class Entity(abc.ABC, t.Generic[BackendEntityType]):
         """Return whether the entity is stored."""
         return self._backend_entity.is_stored
 
-    @classmethod
-    def get_one(cls, pk: int) -> Self | None:
+    @staticmethod
+    def get_one(pk: int) -> Self | None:
         """Get an entity by primary key."""
         raise NotImplementedError('get_one must be implemented in subclasses')
 
