@@ -8,6 +8,8 @@ import pydantic as pdt
 from attributes import NodeAttributesField, iter_attributes
 from fields import EntityField, EntityFieldSpec, ModelField, ModelFieldInfo, iter_fields
 
+from aiida.common.lang import classproperty
+
 if t.TYPE_CHECKING:
     from entity import Entity
 
@@ -32,7 +34,17 @@ _ModelName = t.Literal['read', 'create', 'update']
 class ModelAdapter(abc.ABC, t.Generic[_OrmValueT, _ModelValueT]):
     """Adapt between ORM and model representations of a value."""
 
-    model_type: t.Any
+    _model_type: t.ClassVar[t.Any] = None
+
+    @classproperty
+    def model_type(cls) -> t.Any:
+        if cls._model_type is None:
+            try:
+                cls._model_type = t.get_type_hints(cls.to_model)['return']
+            except KeyError:
+                raise TypeError(f'`{cls.__name__}.to_model` must have a return annotation') from None
+
+        return cls._model_type
 
     @abc.abstractmethod
     def to_model(self, value: _OrmValueT) -> _ModelValueT:
