@@ -9,6 +9,7 @@ from attributes import attributes_field
 from computer import Computer
 from entity import Entity, from_backend_entity
 from fields import ModelField, field
+from node_models import NodeModelsNamespace
 from user import User
 
 from aiida.common import exceptions
@@ -20,6 +21,8 @@ from aiida.orm.utils.node import get_type_string_from_class
 
 
 class Node(Entity[BackendNode]):
+    models = NodeModelsNamespace()
+
     __plugin_type_string: t.ClassVar[str]
 
     _extra_attributes: t.ClassVar[t.Literal['allow', 'forbid']] = 'forbid'

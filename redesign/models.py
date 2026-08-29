@@ -5,13 +5,18 @@ import functools
 import typing as t
 
 import pydantic as pdt
-from attributes import NodeAttributesField, iter_attributes
-from fields import EntityField, EntityFieldSpec, ModelField, ModelFieldInfo, iter_fields
+from fields import (
+    EntityField,
+    EntityFieldSpec,
+    ModelField,
+    ModelFieldInfo,
+    iter_fields,
+)
 
 from aiida.common.lang import classproperty
 
 if t.TYPE_CHECKING:
-    from entity import Entity
+    pass
 
 
 __all__ = (
@@ -73,6 +78,7 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
     # Set on each dynamically generated model class.
     _entity: t.ClassVar[type[_EntityT]]
     _orm_fields: t.ClassVar[dict[str, EntityField]]
+    _models_namespace: t.ClassVar[ModelsNamespace[t.Any]]
 
     @classmethod
     def field_spec(cls, name: str) -> EntityFieldSpec:
@@ -82,43 +88,22 @@ class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
     @classmethod
     def _from_orm_field_values(cls, entity: _EntityT) -> dict[str, t.Any]:
         """Convert ORM entity field values to model-side representations."""
-        values: dict[str, t.Any] = {}
-
-        for name, orm_field in cls._orm_fields.items():
-            value = getattr(entity, name)
-
-            if isinstance(orm_field, NodeAttributesField):
-                value = _attributes_to_model(cls._entity, value)
-            elif value is not None and (adapter := orm_field.model_adapter):
-                value = adapter.to_model(value)
-
-            values[name] = value
-
-        return values
+        return {
+            name: cls._models_namespace._to_model_value(orm_field, getattr(entity, name))
+            for name, orm_field in cls._orm_fields.items()
+        }
 
     def _to_orm_field_values(self, *, only_set: bool = False) -> dict[str, t.Any]:
         """Convert model field values to ORM-side representations."""
-        names: t.Iterable[str]
+        names: t.Iterable[str] = self.model_fields_set if only_set else self.__class__.model_fields
 
-        if only_set:
-            names = self.model_fields_set
-        else:
-            names = self.__class__.model_fields
-
-        values: dict[str, t.Any] = {}
-
-        for name in names:
-            orm_field = self.__class__._orm_fields[name]
-            value = getattr(self, name)
-
-            if isinstance(orm_field, NodeAttributesField):
-                value = _attributes_to_orm(self.__class__._entity, value)
-            elif value is not None and (adapter := orm_field.model_adapter):
-                value = adapter.to_orm(value)
-
-            values[name] = value
-
-        return values
+        return {
+            name: self.__class__._models_namespace._to_orm_value(
+                self.__class__._orm_fields[name],
+                getattr(self, name),
+            )
+            for name in names
+        }
 
 
 class ReadModel(OrmModel[_EntityT]):
@@ -154,15 +139,15 @@ class ModelsNamespace(t.Generic[_EntityT]):
 
     def __init__(self, *, entity: type[_EntityT] | None = None) -> None:
         self._entity = entity
-        self._namespaces: dict[type[_EntityT], ModelsNamespace[_EntityT]] = {}
+        self._namespaces: dict[type[t.Any], t.Self] = {}
 
     @t.overload
-    def __get__(self, instance: None, owner: type[_EntityT]) -> ModelsNamespace[_EntityT]: ...
+    def __get__(self, instance: None, owner: type[_EntityT]) -> t.Self: ...
 
     @t.overload
     def __get__(self, instance: object, owner: type[_EntityT] | None = None) -> t.Never: ...
 
-    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> ModelsNamespace[_EntityT]:
+    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> t.Self:
         if owner is None:
             raise AttributeError('models must be accessed through an entity class')
 
@@ -192,13 +177,26 @@ class ModelsNamespace(t.Generic[_EntityT]):
         """Return the update projection for the entity."""
         return self._build_model('update')
 
-    @functools.cached_property
-    def _attributes(self) -> type[pdt.BaseModel]:
-        """Return the lazily generated nested attributes model."""
-        if self._entity is None:
-            raise RuntimeError('model namespace is not bound to an entity class')
+    def _model_field_type(self, orm_field: EntityField) -> t.Any:
+        """Return the model-side annotation for an ORM field."""
+        if orm_field.model_adapter is not None:
+            return orm_field.model_adapter.model_type
 
-        return _build_attributes_model(self._entity)
+        return orm_field.spec.value_type
+
+    def _to_model_value(self, orm_field: EntityField, value: t.Any) -> t.Any:
+        """Convert an ORM field value to its model-side representation."""
+        if value is not None and (adapter := orm_field.model_adapter):
+            return adapter.to_model(value)
+
+        return value
+
+    def _to_orm_value(self, orm_field: EntityField, value: t.Any) -> t.Any:
+        """Convert a model field value to its ORM-side representation."""
+        if value is not None and (adapter := orm_field.model_adapter):
+            return adapter.to_orm(value)
+
+        return value
 
     @t.overload
     def _build_model(self, projection: t.Literal['read']) -> type[ReadModel[_EntityT]]: ...
@@ -222,15 +220,8 @@ class ModelsNamespace(t.Generic[_EntityT]):
             if not _include_field(spec, projection):
                 continue
 
-            if isinstance(orm_field, NodeAttributesField):
-                model_type = self._attributes
-            elif orm_field.model_adapter is not None:
-                model_type = orm_field.model_adapter.model_type
-            else:
-                model_type = spec.value_type
-
             model_fields[name] = _build_model_field(
-                model_type,
+                self._model_field_type(orm_field),
                 description=spec.description,
                 model_field_info=orm_field.model_field_info,
                 readonly=spec.readonly,
@@ -253,6 +244,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
 
         model._entity = self._entity
         model._orm_fields = orm_fields
+        model._models_namespace = self
 
         return model
 
@@ -285,66 +277,6 @@ def _include_field(spec: EntityFieldSpec, projection: _ModelName) -> bool:
     t.assert_never(projection)
 
 
-def _build_attributes_model(entity: type[Entity]) -> type[pdt.BaseModel]:
-    """Build the nested attributes model for a Node type."""
-    model_fields: dict[str, tuple[t.Any, t.Any]] = {}
-
-    for name, node_attribute in iter_attributes(entity).items():
-        spec = node_attribute.spec
-        model_type = (
-            node_attribute.model_adapter.model_type if node_attribute.model_adapter is not None else spec.value_type
-        )
-
-        model_fields[name] = _build_model_field(
-            model_type,
-            description=spec.description,
-            model_field_info=node_attribute.model_field_info,
-        )
-
-    extra_attributes = entity.__dict__.get('_extra_attributes', 'forbid')
-
-    return pdt.create_model(
-        f'{entity.__name__}AttributesModel',
-        __config__=pdt.ConfigDict(
-            extra=extra_attributes,
-            serialize_by_alias=True,
-            validate_by_alias=True,
-            validate_by_name=True,
-        ),
-        __module__=entity.__module__,
-        __qualname__=f'{entity.__qualname__}.AttributesModel',
-        **model_fields,
-    )
-
-
-def _attributes_to_model(entity: type[Entity], value: dict[str, t.Any]) -> dict[str, t.Any]:
-    """Convert raw Node attributes to their model-side representations."""
-    values = dict(value)
-
-    for name, node_attribute in iter_attributes(entity).items():
-        if name not in values:
-            continue
-
-        if values[name] is not None and (adapter := node_attribute.model_adapter):
-            values[name] = adapter.to_model(values[name])
-
-    return values
-
-
-def _attributes_to_orm(entity: type[Entity], value: pdt.BaseModel | dict[str, t.Any]) -> dict[str, t.Any]:
-    """Convert a nested attributes model to raw ORM attributes."""
-    values = value.model_dump() if isinstance(value, pdt.BaseModel) else dict(value)
-
-    for name, node_attribute in iter_attributes(entity).items():
-        if name not in values:
-            continue
-
-        if values[name] is not None and (adapter := node_attribute.model_adapter):
-            values[name] = adapter.to_orm(values[name])
-
-    return values
-
-
 def _build_model_field(
     model_type: t.Any,
     *,
@@ -359,8 +291,6 @@ def _build_model_field(
     metadata = field_dict['metadata']
     attributes = dict(field_dict['attributes'])
 
-    # The getter docstring provides the default model description.
-    # Explicit Pydantic configuration wins.
     if attributes['description'] is None and description:
         attributes['description'] = description
 
