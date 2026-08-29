@@ -194,6 +194,52 @@ class EntityField(
         self.fdel = fdel
         self._qb_field: _QbFieldT | None = None
 
+    @t.overload
+    def __get__(self, instance: None, owner: type[_OwnerT]) -> _QbFieldT: ...
+
+    @t.overload
+    def __get__(self, instance: _OwnerT, owner: type[_OwnerT] | None = None) -> _ValueT: ...
+
+    def __get__(
+        self,
+        instance: _OwnerT | None,
+        owner: type[_OwnerT] | None = None,
+    ) -> _ValueT | _QbFieldT:
+        if instance is None:
+            if owner is None:
+                raise AttributeError('ORM entity field must be accessed through an entity class')
+
+            return self._get_qb_field(owner)
+
+        if self.fget is None:
+            raise AttributeError(f"'{self.spec.name}' is not readable")
+
+        return self.fget(instance)
+
+    def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
+        if self._owner is None or self._name is None:
+            raise RuntimeError('field has not been assigned to an entity')
+
+        if self.spec.readonly:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
+
+        if self.spec.immutable:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} is immutable')
+
+        if self.fset is None:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
+
+        self.fset(instance, value)
+
+    def __delete__(self, instance: _OwnerT) -> None:
+        if self._owner is None or self._name is None:
+            raise RuntimeError('field has not been assigned to an entity')
+
+        if self.fdel is None:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} has no deleter')
+
+        self.fdel(instance)
+
     @property
     def cli_field_info(self) -> CliFieldInfo | None:
         """Return optional CLI-specific field configuration."""
@@ -265,52 +311,6 @@ class EntityField(
             backend_key=self._config.backend_key or self._name,
             access=access,
         )
-
-    @t.overload
-    def __get__(self, instance: None, owner: type[_OwnerT]) -> _QbFieldT: ...
-
-    @t.overload
-    def __get__(self, instance: _OwnerT, owner: type[_OwnerT] | None = None) -> _ValueT: ...
-
-    def __get__(
-        self,
-        instance: _OwnerT | None,
-        owner: type[_OwnerT] | None = None,
-    ) -> _ValueT | _QbFieldT:
-        if instance is None:
-            if owner is None:
-                raise AttributeError('ORM entity field must be accessed through an entity class')
-
-            return self._get_qb_field(owner)
-
-        if self.fget is None:
-            raise AttributeError(f"'{self.spec.name}' is not readable")
-
-        return self.fget(instance)
-
-    def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
-        if self._owner is None or self._name is None:
-            raise RuntimeError('field has not been assigned to an entity')
-
-        if self.spec.readonly:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
-
-        if self.spec.immutable:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} is immutable')
-
-        if self.fset is None:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
-
-        self.fset(instance, value)
-
-    def __delete__(self, instance: _OwnerT) -> None:
-        if self._owner is None or self._name is None:
-            raise RuntimeError('field has not been assigned to an entity')
-
-        if self.fdel is None:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} has no deleter')
-
-        self.fdel(instance)
 
 
 _FieldT = t.TypeVar('_FieldT')
