@@ -36,7 +36,7 @@ class ModelAdapter(abc.ABC, t.Generic[_OrmValueT, _ModelValueT]):
     _model_type: t.ClassVar[t.Any] = None
 
     @classproperty
-    def model_type(cls) -> t.Any:
+    def model_type(cls) -> t.Any:  # noqa: N805
         if cls._model_type is None:
             try:
                 cls._model_type = t.get_type_hints(cls.to_model)['return']
@@ -54,7 +54,7 @@ class ModelAdapter(abc.ABC, t.Generic[_OrmValueT, _ModelValueT]):
         """Convert a model value to its ORM representation."""
 
 
-_EntityT = t.TypeVar('_EntityT', bound='Entity')
+_EntityT = t.TypeVar('_EntityT')
 
 
 class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
