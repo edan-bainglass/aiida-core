@@ -464,6 +464,13 @@ class EntityFieldDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_OwnerT], object],
+        /,
+    ) -> EntityField[_OwnerT, object, qb_fields.QbAnyField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_OwnerT], _ValueT],
         /,
     ) -> EntityField[_OwnerT, _ValueT, qb_fields.QbAnyField]: ...
