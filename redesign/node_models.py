@@ -7,6 +7,7 @@ import pydantic as pdt
 from attributes import NodeAttributesField, iter_attributes
 from fields import EntityField
 from models import ModelsNamespace, _build_model_field
+from typing_extensions import Self
 
 if t.TYPE_CHECKING:
     from node import Node
@@ -20,6 +21,15 @@ _NodeT = t.TypeVar('_NodeT', bound='Node')
 
 class NodeModelsNamespace(ModelsNamespace[_NodeT]):
     """Model namespace with Node-specific attribute handling."""
+
+    @t.overload
+    def __get__(self, instance: None, owner: type[_NodeT]) -> Self: ...
+
+    @t.overload
+    def __get__(self, instance: object, owner: type[_NodeT] | None = None) -> t.Never: ...
+
+    def __get__(self, instance: object | None, owner: type[_NodeT] | None = None) -> Self:
+        return super().__get__(instance, owner)
 
     @functools.cached_property
     def attributes(self) -> type[pdt.BaseModel]:
