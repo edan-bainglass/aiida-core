@@ -66,10 +66,6 @@ class NodeAttribute(
     ) -> None:
         super().__init__(fget, config=config or NodeAttributeConfig())
 
-    def _build_spec(self) -> NodeAttributeSpec:
-        """Resolve the declaration into the canonical attribute specification."""
-        return NodeAttributeSpec(**self._base_spec_values())
-
     @t.overload
     def __get__(self, instance: None, owner: type[_NodeT]) -> _QbFieldT: ...
 
@@ -84,6 +80,10 @@ class NodeAttribute(
             raise AttributeError('Node attribute must be accessed through a Node class')
 
         return t.cast(_QbFieldT, getattr(owner.attributes, self.spec.name))
+
+    def _build_spec(self) -> NodeAttributeSpec:
+        """Resolve the declaration into the canonical attribute specification."""
+        return NodeAttributeSpec(**self._base_spec_values())
 
 
 class NodeAttributeDecorator(
