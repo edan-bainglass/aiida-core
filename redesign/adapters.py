@@ -1,13 +1,9 @@
-import typing as t
-
 from entity import Entity
 from models import ModelAdapter
 
 
 class EntityPkAdapter(ModelAdapter['Entity', int]):
     """Represent an ORM entity by its primary key in models."""
-
-    model_type: t.ClassVar[t.Any] = int
 
     def __init__(self, entity_type: type[Entity]) -> None:
         self._entity_type = entity_type
