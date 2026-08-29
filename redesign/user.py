@@ -47,7 +47,7 @@ class User(Entity[BackendUser]):
         """The institution of the user."""
         return self._backend_entity.institution
 
-    @classmethod
-    def get_one(cls, pk: int) -> User | None:
+    @staticmethod
+    def get_one(pk: int) -> User | None:
         """Get a user by primary key."""
         return orm.User.collection.get(pk=pk)

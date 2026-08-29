@@ -66,8 +66,8 @@ class Computer(Entity[BackendComputer]):
         """The metadata of the computer."""
         return self._backend_entity.get_metadata()
 
-    @classmethod
-    def get_one(cls, pk: int) -> Computer | None:
+    @staticmethod
+    def get_one(pk: int) -> Computer | None:
         """Get a computer by primary key."""
         from aiida import orm
 

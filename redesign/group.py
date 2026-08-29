@@ -32,7 +32,11 @@ class Group(Entity[BackendGroup]):
         user = t.cast(User, user or backend.default_user)
 
         model = backend.groups.create(
-            label=label, user=user.backend_entity, description=description, type_string=self._type_string, time=time
+            label=label,
+            user=user.backend_entity,
+            description=description,
+            type_string=self._type_string,
+            time=time,
         )
         super().__init__(model)
 
