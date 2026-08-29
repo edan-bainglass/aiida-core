@@ -191,6 +191,13 @@ class NodeAttributeDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_NodeT], object],
+        /,
+    ) -> NodeAttribute[_NodeT, object, qb_fields.QbAnyField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_NodeT], _ValueT],
         /,
     ) -> NodeAttribute[_NodeT, _ValueT, qb_fields.QbAnyField]: ...
