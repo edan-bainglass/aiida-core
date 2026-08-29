@@ -24,11 +24,10 @@ __all__ = (
 )
 
 
-_EntityT = t.TypeVar('_EntityT', bound='Entity')
+_ModelName = t.Literal['read', 'create', 'update']
+
 _OrmValueT = t.TypeVar('_OrmValueT')
 _ModelValueT = t.TypeVar('_ModelValueT')
-
-_ModelName = t.Literal['read', 'create', 'update']
 
 
 class ModelAdapter(abc.ABC, t.Generic[_OrmValueT, _ModelValueT]):
@@ -53,6 +52,9 @@ class ModelAdapter(abc.ABC, t.Generic[_OrmValueT, _ModelValueT]):
     @abc.abstractmethod
     def to_orm(self, value: _ModelValueT) -> _OrmValueT:
         """Convert a model value to its ORM representation."""
+
+
+_EntityT = t.TypeVar('_EntityT', bound='Entity')
 
 
 class OrmModel(pdt.BaseModel, t.Generic[_EntityT]):
