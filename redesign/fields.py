@@ -120,12 +120,15 @@ class BaseField(
 ):
     """Common infrastructure for typed ORM field declarations."""
 
+    config_type: t.ClassVar[type[_ConfigT]]
+    spec_type: t.ClassVar[type[_SpecT]]
+
     def __init__(self, fget: Callable[[_OwnerT], _ValueT], *, config: _ConfigT) -> None:
         self.fget = fget
         self.__doc__ = getattr(fget, '__doc__', None)
 
         self._name: str | None = None
-        self._config = config
+        self._config = config or self.config_type()
         self._spec: _SpecT | None = None
 
         self._owner: type[_OwnerT] | None = None
@@ -152,8 +155,9 @@ class BaseField(
         """Return the ORM/model value adapter."""
         return self._config.model_adapter
 
-    def _build_spec(self) -> _SpecT:
-        raise NotImplementedError
+    def _build_spec(self, **kwargs) -> _SpecT:
+        """Resolve the declaration into the canonical specification."""
+        return self.spec_type(**self._base_spec_values(), **kwargs)
 
     def _base_spec_values(self) -> dict[str, t.Any]:
         """Return values shared by all field specifications."""
@@ -180,6 +184,9 @@ class EntityField(
 ):
     """Descriptor declaring an ORM entity field."""
 
+    config_type = EntityFieldConfig
+    spec_type = EntityFieldSpec
+
     def __init__(
         self,
         fget: Callable[[_OwnerT], _ValueT],
@@ -188,7 +195,7 @@ class EntityField(
         *,
         config: EntityFieldConfig | None = None,
     ) -> None:
-        super().__init__(fget, config=config or EntityFieldConfig())
+        super().__init__(fget, config=config)
 
         self.fset = fset
         self.fdel = fdel
@@ -306,8 +313,7 @@ class EntityField(
         else:
             access = FieldAccess.MUTABLE
 
-        return EntityFieldSpec(
-            **self._base_spec_values(),
+        return super()._build_spec(
             backend_key=self._config.backend_key or self._name,
             access=access,
         )
