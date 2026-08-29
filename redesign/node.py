@@ -10,6 +10,7 @@ from computer import Computer
 from entity import Entity, from_backend_entity
 from fields import ModelField, field
 from node_models import NodeModelsNamespace
+from typing_extensions import Self
 from user import User
 
 from aiida.common import exceptions
@@ -21,7 +22,7 @@ from aiida.orm.utils.node import get_type_string_from_class
 
 
 class Node(Entity[BackendNode]):
-    models = NodeModelsNamespace()
+    models: NodeModelsNamespace[Self] = NodeModelsNamespace()
 
     __plugin_type_string: t.ClassVar[str]
 

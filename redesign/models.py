@@ -12,6 +12,7 @@ from fields import (
     ModelFieldInfo,
     iter_fields,
 )
+from typing_extensions import Self
 
 from aiida.common.lang import classproperty
 
@@ -110,7 +111,7 @@ class ReadModel(OrmModel[_EntityT]):
     """Read projection of an ORM entity."""
 
     @classmethod
-    def from_orm(cls, entity: _EntityT) -> t.Self:
+    def from_orm(cls, entity: _EntityT) -> Self:
         """Create a read model from an ORM entity."""
         return cls.model_validate(cls._from_orm_field_values(entity))
 
@@ -139,15 +140,15 @@ class ModelsNamespace(t.Generic[_EntityT]):
 
     def __init__(self, *, entity: type[_EntityT] | None = None) -> None:
         self._entity = entity
-        self._namespaces: dict[type[t.Any], t.Self] = {}
+        self._namespaces: dict[type[t.Any], Self] = {}
 
     @t.overload
-    def __get__(self, instance: None, owner: type[_EntityT]) -> t.Self: ...
+    def __get__(self, instance: None, owner: type[_EntityT]) -> Self: ...
 
     @t.overload
     def __get__(self, instance: object, owner: type[_EntityT] | None = None) -> t.Never: ...
 
-    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> t.Self:
+    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> Self:
         if owner is None:
             raise AttributeError('models must be accessed through an entity class')
 
