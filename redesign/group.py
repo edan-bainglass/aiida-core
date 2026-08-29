@@ -80,7 +80,7 @@ class Group(Entity[BackendGroup]):
         return self._base
 
     @classproperty
-    def _type_string(cls) -> str | None:
+    def _type_string(cls) -> str | None:  # noqa: N805
         from aiida.plugins.entry_point import get_entry_point_from_class
 
         if hasattr(cls, '__type_string'):

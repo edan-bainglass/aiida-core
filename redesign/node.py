@@ -158,11 +158,11 @@ class Node(Entity[BackendNode]):
         return NodeBase(self)
 
     @classproperty
-    def class_node_type(cls) -> str:
+    def class_node_type(cls) -> str:  # noqa: N805
         return cls._plugin_type_string
 
     @classproperty
-    def _plugin_type_string(cls) -> str:
+    def _plugin_type_string(cls) -> str:  # noqa: N805
         if not hasattr(cls, '__plugin_type_string'):
             cls.__plugin_type_string = get_type_string_from_class(cls.__module__, cls.__name__)
         return cls.__plugin_type_string
