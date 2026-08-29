@@ -58,13 +58,8 @@ class NodeAttribute(
 ):
     """Descriptor declaring a typed key in the Node attributes mapping."""
 
-    def __init__(
-        self,
-        fget: Callable[[_NodeT], _ValueT],
-        *,
-        config: NodeAttributeConfig | None = None,
-    ) -> None:
-        super().__init__(fget, config=config or NodeAttributeConfig())
+    config_type = NodeAttributeConfig
+    spec_type = NodeAttributeSpec
 
     @t.overload
     def __get__(self, instance: None, owner: type[_NodeT]) -> _QbFieldT: ...
@@ -80,10 +75,6 @@ class NodeAttribute(
             raise AttributeError('Node attribute must be accessed through a Node class')
 
         return t.cast(_QbFieldT, getattr(owner.attributes, self.spec.name))
-
-    def _build_spec(self) -> NodeAttributeSpec:
-        """Resolve the declaration into the canonical attribute specification."""
-        return NodeAttributeSpec(**self._base_spec_values())
 
 
 class NodeAttributeDecorator(
