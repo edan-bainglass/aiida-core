@@ -7,16 +7,13 @@ import typing as t
 from collections.abc import Callable
 
 from _types import EntityType
+from model_adapter import ModelAdapter
 from pydantic import Field as ModelField
 from pydantic.fields import FieldInfo as ModelFieldInfo
 from typing_extensions import Self
 
 from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
-
-if t.TYPE_CHECKING:
-    from models import ModelAdapter
-
 
 __all__ = (
     'CliFieldInfo',
