@@ -17,6 +17,10 @@ class Dict(PrimitiveData):
     def value(self) -> dict[str, t.Any]:
         return super().value
 
+    @value.setter
+    def value(self, new_value: dict[str, t.Any]):
+        self.base.attributes.set('value', new_value)
+
     def __getitem__(self, key):
         try:
             return self.value.get(key)

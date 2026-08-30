@@ -14,6 +14,10 @@ class Data(Node, extra_attributes='allow'):
         """Return the source of the node."""
         return self.base.attributes.get('source', None)
 
+    @source.setter
+    def source(self, value: dict[str, t.Any] | None):
+        self.base.attributes.set('source', value)
+
     @classmethod
     def get_class_node_type(cls) -> str:
         """Return the node type of the class."""

@@ -4,6 +4,7 @@ import functools
 import typing as t
 
 import pydantic as pdt
+from _types import NodeType
 from attributes import NodeAttributesField, iter_attributes
 from fields import EntityField
 from models import ModelsNamespace, _build_model_field
@@ -16,19 +17,16 @@ if t.TYPE_CHECKING:
 __all__ = ('NodeModelsNamespace',)
 
 
-_NodeT = t.TypeVar('_NodeT', bound='Node')
-
-
-class NodeModelsNamespace(ModelsNamespace[_NodeT]):
+class NodeModelsNamespace(ModelsNamespace[NodeType]):
     """Model namespace with Node-specific attribute handling."""
 
     @t.overload
-    def __get__(self, instance: None, owner: type[_NodeT]) -> Self: ...
+    def __get__(self, instance: None, owner: type[NodeType]) -> Self: ...
 
     @t.overload
-    def __get__(self, instance: object, owner: type[_NodeT] | None = None) -> t.Never: ...
+    def __get__(self, instance: object, owner: type[NodeType] | None = None) -> t.Never: ...
 
-    def __get__(self, instance: object | None, owner: type[_NodeT] | None = None) -> Self:
+    def __get__(self, instance: object | None, owner: type[NodeType] | None = None) -> Self:
         return super().__get__(instance, owner)
 
     @functools.cached_property

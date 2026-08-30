@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from uuid import UUID
+
 from entity import Entity
 from models import ModelAdapter
 
 
-class EntityPkAdapter(ModelAdapter['Entity', int]):
+class EntityPkAdapter(ModelAdapter[Entity, int]):
     """Represent an ORM entity by its primary key in models."""
 
     def __init__(self, entity_type: type[Entity]) -> None:
@@ -15,3 +19,13 @@ class EntityPkAdapter(ModelAdapter['Entity', int]):
 
     def to_orm(self, value: int) -> Entity:
         return self._entity_type.get_one(value)
+
+
+class StrUuidAdapter(ModelAdapter[str, UUID]):
+    """Represent a UUID string in models."""
+
+    def to_model(self, value: str) -> UUID:
+        return UUID(value)
+
+    def to_orm(self, value: UUID) -> str:
+        return str(value)

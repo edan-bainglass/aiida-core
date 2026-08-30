@@ -27,27 +27,84 @@ class User(Entity[BackendUser]):
         )
         super().__init__(backend_entity, **kwargs)
 
+    def __str__(self) -> str:
+        return self.email
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, User):
+            return False
+
+        return self.email == other.email
+
     @field
     def email(self) -> str:
         """The email of the user."""
         return self._backend_entity.email
+
+    @email.setter
+    def email(self, email: str) -> None:
+        self._backend_entity.email = email
 
     @field(model_field_info=ModelField(''))
     def first_name(self) -> str:
         """The first name of the user."""
         return self._backend_entity.first_name
 
+    @first_name.setter
+    def first_name(self, first_name: str) -> None:
+        self._backend_entity.first_name = first_name
+
     @field(model_field_info=ModelField(''))
     def last_name(self) -> str:
         """The last name of the user."""
         return self._backend_entity.last_name
+
+    @last_name.setter
+    def last_name(self, last_name: str) -> None:
+        self._backend_entity.last_name = last_name
 
     @field(model_field_info=ModelField(''))
     def institution(self) -> str:
         """The institution of the user."""
         return self._backend_entity.institution
 
+    @institution.setter
+    def institution(self, institution: str) -> None:
+        self._backend_entity.institution = institution
+
+    @property
+    def is_default(self) -> bool:
+        """Return whether the user is the default user."""
+        default_user = orm.User.collection.get_default()
+        return default_user is not None and self.pk == default_user.pk
+
+    @property
+    def full_name(self) -> str:
+        """Return the user full name (if available) and email."""
+        if self.first_name and self.last_name:
+            full_name = f'{self.first_name} {self.last_name} ({self.email})'
+        elif self.first_name:
+            full_name = f'{self.first_name} ({self.email})'
+        elif self.last_name:
+            full_name = f'{self.last_name} ({self.email})'
+        else:
+            full_name = f'{self.email}'
+
+        return full_name
+
     @staticmethod
     def get_one(pk: int) -> User | None:
         """Get a user by primary key."""
         return orm.User.collection.get(pk=pk)
+
+    @staticmethod
+    def normalize_email(email: str) -> str:
+        """Normalize the address by lowercasing the domain part of the email address (taken from Django)."""
+        email = email or ''
+        try:
+            email_name, domain_part = email.strip().rsplit('@', 1)
+        except ValueError:
+            pass
+        else:
+            email = f'{email_name}@{domain_part.lower()}'
+        return email

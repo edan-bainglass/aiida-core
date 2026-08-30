@@ -4,9 +4,9 @@ import datetime
 import functools
 import typing as t
 
-from adapters import EntityPkAdapter
+from adapters import EntityPkAdapter, StrUuidAdapter
 from entity import Entity
-from fields import field
+from fields import ModelField, field
 from user import User
 
 from aiida.common.lang import classproperty
@@ -50,7 +50,11 @@ class Group(Entity[BackendGroup]):
         """The label of the group."""
         return self._backend_entity.label
 
-    @field
+    @label.setter
+    def label(self, value: str) -> None:
+        self._backend_entity.label = value
+
+    @field(updatable=True)
     def description(self) -> str:
         """The description of the group."""
         return self._backend_entity.description
@@ -59,17 +63,28 @@ class Group(Entity[BackendGroup]):
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
-    @field
+    @field(readonly=True, model_adapter=StrUuidAdapter())
+    def uuid(self) -> str:
+        """The UUID of the group."""
+        return self._backend_entity.uuid
+
+    @field(readonly=True)
     def time(self) -> datetime.datetime:
         """The time of the group."""
         return self._backend_entity.time
 
-    @field(model_adapter=EntityPkAdapter(User))
+    @field(
+        readonly=True,
+        model_adapter=EntityPkAdapter(User),
+    )
     def user(self) -> User:
         """The user of the group."""
         return User(self._backend_entity.user)
 
-    @field
+    @field(
+        updatable=True,
+        model_field_info=ModelField(default_factory=dict),
+    )
     def extras(self) -> dict[str, t.Any]:
         """The extras of the group."""
         return self.base.extras.all
