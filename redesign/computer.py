@@ -32,7 +32,10 @@ class Computer(Entity[BackendComputer]):
         )
         super().__init__(backend_entity, **kwargs)
 
-    @field(model_field_info=ModelField(''))
+    @field(
+        updatable=True,
+        model_field_info=ModelField(''),
+    )
     def description(self) -> str:
         """The description of the computer."""
         return self._backend_entity.description
@@ -46,25 +49,45 @@ class Computer(Entity[BackendComputer]):
         """The label of the computer."""
         return self._backend_entity.label
 
+    @label.setter
+    def label(self, value: str) -> None:
+        self._backend_entity.label = value
+
     @field
     def hostname(self) -> str:
         """The hostname of the computer."""
         return self._backend_entity.hostname
+
+    @hostname.setter
+    def hostname(self, value: str) -> None:
+        self._backend_entity.hostname = value
 
     @field
     def transport_type(self) -> str:
         """The transport type of the computer."""
         return self._backend_entity.get_transport_type()
 
+    @transport_type.setter
+    def transport_type(self, value: str) -> None:
+        self._backend_entity.set_transport_type(value)
+
     @field
     def scheduler_type(self) -> str:
         """The scheduler type of the computer."""
         return self._backend_entity.get_scheduler_type()
 
+    @scheduler_type.setter
+    def scheduler_type(self, value: str) -> None:
+        self._backend_entity.set_scheduler_type(value)
+
     @field(model_field_info=ModelField(default_factory=dict))
     def metadata(self) -> dict[str, t.Any]:
         """The metadata of the computer."""
         return self._backend_entity.get_metadata()
+
+    @metadata.setter
+    def metadata(self, value: dict[str, t.Any]) -> None:
+        self._backend_entity.set_metadata(value)
 
     @staticmethod
     def get_one(pk: int) -> Computer | None:

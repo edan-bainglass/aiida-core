@@ -4,7 +4,7 @@ import datetime
 import functools
 import typing as t
 
-from adapters import EntityPkAdapter
+from adapters import EntityPkAdapter, StrUuidAdapter
 from attributes import attributes_field
 from computer import Computer
 from entity import Entity, from_backend_entity
@@ -79,7 +79,10 @@ class Node(Entity[BackendNode]):
         super().__init_subclass__(**kwargs)
         cls._extra_attributes = extra_attributes
 
-    @field(model_field_info=ModelField(default=''))
+    @field(
+        updatable=True,
+        model_field_info=ModelField(default=''),
+    )
     def label(self) -> str:
         """The label of the node."""
         return self._backend_entity.label
@@ -88,7 +91,10 @@ class Node(Entity[BackendNode]):
     def label(self, value: str):
         self._backend_entity.label = value
 
-    @field(model_field_info=ModelField(default=''))
+    @field(
+        updatable=True,
+        model_field_info=ModelField(default=''),
+    )
     def description(self) -> str:
         """The description of the node."""
         return self._backend_entity.description
@@ -97,7 +103,10 @@ class Node(Entity[BackendNode]):
     def description(self, value: str):
         self._backend_entity.description = value
 
-    @field(model_field_info=ModelField(default_factory=dict))
+    @field(
+        updatable=True,
+        model_field_info=ModelField(default_factory=dict),
+    )
     def extras(self) -> dict[str, t.Any]:
         """The extras of the node."""
         return self.base.extras.all
@@ -111,10 +120,13 @@ class Node(Entity[BackendNode]):
         """The attributes of the node."""
         return self.base.attributes.all
 
+    @attributes.setter
+    def attributes(self, value: dict[str, t.Any]):
+        self.base.attributes.reset(value)
+
     @field(
-        model_field_info=ModelField(
-            description='The PK of the associated user.',
-        ),
+        readonly=True,
+        model_field_info=ModelField(description='The PK of the associated user.'),
         model_adapter=EntityPkAdapter(User),
     )
     def user(self) -> User:
@@ -122,16 +134,21 @@ class Node(Entity[BackendNode]):
         return from_backend_entity(User, self._backend_entity.user)
 
     @field(
-        model_field_info=ModelField(
-            description='The PK of the associated computer.',
-        ),
+        readonly=True,
+        model_field_info=ModelField(description='The PK of the associated computer.'),
         model_adapter=EntityPkAdapter(Computer),
     )
     def computer(self) -> Computer | None:
         """The computer associated with the node."""
-        return from_backend_entity(Computer, self._backend_entity.computer)
+        if self.backend_entity.computer:
+            return from_backend_entity(Computer, self.backend_entity.computer)
 
-    @field(readonly=True)
+        return None
+
+    @field(
+        readonly=True,
+        model_adapter=StrUuidAdapter(),
+    )
     def uuid(self) -> str:
         """The UUID of the node."""
         return self._backend_entity.uuid
@@ -140,6 +157,11 @@ class Node(Entity[BackendNode]):
     def node_type(self) -> str:
         """The type of the node."""
         return self._backend_entity.node_type
+
+    @field(readonly=True)
+    def process_type(self) -> str | None:
+        """The process type of the node."""
+        return self._backend_entity.process_type
 
     @field(readonly=True)
     def ctime(self) -> datetime.datetime:
@@ -151,7 +173,10 @@ class Node(Entity[BackendNode]):
         """The last modification time of the node."""
         return self._backend_entity.mtime
 
-    @field(readonly=True)
+    @field(
+        readonly=True,
+        model_field_info=ModelField(default_factory=dict),
+    )
     def repository_metadata(self) -> dict[str, t.Any]:
         """The repository metadata of the node."""
         return self.base.repository.metadata
