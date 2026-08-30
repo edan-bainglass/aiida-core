@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from uuid import UUID
 
 from entity import Entity
-from models import ModelAdapter
+from model_adapter import ModelAdapter
 
 
 class EntityPkAdapter(ModelAdapter[Entity, int]):

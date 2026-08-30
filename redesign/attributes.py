@@ -17,14 +17,11 @@ from fields import (
     _QbFieldT,
     _ValueT,
 )
+from model_adapter import ModelAdapter
 from typing_extensions import Self
 
 from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
-
-if t.TYPE_CHECKING:
-    from models import ModelAdapter
-
 
 __all__ = (
     'NodeAttribute',
