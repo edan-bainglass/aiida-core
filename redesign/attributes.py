@@ -13,6 +13,7 @@ from fields import (
     BaseFieldSpec,
     EntityField,
     ModelFieldInfo,
+    _AdaptedOrmT,
     _QbFieldT,
     _ValueT,
 )
@@ -59,6 +60,16 @@ class NodeAttribute(
     config_type = NodeAttributeConfig
     spec_type = NodeAttributeSpec
 
+    def __init__(
+        self,
+        fget: Callable[[NodeType], _ValueT],
+        fset: Callable[[NodeType, _ValueT], None] | None = None,
+        *,
+        config: NodeAttributeConfig | None = None,
+    ) -> None:
+        super().__init__(fget, config=config)
+        self.fset = fset
+
     @t.overload
     def __get__(self, instance: None, owner: type[NodeType]) -> _QbFieldT: ...
 
@@ -89,7 +100,18 @@ class NodeAttribute(
     def setter(self, fset: Callable[[NodeType, _ValueT], None], /) -> Self:
         """Set the setter and return this descriptor."""
         self.fset = fset
+        self._spec = None
         return self
+
+
+class ConfiguredAttributeDecorator(t.Protocol[_QbFieldT]):
+    """Configured attribute decorator with a known QueryBuilder field type."""
+
+    def __call__(
+        self,
+        fget: Callable[[NodeType], _ValueT],
+        /,
+    ) -> NodeAttribute[NodeType, _ValueT, _QbFieldT]: ...
 
 
 class NodeAttributeDecorator(
@@ -222,6 +244,54 @@ class NodeAttributeDecorator(
         self,
         *,
         model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, int],
+    ) -> ConfiguredAttributeDecorator[qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, float],
+    ) -> ConfiguredAttributeDecorator[qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, str],
+    ) -> ConfiguredAttributeDecorator[qb_fields.QbStrField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, list[_ValueT]],
+    ) -> ConfiguredAttributeDecorator[qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, tuple[_ValueT, ...]],
+    ) -> ConfiguredAttributeDecorator[qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, dict[str, _ValueT]],
+    ) -> ConfiguredAttributeDecorator[qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        model_field_info: ModelFieldInfo | None = None,
         model_adapter: ModelAdapter[t.Any, t.Any] | None = None,
     ) -> Self: ...
 
@@ -260,26 +330,21 @@ class NodeAttributesField(EntityField[NodeType, dict[str, t.Any], qb_fields.QbAt
         # The typed child registry depends on the concrete Node subclass.
         self._qb_fields: dict[type[NodeType], qb_fields.QbAttributesField] = {}
 
+    def _build_qb_field(self) -> qb_fields.QbAttributesField:
+        """Build the QueryBuilder attributes field."""
+        return t.cast(qb_fields.QbAttributesField, super()._build_qb_field())
+
     def _get_qb_field(self, owner: type[NodeType]) -> qb_fields.QbAttributesField:
         """Return the attributes field specialized for the concrete Node type."""
         if qb_field := self._qb_fields.get(owner):
             return qb_field
 
-        spec = self.spec
-        qb_field = t.cast(
-            qb_fields.QbAttributesField,
-            qb_fields.add_field(
-                spec.backend_key,
-                dtype=spec.value_type,
-                doc=spec.description,
-                is_attribute=False,
-            ),
-        )
+        qb_field = self._build_qb_field()
 
         qb_field._typed_children = {
             name: qb_fields.add_field(
                 name,
-                dtype=node_attribute.spec.value_type,
+                dtype=node_attribute.adapted_type,
                 doc=node_attribute.spec.description,
                 is_attribute=True,
             )

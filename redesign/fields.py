@@ -130,7 +130,6 @@ class BaseField(
         self._name: str | None = None
         self._config = config or self.config_type()
         self._spec: _SpecT | None = None
-
         self._owner: type[EntityType] | None = None
 
     def __set_name__(self, owner: type[EntityType], name: str) -> None:
@@ -154,6 +153,21 @@ class BaseField(
     def model_adapter(self) -> ModelAdapter[t.Any, t.Any] | None:
         """Return the ORM/model value adapter."""
         return self._config.model_adapter
+
+    @property
+    def adapted_type(self) -> t.Any:
+        """Return the externally adapted representation type."""
+        if self.model_adapter is not None:
+            return self.model_adapter.model_type
+
+        return self.spec.value_type
+
+    def getter(self, fget: Callable[[EntityType], _ValueT], /) -> Self:
+        """Set the getter and return this descriptor."""
+        self.fget = fget
+        self.__doc__ = getattr(fget, '__doc__', None)
+        self._spec = None
+        return self
 
     def _build_spec(self, **kwargs) -> _SpecT:
         """Resolve the declaration into the canonical specification."""
@@ -262,12 +276,8 @@ class EntityField(
 
     def getter(self, fget: Callable[[EntityType], _ValueT], /) -> Self:
         """Set the getter and return this descriptor."""
-        self.fget = fget
-        self.__doc__ = getattr(fget, '__doc__', None)
-
-        self._spec = None
+        super().getter(fget)
         self._qb_field = None
-
         return self
 
     def setter(self, fset: Callable[[EntityType, _ValueT], None], /) -> Self:
@@ -285,19 +295,24 @@ class EntityField(
         self.fdel = fdel
         return self
 
+    def _build_qb_field(self) -> _QbFieldT:
+        """Build the QueryBuilder field."""
+        spec = self.spec
+
+        return t.cast(
+            _QbFieldT,
+            qb_fields.add_field(
+                spec.backend_key,
+                dtype=self.adapted_type,
+                doc=spec.description,
+                is_attribute=False,
+            ),
+        )
+
     def _get_qb_field(self, owner: type[EntityType]) -> _QbFieldT:
         """Return the lazily generated QueryBuilder field."""
         if self._qb_field is None:
-            spec = self.spec
-            self._qb_field = t.cast(
-                _QbFieldT,
-                qb_fields.add_field(
-                    spec.backend_key,
-                    dtype=spec.value_type,
-                    doc=spec.description,
-                    is_attribute=False,
-                ),
-            )
+            self._qb_field = self._build_qb_field()
 
         return self._qb_field
 
@@ -360,6 +375,19 @@ class BaseFieldDecorator(
             return type(self)(self.config_type(**kwargs))
 
         return self.field_type(fget, config=self._config)
+
+
+_AdaptedOrmT = t.TypeVar('_AdaptedOrmT')
+
+
+class ConfiguredFieldDecorator(t.Protocol[_QbFieldT]):
+    """Configured field decorator with a known QueryBuilder field type."""
+
+    def __call__(
+        self,
+        fget: Callable[[EntityType], _ValueT],
+        /,
+    ) -> EntityField[EntityType, _ValueT, _QbFieldT]: ...
 
 
 class EntityFieldDecorator(
@@ -486,6 +514,78 @@ class EntityFieldDecorator(
         fget: Callable[[EntityType], _ValueT],
         /,
     ) -> EntityField[EntityType, _ValueT, qb_fields.QbAnyField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        backend_key: str | None = None,
+        readonly: bool = False,
+        updatable: bool = False,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, int],
+        cli_field_info: CliFieldInfo | None = None,
+    ) -> ConfiguredFieldDecorator[qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        backend_key: str | None = None,
+        readonly: bool = False,
+        updatable: bool = False,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, float],
+        cli_field_info: CliFieldInfo | None = None,
+    ) -> ConfiguredFieldDecorator[qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        backend_key: str | None = None,
+        readonly: bool = False,
+        updatable: bool = False,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, str],
+        cli_field_info: CliFieldInfo | None = None,
+    ) -> ConfiguredFieldDecorator[qb_fields.QbStrField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        backend_key: str | None = None,
+        readonly: bool = False,
+        updatable: bool = False,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, list[_ValueT]],
+        cli_field_info: CliFieldInfo | None = None,
+    ) -> ConfiguredFieldDecorator[qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        backend_key: str | None = None,
+        readonly: bool = False,
+        updatable: bool = False,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, tuple[_ValueT, ...]],
+        cli_field_info: CliFieldInfo | None = None,
+    ) -> ConfiguredFieldDecorator[qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        *,
+        backend_key: str | None = None,
+        readonly: bool = False,
+        updatable: bool = False,
+        model_field_info: ModelFieldInfo | None = None,
+        model_adapter: ModelAdapter[_AdaptedOrmT, dict[str, _ValueT]],
+        cli_field_info: CliFieldInfo | None = None,
+    ) -> ConfiguredFieldDecorator[qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(
