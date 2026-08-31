@@ -14,7 +14,7 @@ class Data(Node, extra_attributes='allow'):
         """Return the source of the node."""
         return self.base.attributes.get('source', None)
 
-    @source.setter
+    @source.setter  # type: ignore[no-redef]
     def source(self, value: dict[str, t.Any] | None):
         self.base.attributes.set('source', value)
 

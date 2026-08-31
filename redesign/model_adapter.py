@@ -1,19 +1,23 @@
+from __future__ import annotations
+
 import abc
 import typing as t
 
 from aiida.common.lang import classproperty
+from aiida.orm import fields as qb_fields
 
 _OrmValueT = t.TypeVar('_OrmValueT')
 _ModelValueT = t.TypeVar('_ModelValueT')
+_QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
 
 
-class ModelAdapter(abc.ABC, t.Generic[_OrmValueT, _ModelValueT]):
+class ModelAdapter(abc.ABC, t.Generic[_OrmValueT, _ModelValueT, _QbFieldT]):
     """Adapt between ORM and model representations of a value."""
 
     _model_type: t.ClassVar[t.Any] = None
 
     @classproperty
-    def model_type(cls) -> t.Any:  # noqa: N805
+    def model_type(cls: type[ModelAdapter]) -> t.Any:  # noqa: N805
         if cls._model_type is None:
             try:
                 cls._model_type = t.get_type_hints(cls.to_model)['return']

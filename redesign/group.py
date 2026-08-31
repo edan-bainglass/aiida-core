@@ -5,13 +5,13 @@ import functools
 import typing as t
 
 from adapters import EntityPkAdapter, StrUuidAdapter
-from entity import Entity
-from fields import ModelField, field
+from entity import Entity, from_backend_entity
+from fields import ModelFieldInfo, field
 from user import User
 
 from aiida.common.lang import classproperty
 from aiida.manage.manager import get_manager
-from aiida.orm.groups import GroupBase
+from aiida.orm import groups
 from aiida.orm.implementation import BackendGroup, StorageBackend
 
 
@@ -31,26 +31,26 @@ class Group(Entity[BackendGroup]):
         backend = backend or get_manager().get_profile_storage()
         user = t.cast(User, user or backend.default_user)
 
-        model = backend.groups.create(
+        backend_entity = backend.groups.create(
             label=label,
             user=user.backend_entity,
             description=description,
             type_string=self._type_string,
             time=time,
         )
-        super().__init__(model)
+        super().__init__(backend_entity)
 
-        self._base = GroupBase(self)
+        self._base = groups.GroupBase(self)  # type: ignore[arg-type]
 
         if extras is not None:
             self._base.extras.set_many(extras)
 
-    @field
+    @field(updatable=True)
     def label(self) -> str:
         """The label of the group."""
         return self._backend_entity.label
 
-    @label.setter
+    @label.setter  # type: ignore[no-redef]
     def label(self, value: str) -> None:
         self._backend_entity.label = value
 
@@ -59,11 +59,14 @@ class Group(Entity[BackendGroup]):
         """The description of the group."""
         return self._backend_entity.description
 
-    @description.setter
+    @description.setter  # type: ignore[no-redef]
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
-    @field(readonly=True, model_adapter=StrUuidAdapter())
+    @field(
+        readonly=True,
+        model_adapter=StrUuidAdapter(),
+    )
     def uuid(self) -> str:
         """The UUID of the group."""
         return self._backend_entity.uuid
@@ -79,27 +82,32 @@ class Group(Entity[BackendGroup]):
     )
     def user(self) -> User:
         """The user of the group."""
-        return User(self._backend_entity.user)
+        return from_backend_entity(User, self._backend_entity.user)
 
     @field(
         updatable=True,
-        model_field_info=ModelField(default_factory=dict),
+        model_field_info=ModelFieldInfo(default_factory=dict),
     )
     def extras(self) -> dict[str, t.Any]:
         """The extras of the group."""
         return self.base.extras.all
 
-    @extras.setter
+    @extras.setter  # type: ignore[no-redef]
     def extras(self, value: dict[str, t.Any]) -> None:
         self.base.extras.reset(value)
 
     @functools.cached_property
-    def base(self) -> GroupBase:
+    def base(self) -> groups.GroupBase:
         """Return the base of the group."""
         return self._base
 
+    @classmethod
+    def get_one(cls, pk: int) -> Group | None:
+        """Get a group by primary key."""
+        return groups.Group.collection.get(pk=pk)  # type: ignore[return-value]
+
     @classproperty
-    def _type_string(cls) -> str | None:  # noqa: N805
+    def _type_string(cls: type[Group]) -> str | None:  # noqa: N805
         from aiida.plugins.entry_point import get_entry_point_from_class
 
         if hasattr(cls, '__type_string'):
@@ -109,8 +117,8 @@ class Group(Entity[BackendGroup]):
         entry_point_group, entry_point = get_entry_point_from_class(mod, name)
 
         if entry_point_group is None or entry_point_group != 'aiida.groups':
-            cls.__type_string = None  # type: ignore[misc]
+            cls.__type_string = None
         else:
             assert entry_point is not None
-            cls.__type_string = entry_point.name  # type: ignore[misc]
+            cls.__type_string = entry_point.name
         return cls.__type_string

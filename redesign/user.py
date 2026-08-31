@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from entity import Entity
-from fields import ModelField, field
+from fields import ModelFieldInfo, field
 
 from aiida import orm
 from aiida.manage.manager import get_manager
@@ -41,34 +41,34 @@ class User(Entity[BackendUser]):
         """The email of the user."""
         return self._backend_entity.email
 
-    @email.setter
+    @email.setter  # type: ignore[no-redef]
     def email(self, email: str) -> None:
         self._backend_entity.email = email
 
-    @field(model_field_info=ModelField(''))
+    @field(model_field_info=ModelFieldInfo(default=''))
     def first_name(self) -> str:
         """The first name of the user."""
         return self._backend_entity.first_name
 
-    @first_name.setter
+    @first_name.setter  # type: ignore[no-redef]
     def first_name(self, first_name: str) -> None:
         self._backend_entity.first_name = first_name
 
-    @field(model_field_info=ModelField(''))
+    @field(model_field_info=ModelFieldInfo(default=''))
     def last_name(self) -> str:
         """The last name of the user."""
         return self._backend_entity.last_name
 
-    @last_name.setter
+    @last_name.setter  # type: ignore[no-redef]
     def last_name(self, last_name: str) -> None:
         self._backend_entity.last_name = last_name
 
-    @field(model_field_info=ModelField(''))
+    @field(model_field_info=ModelFieldInfo(default=''))
     def institution(self) -> str:
         """The institution of the user."""
         return self._backend_entity.institution
 
-    @institution.setter
+    @institution.setter  # type: ignore[no-redef]
     def institution(self, institution: str) -> None:
         self._backend_entity.institution = institution
 
@@ -92,10 +92,10 @@ class User(Entity[BackendUser]):
 
         return full_name
 
-    @staticmethod
-    def get_one(pk: int) -> User | None:
+    @classmethod
+    def get_one(cls, pk: int) -> User | None:
         """Get a user by primary key."""
-        return orm.User.collection.get(pk=pk)
+        return orm.User.collection.get(pk=pk)  # type: ignore[return-value]
 
     @staticmethod
     def normalize_email(email: str) -> str:

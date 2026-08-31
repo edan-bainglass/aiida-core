@@ -5,7 +5,6 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
-from _types import NodeType
 from fields import (
     BaseField,
     BaseFieldConfig,
@@ -13,9 +12,7 @@ from fields import (
     BaseFieldSpec,
     EntityField,
     ModelFieldInfo,
-    _AdaptedOrmT,
-    _QbFieldT,
-    _ValueT,
+    Storable,
 )
 from model_adapter import ModelAdapter
 from typing_extensions import Self
@@ -43,9 +40,14 @@ class NodeAttributeConfig(BaseFieldConfig):
     """Unresolved configuration supplied to the `attribute` decorator."""
 
 
+_OwnerT = t.TypeVar('_OwnerT', bound=Storable)
+_ValueT = t.TypeVar('_ValueT')
+_QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
+
+
 class NodeAttribute(
     BaseField[
-        NodeType,
+        _OwnerT,
         _ValueT,
         _QbFieldT,
         NodeAttributeSpec,
@@ -57,32 +59,24 @@ class NodeAttribute(
     config_type = NodeAttributeConfig
     spec_type = NodeAttributeSpec
 
-    def __init__(
-        self,
-        fget: Callable[[NodeType], _ValueT],
-        fset: Callable[[NodeType, _ValueT], None] | None = None,
-        *,
-        config: NodeAttributeConfig | None = None,
-    ) -> None:
-        super().__init__(fget, config=config)
-        self.fset = fset
+    @t.overload
+    def __get__(self, instance: None, owner: type[_OwnerT]) -> _QbFieldT: ...
 
     @t.overload
-    def __get__(self, instance: None, owner: type[NodeType]) -> _QbFieldT: ...
+    def __get__(self, instance: _OwnerT, owner: type[_OwnerT] | None = None) -> _ValueT: ...
 
-    @t.overload
-    def __get__(self, instance: NodeType, owner: type[NodeType] | None = None) -> _ValueT: ...
-
-    def __get__(self, instance: NodeType | None, owner: type[NodeType] | None = None) -> _ValueT | _QbFieldT:
+    def __get__(self, instance: _OwnerT | None, owner: type[_OwnerT] | None = None) -> _ValueT | _QbFieldT:
         if instance is not None:
             return self.fget(instance)
 
         if owner is None:
             raise AttributeError('Node attribute must be accessed through a Node class')
 
-        return t.cast(_QbFieldT, getattr(owner.attributes, self.spec.name))
+        attributes = getattr(owner, 'attributes')
+        attribute = getattr(attributes, self.spec.name)
+        return t.cast(_QbFieldT, attribute)
 
-    def __set__(self, instance: NodeType, value: _ValueT) -> None:
+    def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
         if self._owner is None or self._name is None:
             raise RuntimeError('attribute has not been assigned to a Node class')
 
@@ -94,26 +88,33 @@ class NodeAttribute(
 
         self.fset(instance, value)
 
-    def setter(self, fset: Callable[[NodeType, _ValueT], None], /) -> Self:
+    def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
         """Set the setter and return this descriptor."""
         self.fset = fset
         self._spec = None
         return self
 
 
-class ConfiguredAttributeDecorator(t.Protocol[_QbFieldT]):
+_ConfiguredQbFieldT = t.TypeVar('_ConfiguredQbFieldT', bound=qb_fields.QbField)
+
+
+class ConfiguredAttributeDecorator(t.Protocol[_ConfiguredQbFieldT]):
     """Configured attribute decorator with a known QueryBuilder field type."""
 
     def __call__(
         self,
-        fget: Callable[[NodeType], _ValueT],
+        fget: Callable[[_OwnerT], _ValueT],
         /,
-    ) -> NodeAttribute[NodeType, _ValueT, _QbFieldT]: ...
+    ) -> NodeAttribute[_OwnerT, _ValueT, _ConfiguredQbFieldT]: ...
+
+
+_AdaptedOrmT = t.TypeVar('_AdaptedOrmT')
+_AdaptedModelT = t.TypeVar('_AdaptedModelT')
 
 
 class NodeAttributeDecorator(
     BaseFieldDecorator[
-        NodeType,
+        _OwnerT,
         _ValueT,
         NodeAttributeConfig,
         NodeAttribute[t.Any, t.Any, qb_fields.QbField],
@@ -125,183 +126,138 @@ class NodeAttributeDecorator(
     field_type = NodeAttribute
 
     @t.overload
-    def __call__(
+    def __call__(  # type: ignore[overload-overlap]
         self,
-        fget: Callable[[NodeType], int],
+        fget: Callable[[_OwnerT], int],
         /,
-    ) -> NodeAttribute[NodeType, int, qb_fields.QbNumericField]: ...
+    ) -> NodeAttribute[_OwnerT, int, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], int | None],
+        /,
+    ) -> NodeAttribute[_OwnerT, int | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], float],
+        /,
+    ) -> NodeAttribute[_OwnerT, float, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], float | None],
+        /,
+    ) -> NodeAttribute[_OwnerT, float | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], datetime.datetime],
+        /,
+    ) -> NodeAttribute[_OwnerT, datetime.datetime, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], datetime.datetime | None],
+        /,
+    ) -> NodeAttribute[_OwnerT, datetime.datetime | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], str],
+        /,
+    ) -> NodeAttribute[_OwnerT, str, qb_fields.QbStrField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], str | None],
+        /,
+    ) -> NodeAttribute[_OwnerT, str | None, qb_fields.QbStrField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], list[_ValueT]],
+        /,
+    ) -> NodeAttribute[_OwnerT, list[_ValueT], qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], list[_ValueT] | None],
+        /,
+    ) -> NodeAttribute[_OwnerT, list[_ValueT] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], tuple[_ValueT, ...]],
+        /,
+    ) -> NodeAttribute[_OwnerT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], tuple[_ValueT, ...] | None],
+        /,
+    ) -> NodeAttribute[_OwnerT, tuple[_ValueT, ...] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], dict[str, _ValueT]],
+        /,
+    ) -> NodeAttribute[_OwnerT, dict[str, _ValueT], qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], dict[str, _ValueT] | None],
+        /,
+    ) -> NodeAttribute[_OwnerT, dict[str, _ValueT] | None, qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(
         self,
-        fget: Callable[[NodeType], int | None],
+        fget: Callable[[_OwnerT], object],
         /,
-    ) -> NodeAttribute[NodeType, int | None, qb_fields.QbNumericField]: ...
+    ) -> NodeAttribute[_OwnerT, object, qb_fields.QbAnyField]: ...
 
     @t.overload
-    def __call__(
+    def __call__(  # type: ignore[overload-cannot-match]
         self,
-        fget: Callable[[NodeType], float],
+        fget: Callable[[_OwnerT], _ValueT],
         /,
-    ) -> NodeAttribute[NodeType, float, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], float | None],
-        /,
-    ) -> NodeAttribute[NodeType, float | None, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], datetime.datetime],
-        /,
-    ) -> NodeAttribute[NodeType, datetime.datetime, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], datetime.datetime | None],
-        /,
-    ) -> NodeAttribute[NodeType, datetime.datetime | None, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], str],
-        /,
-    ) -> NodeAttribute[NodeType, str, qb_fields.QbStrField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], str | None],
-        /,
-    ) -> NodeAttribute[NodeType, str | None, qb_fields.QbStrField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], list[_ValueT]],
-        /,
-    ) -> NodeAttribute[NodeType, list[_ValueT], qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], list[_ValueT] | None],
-        /,
-    ) -> NodeAttribute[NodeType, list[_ValueT] | None, qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], tuple[_ValueT, ...]],
-        /,
-    ) -> NodeAttribute[NodeType, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], tuple[_ValueT, ...] | None],
-        /,
-    ) -> NodeAttribute[NodeType, tuple[_ValueT, ...] | None, qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], dict[str, _ValueT]],
-        /,
-    ) -> NodeAttribute[NodeType, dict[str, _ValueT], qb_fields.QbDictField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], dict[str, _ValueT] | None],
-        /,
-    ) -> NodeAttribute[NodeType, dict[str, _ValueT] | None, qb_fields.QbDictField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], object],
-        /,
-    ) -> NodeAttribute[NodeType, object, qb_fields.QbAnyField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[NodeType], _ValueT],
-        /,
-    ) -> NodeAttribute[NodeType, _ValueT, qb_fields.QbAnyField]: ...
+    ) -> NodeAttribute[_OwnerT, _ValueT, qb_fields.QbAnyField]: ...
 
     @t.overload
     def __call__(
         self,
         *,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, int],
-    ) -> ConfiguredAttributeDecorator[qb_fields.QbNumericField]: ...
+        model_adapter: ModelAdapter[_AdaptedOrmT, _AdaptedModelT, _QbFieldT],
+    ) -> ConfiguredAttributeDecorator[_QbFieldT]: ...
 
     @t.overload
     def __call__(
         self,
         *,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, float],
-    ) -> ConfiguredAttributeDecorator[qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, str],
-    ) -> ConfiguredAttributeDecorator[qb_fields.QbStrField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, list[_ValueT]],
-    ) -> ConfiguredAttributeDecorator[qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, tuple[_ValueT, ...]],
-    ) -> ConfiguredAttributeDecorator[qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, dict[str, _ValueT]],
-    ) -> ConfiguredAttributeDecorator[qb_fields.QbDictField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[t.Any, t.Any] | None = None,
+        model_adapter: None = None,
     ) -> Self: ...
 
-    def __call__(
-        self,
-        fget: Callable[[NodeType], _ValueT] | None = None,
-        /,
-        **kwargs: t.Any,
-    ) -> t.Any:
-        return super().__call__(fget, **kwargs)
+    def __call__(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+        return self._call(*args, **kwargs)
 
 
-attribute = NodeAttributeDecorator()
+attribute: NodeAttributeDecorator = NodeAttributeDecorator()
 
 
 def iter_attributes(entity: type) -> dict[str, NodeAttribute]:
@@ -318,20 +274,22 @@ def iter_attributes(entity: type) -> dict[str, NodeAttribute]:
     return result
 
 
-class NodeAttributesField(EntityField[NodeType, dict[str, t.Any], qb_fields.QbAttributesField]):
+class NodeAttributesField(
+    EntityField[
+        _OwnerT,
+        dict[str, t.Any],
+        qb_fields.QbAttributesField,
+    ]
+):
     """ORM entity field representing the typed Node attributes mapping."""
 
-    def __init__(self, fget: Callable[[NodeType], dict[str, t.Any]]) -> None:
+    def __init__(self, fget: Callable[[_OwnerT], dict[str, t.Any]]) -> None:
         super().__init__(fget)
 
         # The typed child registry depends on the concrete Node subclass.
-        self._qb_fields: dict[type[NodeType], qb_fields.QbAttributesField] = {}
+        self._qb_fields: dict[type[_OwnerT], qb_fields.QbAttributesField] = {}
 
-    def _build_qb_field(self) -> qb_fields.QbAttributesField:
-        """Build the QueryBuilder attributes field."""
-        return t.cast(qb_fields.QbAttributesField, super()._build_qb_field())
-
-    def _get_qb_field(self, owner: type[NodeType]) -> qb_fields.QbAttributesField:
+    def _get_qb_field(self, owner: type[_OwnerT]) -> qb_fields.QbAttributesField:
         """Return the attributes field specialized for the concrete Node type."""
         if qb_field := self._qb_fields.get(owner):
             return qb_field
@@ -357,9 +315,9 @@ class NodeAttributesFieldDecorator:
 
     def __call__(
         self,
-        fget: Callable[[NodeType], dict[str, t.Any]],
+        fget: Callable[[_OwnerT], dict[str, t.Any]],
         /,
-    ) -> NodeAttributesField[NodeType]:
+    ) -> NodeAttributesField[_OwnerT]:
         return NodeAttributesField(fget)
 
 
