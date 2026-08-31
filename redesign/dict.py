@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import typing as t
-from copy import copy
+from copy import deepcopy
 
 from attributes import attribute
 from data import Data
@@ -17,7 +17,7 @@ class Dict(PrimitiveData):
     def value(self) -> dict[str, t.Any]:
         return super().value
 
-    @value.setter
+    @value.setter  # type: ignore[no-redef]
     def value(self, new_value: dict[str, t.Any]):
         self.base.attributes.set('value', new_value)
 
@@ -45,20 +45,13 @@ class Dict(PrimitiveData):
         except AttributeError as exc:
             raise KeyError from exc
 
-    @property
-    def dict(self):
-        """Return the value of the node as an instance of `AttributeManager`."""
-        from aiida.orm.utils.managers import AttributeManager
-
-        return AttributeManager(Data(attributes=self.value))
-
-    def get(self, key: str, default: t.Any | None = None, /):  # type: ignore[override]
+    def get(self, key: str, default: t.Any | None = None, /) -> t.Any | None:
         """Return the value for key if key is in the dictionary, else default."""
         return self.value.get(key, default)
 
-    def set_dict(self, dictionary):
+    def set_dict(self, dictionary) -> None:
         """Replace the current dictionary with another one."""
-        dictionary_backup = copy.deepcopy(self.get_dict())
+        dictionary_backup = deepcopy(self.get_dict())
 
         try:
             # Clear existing attributes and set the new dictionary
@@ -73,19 +66,26 @@ class Dict(PrimitiveData):
             self.update(dictionary_backup)
             raise
 
-    def update(self, dictionary):
+    def update(self, dictionary: dict[str, t.Any]) -> None:
         """Update the current dictionary with the keys provided in the dictionary."""
         for key, value in dictionary.items():
             self[key] = value
 
-    def get_dict(self):
+    def get_dict(self) -> dict[str, t.Any]:
         """Return a dictionary with the parameters currently set."""
         return dict(self.value)
 
-    def keys(self):
+    def keys(self) -> t.Generator[str, None, None]:
         """Iterator of valid keys stored in the Dict object."""
         yield from self.value.keys()
 
-    def items(self):
+    def items(self) -> t.Generator[tuple[str, t.Any], None, None]:
         """Iterator of all items stored in the Dict node."""
         yield from self.value.items()
+
+    @property
+    def dict(self):
+        """Return the value of the node as an instance of `AttributeManager`."""
+        from aiida.orm.utils.managers import AttributeManager
+
+        return AttributeManager(Data(attributes=self.value))

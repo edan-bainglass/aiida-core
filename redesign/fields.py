@@ -6,9 +6,8 @@ import enum
 import typing as t
 from collections.abc import Callable
 
-from _types import EntityType
+from _utils import is_nullable
 from model_adapter import ModelAdapter
-from pydantic import Field as ModelField
 from pydantic.fields import FieldInfo as ModelFieldInfo
 from typing_extensions import Self
 
@@ -20,7 +19,6 @@ __all__ = (
     'EntityField',
     'EntityFieldSpec',
     'FieldAccess',
-    'ModelField',
     'ModelFieldInfo',
     'field',
     'iter_fields',
@@ -50,6 +48,7 @@ class EntityFieldSpec(BaseFieldSpec):
 
     backend_key: str
     access: FieldAccess
+    required_once_stored: bool
 
     @property
     def readonly(self) -> bool:
@@ -87,7 +86,7 @@ class BaseFieldConfig:
     """Base class for field configuration."""
 
     model_field_info: ModelFieldInfo | None = None
-    model_adapter: ModelAdapter[t.Any, t.Any] | None = None
+    model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -97,9 +96,16 @@ class EntityFieldConfig(BaseFieldConfig):
     backend_key: str | None = None
     readonly: bool = False
     updatable: bool = False
+    required_once_stored: bool = False
     cli_field_info: CliFieldInfo | None = None
 
 
+class Storable(t.Protocol):
+    @property
+    def is_stored(self) -> bool: ...
+
+
+_OwnerT = t.TypeVar('_OwnerT', bound=Storable)
 _ValueT = t.TypeVar('_ValueT')
 _QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
 _SpecT = t.TypeVar('_SpecT', bound=BaseFieldSpec)
@@ -108,7 +114,7 @@ _ConfigT = t.TypeVar('_ConfigT', bound=BaseFieldConfig)
 
 class BaseField(
     t.Generic[
-        EntityType,
+        _OwnerT,
         _ValueT,
         _QbFieldT,
         _SpecT,
@@ -120,16 +126,26 @@ class BaseField(
     config_type: t.ClassVar[type[_ConfigT]]
     spec_type: t.ClassVar[type[_SpecT]]
 
-    def __init__(self, fget: Callable[[EntityType], _ValueT], *, config: _ConfigT) -> None:
+    def __init__(
+        self,
+        fget: Callable[[_OwnerT], _ValueT],
+        fset: Callable[[_OwnerT, _ValueT], None] | None = None,
+        fdel: Callable[[_OwnerT], None] | None = None,
+        *,
+        config: _ConfigT,
+    ) -> None:
         self.fget = fget
+        self.fset = fset
+        self.fdel = fdel
+
         self.__doc__ = getattr(fget, '__doc__', None)
 
         self._name: str | None = None
         self._config = config or self.config_type()
         self._spec: _SpecT | None = None
-        self._owner: type[EntityType] | None = None
+        self._owner: type[_OwnerT] | None = None
 
-    def __set_name__(self, owner: type[EntityType], name: str) -> None:
+    def __set_name__(self, owner: type[_OwnerT], name: str) -> None:
         self._name = name
         self._owner = owner
 
@@ -147,7 +163,7 @@ class BaseField(
         return self._config.model_field_info
 
     @property
-    def model_adapter(self) -> ModelAdapter[t.Any, t.Any] | None:
+    def model_adapter(self) -> ModelAdapter[t.Any, t.Any, t.Any] | None:
         """Return the ORM/model value adapter."""
         return self._config.model_adapter
 
@@ -159,7 +175,7 @@ class BaseField(
 
         return self.spec.value_type
 
-    def getter(self, fget: Callable[[EntityType], _ValueT], /) -> Self:
+    def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
         """Set the getter and return this descriptor."""
         self.fget = fget
         self.__doc__ = getattr(fget, '__doc__', None)
@@ -186,7 +202,7 @@ class BaseField(
 
 class EntityField(
     BaseField[
-        EntityType,
+        _OwnerT,
         _ValueT,
         _QbFieldT,
         EntityFieldSpec,
@@ -200,28 +216,25 @@ class EntityField(
 
     def __init__(
         self,
-        fget: Callable[[EntityType], _ValueT],
-        fset: Callable[[EntityType, _ValueT], None] | None = None,
-        fdel: Callable[[EntityType], None] | None = None,
+        fget: Callable[[_OwnerT], _ValueT],
+        fset: Callable[[_OwnerT, _ValueT], None] | None = None,
+        fdel: Callable[[_OwnerT], None] | None = None,
         *,
         config: EntityFieldConfig | None = None,
     ) -> None:
-        super().__init__(fget, config=config)
-
-        self.fset = fset
-        self.fdel = fdel
+        super().__init__(fget, fset, fdel, config=config or EntityFieldConfig())
         self._qb_field: _QbFieldT | None = None
 
     @t.overload
-    def __get__(self, instance: None, owner: type[EntityType]) -> _QbFieldT: ...
+    def __get__(self, instance: None, owner: type[_OwnerT]) -> _QbFieldT: ...
 
     @t.overload
-    def __get__(self, instance: EntityType, owner: type[EntityType] | None = None) -> _ValueT: ...
+    def __get__(self, instance: _OwnerT, owner: type[_OwnerT] | None = None) -> _ValueT: ...
 
     def __get__(
         self,
-        instance: EntityType | None,
-        owner: type[EntityType] | None = None,
+        instance: _OwnerT | None,
+        owner: type[_OwnerT] | None = None,
     ) -> _ValueT | _QbFieldT:
         if instance is None:
             if owner is None:
@@ -234,7 +247,7 @@ class EntityField(
 
         return self.fget(instance)
 
-    def __set__(self, instance: EntityType, value: _ValueT) -> None:
+    def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
         if self._owner is None or self._name is None:
             raise RuntimeError('field has not been assigned to an entity')
 
@@ -249,7 +262,7 @@ class EntityField(
 
         self.fset(instance, value)
 
-    def __delete__(self, instance: EntityType) -> None:
+    def __delete__(self, instance: _OwnerT) -> None:
         if self._owner is None or self._name is None:
             raise RuntimeError('field has not been assigned to an entity')
 
@@ -271,13 +284,13 @@ class EntityField(
         """Return optional CLI-specific field configuration."""
         return self._config.cli_field_info
 
-    def getter(self, fget: Callable[[EntityType], _ValueT], /) -> Self:
+    def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
         """Set the getter and return this descriptor."""
         super().getter(fget)
         self._qb_field = None
         return self
 
-    def setter(self, fset: Callable[[EntityType, _ValueT], None], /) -> Self:
+    def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
         """Set the setter and return this descriptor."""
         if self._config.readonly:
             raise TypeError('cannot define a setter for a read-only ORM entity field')
@@ -287,7 +300,7 @@ class EntityField(
 
         return self
 
-    def deleter(self, fdel: Callable[[EntityType], None], /) -> Self:
+    def deleter(self, fdel: Callable[[_OwnerT], None], /) -> Self:
         """Set the deleter and return this descriptor."""
         self.fdel = fdel
         return self
@@ -306,14 +319,14 @@ class EntityField(
             ),
         )
 
-    def _get_qb_field(self, owner: type[EntityType]) -> _QbFieldT:
+    def _get_qb_field(self, owner: type[_OwnerT]) -> _QbFieldT:
         """Return the lazily generated QueryBuilder field."""
         if self._qb_field is None:
             self._qb_field = self._build_qb_field()
 
         return self._qb_field
 
-    def _build_spec(self) -> EntityFieldSpec:
+    def _build_spec(self, **kwargs) -> EntityFieldSpec:
         """Resolve descriptor structure into the canonical `FieldSpec`."""
         if self._name is None:
             raise RuntimeError('field has not been assigned to an entity')
@@ -337,10 +350,16 @@ class EntityField(
         else:
             access = FieldAccess.CREATE_ONLY
 
-        return super()._build_spec(
+        spec = super()._build_spec(
             backend_key=self._config.backend_key or self._name,
             access=access,
+            required_once_stored=self._config.required_once_stored,
         )
+
+        if spec.required_once_stored and not is_nullable(spec.value_type):
+            raise TypeError(f'{self._name} cannot be required_once_stored because its ORM type is not nullable')
+
+        return spec
 
 
 _FieldT = t.TypeVar('_FieldT')
@@ -348,7 +367,7 @@ _FieldT = t.TypeVar('_FieldT')
 
 class BaseFieldDecorator(
     t.Generic[
-        EntityType,
+        _OwnerT,
         _ValueT,
         _ConfigT,
         _FieldT,
@@ -356,13 +375,13 @@ class BaseFieldDecorator(
 ):
     """Common decorator-factory mechanics for typed field declarations."""
 
-    config_type: type[_ConfigT]
-    field_type: type[_FieldT]
+    config_type: Callable[..., _ConfigT]
+    field_type: Callable[..., _FieldT]
 
     def __init__(self, config: _ConfigT | None = None) -> None:
         self._config = config or self.config_type()
 
-    def __call__(
+    def _call(
         self,
         fget: Callable[..., t.Any] | None = None,
         /,
@@ -374,22 +393,25 @@ class BaseFieldDecorator(
         return self.field_type(fget, config=self._config)
 
 
+_ConfiguredQbFieldT = t.TypeVar('_ConfiguredQbFieldT', bound=qb_fields.QbField)
+
 _AdaptedOrmT = t.TypeVar('_AdaptedOrmT')
+_AdaptedModelT = t.TypeVar('_AdaptedModelT')
 
 
-class ConfiguredFieldDecorator(t.Protocol[_QbFieldT]):
+class ConfiguredFieldDecorator(t.Protocol[_ConfiguredQbFieldT]):
     """Configured field decorator with a known QueryBuilder field type."""
 
     def __call__(
         self,
-        fget: Callable[[EntityType], _ValueT],
+        fget: Callable[[_OwnerT], _ValueT],
         /,
-    ) -> EntityField[EntityType, _ValueT, _QbFieldT]: ...
+    ) -> EntityField[_OwnerT, _ValueT, _ConfiguredQbFieldT]: ...
 
 
 class EntityFieldDecorator(
     BaseFieldDecorator[
-        'EntityType',
+        _OwnerT,
         _ValueT,
         EntityFieldConfig,
         EntityField[t.Any, t.Any, qb_fields.QbField],
@@ -401,116 +423,116 @@ class EntityFieldDecorator(
     field_type = EntityField
 
     @t.overload
-    def __call__(
+    def __call__(  # type: ignore[overload-overlap]
         self,
-        fget: Callable[[EntityType], int],
+        fget: Callable[[_OwnerT], int],
         /,
-    ) -> EntityField[EntityType, int, qb_fields.QbNumericField]: ...
+    ) -> EntityField[_OwnerT, int, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], int | None],
+        /,
+    ) -> EntityField[_OwnerT, int | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], float],
+        /,
+    ) -> EntityField[_OwnerT, float, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], float | None],
+        /,
+    ) -> EntityField[_OwnerT, float | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], datetime.datetime],
+        /,
+    ) -> EntityField[_OwnerT, datetime.datetime, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], datetime.datetime | None],
+        /,
+    ) -> EntityField[_OwnerT, datetime.datetime | None, qb_fields.QbNumericField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], str],
+        /,
+    ) -> EntityField[_OwnerT, str, qb_fields.QbStrField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], str | None],
+        /,
+    ) -> EntityField[_OwnerT, str | None, qb_fields.QbStrField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], list[_ValueT]],
+        /,
+    ) -> EntityField[_OwnerT, list[_ValueT], qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], list[_ValueT] | None],
+        /,
+    ) -> EntityField[_OwnerT, list[_ValueT] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], tuple[_ValueT, ...]],
+        /,
+    ) -> EntityField[_OwnerT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], tuple[_ValueT, ...] | None],
+        /,
+    ) -> EntityField[_OwnerT, tuple[_ValueT, ...] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], dict[str, _ValueT]],
+        /,
+    ) -> EntityField[_OwnerT, dict[str, _ValueT], qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(  # type: ignore[overload-overlap]
+        self,
+        fget: Callable[[_OwnerT], dict[str, _ValueT] | None],
+        /,
+    ) -> EntityField[_OwnerT, dict[str, _ValueT] | None, qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(
         self,
-        fget: Callable[[EntityType], int | None],
+        fget: Callable[[_OwnerT], object],
         /,
-    ) -> EntityField[EntityType, int | None, qb_fields.QbNumericField]: ...
+    ) -> EntityField[_OwnerT, object, qb_fields.QbAnyField]: ...
 
     @t.overload
-    def __call__(
+    def __call__(  # type: ignore[overload-cannot-match]
         self,
-        fget: Callable[[EntityType], float],
+        fget: Callable[[_OwnerT], _ValueT],
         /,
-    ) -> EntityField[EntityType, float, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], float | None],
-        /,
-    ) -> EntityField[EntityType, float | None, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], datetime.datetime],
-        /,
-    ) -> EntityField[EntityType, datetime.datetime, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], datetime.datetime | None],
-        /,
-    ) -> EntityField[EntityType, datetime.datetime | None, qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], str],
-        /,
-    ) -> EntityField[EntityType, str, qb_fields.QbStrField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], str | None],
-        /,
-    ) -> EntityField[EntityType, str | None, qb_fields.QbStrField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], list[_ValueT]],
-        /,
-    ) -> EntityField[EntityType, list[_ValueT], qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], list[_ValueT] | None],
-        /,
-    ) -> EntityField[EntityType, list[_ValueT] | None, qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], tuple[_ValueT, ...]],
-        /,
-    ) -> EntityField[EntityType, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], tuple[_ValueT, ...] | None],
-        /,
-    ) -> EntityField[EntityType, tuple[_ValueT, ...] | None, qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], dict[str, _ValueT]],
-        /,
-    ) -> EntityField[EntityType, dict[str, _ValueT], qb_fields.QbDictField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], dict[str, _ValueT] | None],
-        /,
-    ) -> EntityField[EntityType, dict[str, _ValueT] | None, qb_fields.QbDictField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], object],
-        /,
-    ) -> EntityField[EntityType, object, qb_fields.QbAnyField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        fget: Callable[[EntityType], _ValueT],
-        /,
-    ) -> EntityField[EntityType, _ValueT, qb_fields.QbAnyField]: ...
+    ) -> EntityField[_OwnerT, _ValueT, qb_fields.QbAnyField]: ...
 
     @t.overload
     def __call__(
@@ -519,10 +541,11 @@ class EntityFieldDecorator(
         backend_key: str | None = None,
         readonly: bool = False,
         updatable: bool = False,
+        required_once_stored: bool = False,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, int],
+        model_adapter: ModelAdapter[_AdaptedOrmT, _AdaptedModelT, _QbFieldT],
         cli_field_info: CliFieldInfo | None = None,
-    ) -> ConfiguredFieldDecorator[qb_fields.QbNumericField]: ...
+    ) -> ConfiguredFieldDecorator[_QbFieldT]: ...
 
     @t.overload
     def __call__(
@@ -531,81 +554,17 @@ class EntityFieldDecorator(
         backend_key: str | None = None,
         readonly: bool = False,
         updatable: bool = False,
+        required_once_stored: bool = False,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, float],
-        cli_field_info: CliFieldInfo | None = None,
-    ) -> ConfiguredFieldDecorator[qb_fields.QbNumericField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        backend_key: str | None = None,
-        readonly: bool = False,
-        updatable: bool = False,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, str],
-        cli_field_info: CliFieldInfo | None = None,
-    ) -> ConfiguredFieldDecorator[qb_fields.QbStrField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        backend_key: str | None = None,
-        readonly: bool = False,
-        updatable: bool = False,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, list[_ValueT]],
-        cli_field_info: CliFieldInfo | None = None,
-    ) -> ConfiguredFieldDecorator[qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        backend_key: str | None = None,
-        readonly: bool = False,
-        updatable: bool = False,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, tuple[_ValueT, ...]],
-        cli_field_info: CliFieldInfo | None = None,
-    ) -> ConfiguredFieldDecorator[qb_fields.QbArrayField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        backend_key: str | None = None,
-        readonly: bool = False,
-        updatable: bool = False,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, dict[str, _ValueT]],
-        cli_field_info: CliFieldInfo | None = None,
-    ) -> ConfiguredFieldDecorator[qb_fields.QbDictField]: ...
-
-    @t.overload
-    def __call__(
-        self,
-        *,
-        backend_key: str | None = None,
-        readonly: bool = False,
-        updatable: bool = False,
-        model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[t.Any, t.Any] | None = None,
+        model_adapter: None = None,
         cli_field_info: CliFieldInfo | None = None,
     ) -> Self: ...
 
-    def __call__(
-        self,
-        fget: Callable[[EntityType], _ValueT] | None = None,
-        /,
-        **kwargs: t.Any,
-    ) -> t.Any:
-        return super().__call__(fget, **kwargs)
+    def __call__(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+        return self._call(*args, **kwargs)
 
 
-field = EntityFieldDecorator()
+field: EntityFieldDecorator = EntityFieldDecorator()
 
 
 def iter_fields(entity: type) -> dict[str, EntityField]:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import typing as t
 
-from _types import EntityType
 from fields import field
 from models import ModelsNamespace
 from plumpy.base import call_with_super_check, super_check
@@ -12,6 +11,7 @@ from typing_extensions import Self
 from aiida.common.lang import type_check
 from aiida.orm.implementation import BackendEntity
 
+_EntityT = t.TypeVar('_EntityT', bound='Entity')
 _BackendEntityT = t.TypeVar('_BackendEntityT', bound=BackendEntity)
 
 
@@ -25,8 +25,9 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
     @field(
         backend_key='id',
         readonly=True,
+        required_once_stored=True,
     )
-    def pk(self) -> int:
+    def pk(self) -> int | None:
         """The primary key of the entity."""
         return self._backend_entity.pk
 
@@ -45,8 +46,8 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
         self._backend_entity.store()
         return self
 
-    @staticmethod
-    def get_one(pk: int) -> Self | None:
+    @classmethod
+    def get_one(cls, pk: int) -> Self | None:
         """Get an entity by primary key."""
         raise NotImplementedError('get_one must be implemented in subclasses')
 
@@ -58,7 +59,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
         """
 
 
-def from_backend_entity(cls: type[EntityType], backend_entity: BackendEntity) -> EntityType:
+def from_backend_entity(cls: type[_EntityT], backend_entity: BackendEntity) -> _EntityT:
     """Construct an entity from a backend entity instance
 
     :param backend_entity: the backend entity

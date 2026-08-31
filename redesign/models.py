@@ -4,11 +4,15 @@ import functools
 import typing as t
 
 import pydantic as pdt
-from _types import EntityType
+from _utils import (
+    is_nullable,
+    make_annotated,
+    make_nullable,
+    make_required,
+)
 from fields import (
     EntityField,
     EntityFieldSpec,
-    ModelField,
     ModelFieldInfo,
     iter_fields,
 )
@@ -24,10 +28,10 @@ __all__ = (
 )
 
 
-_ModelName = t.Literal['read', 'create', 'update']
+_OwnerT = t.TypeVar('_OwnerT')
 
 
-class OrmModel(pdt.BaseModel, t.Generic[EntityType]):
+class OrmModel(pdt.BaseModel, t.Generic[_OwnerT]):
     """Base class for dynamically generated ORM models."""
 
     model_config = pdt.ConfigDict(
@@ -38,10 +42,10 @@ class OrmModel(pdt.BaseModel, t.Generic[EntityType]):
     )
 
     # Shadow Pydantic's deprecated implementation.
-    from_orm: t.ClassVar[None] = None
+    from_orm: t.ClassVar[None] = None  # type: ignore[assignment]
 
     # Set on each dynamically generated model class.
-    _entity: t.ClassVar[type[EntityType]]
+    _entity: t.ClassVar[type[_OwnerT]]
     _orm_fields: t.ClassVar[dict[str, EntityField]]
     _models_namespace: t.ClassVar[ModelsNamespace[t.Any]]
 
@@ -51,7 +55,7 @@ class OrmModel(pdt.BaseModel, t.Generic[EntityType]):
         return cls._orm_fields[name].spec
 
     @classmethod
-    def _from_orm_field_values(cls, entity: EntityType) -> dict[str, t.Any]:
+    def _from_orm_field_values(cls, entity: _OwnerT) -> dict[str, t.Any]:
         """Convert ORM entity field values to model-side representations."""
         return {
             name: cls._models_namespace._to_model_value(orm_field, getattr(entity, name))
@@ -71,27 +75,27 @@ class OrmModel(pdt.BaseModel, t.Generic[EntityType]):
         }
 
 
-class ReadModel(OrmModel[EntityType]):
+class ReadModel(OrmModel[_OwnerT]):
     """Read projection of an ORM entity."""
 
     @classmethod
-    def from_orm(cls, entity: EntityType) -> Self:
+    def from_orm(cls, entity: _OwnerT) -> Self:  # type: ignore[override]
         """Create a read model from an ORM entity."""
         return cls.model_validate(cls._from_orm_field_values(entity))
 
 
-class CreateModel(OrmModel[EntityType]):
+class CreateModel(OrmModel[_OwnerT]):
     """Input projection for constructing an ORM entity."""
 
-    def to_orm(self) -> EntityType:
+    def to_orm(self) -> _OwnerT:
         """Construct an ORM entity from this model."""
-        return t.cast(EntityType, self.__class__._entity(**self._to_orm_field_values()))
+        return self.__class__._entity(**self._to_orm_field_values())
 
 
-class UpdateModel(OrmModel[EntityType]):
+class UpdateModel(OrmModel[_OwnerT]):
     """PATCH-like projection for mutating an ORM entity."""
 
-    def apply(self, entity: EntityType) -> EntityType:
+    def apply(self, entity: _OwnerT) -> _OwnerT:
         """Apply explicitly set values to an ORM entity."""
         for name, value in self._to_orm_field_values(only_set=True).items():
             setattr(entity, name, value)
@@ -99,20 +103,23 @@ class UpdateModel(OrmModel[EntityType]):
         return entity
 
 
-class ModelsNamespace(t.Generic[EntityType]):
+SupportedModel = t.Literal['read', 'create', 'update']
+
+
+class ModelsNamespace(t.Generic[_OwnerT]):
     """Lazily generated model projections for one entity class."""
 
-    def __init__(self, *, entity: type[EntityType] | None = None) -> None:
+    def __init__(self, *, entity: type[_OwnerT] | None = None) -> None:
         self._entity = entity
         self._namespaces: dict[type[t.Any], Self] = {}
 
     @t.overload
-    def __get__(self, instance: None, owner: type[EntityType]) -> Self: ...
+    def __get__(self, instance: None, owner: type[_OwnerT]) -> Self: ...
 
     @t.overload
-    def __get__(self, instance: object, owner: type[EntityType] | None = None) -> t.Never: ...
+    def __get__(self, instance: object, owner: type[_OwnerT] | None = None) -> t.Never: ...
 
-    def __get__(self, instance: object | None, owner: type[EntityType] | None = None) -> Self:
+    def __get__(self, instance: object | None, owner: type[_OwnerT] | None = None) -> Self:
         if owner is None:
             raise AttributeError('models must be accessed through an entity class')
 
@@ -128,33 +135,36 @@ class ModelsNamespace(t.Generic[EntityType]):
         return namespace
 
     @functools.cached_property
-    def read(self) -> type[ReadModel[EntityType]]:
+    def read(self) -> type[ReadModel[_OwnerT]]:
         """Return the read projection for the entity."""
         return self._build_model('read')
 
     @functools.cached_property
-    def create(self) -> type[CreateModel[EntityType]]:
+    def create(self) -> type[CreateModel[_OwnerT]]:
         """Return the create projection for the entity."""
         return self._build_model('create')
 
     @functools.cached_property
-    def update(self) -> type[UpdateModel[EntityType]]:
+    def update(self) -> type[UpdateModel[_OwnerT]]:
         """Return the update projection for the entity."""
         return self._build_model('update')
 
-    def _model_field_type(self, orm_field: EntityField) -> t.Any:
+    def _model_field_annotation(self, orm_field: EntityField, projection: SupportedModel) -> t.Any:
         """Return the model-side annotation for an ORM field."""
         spec = orm_field.spec
 
         if orm_field.model_adapter is None:
-            return spec.value_type
+            annotation = spec.value_type
+        else:
+            annotation = orm_field.model_adapter.model_type
 
-        model_type = orm_field.model_adapter.model_type
+        if is_nullable(spec.value_type):
+            annotation = make_nullable(annotation)
 
-        if _is_nullable(spec.value_type):
-            model_type = _make_nullable(model_type)
+        if projection == 'read' and spec.required_once_stored:
+            annotation = make_required(annotation)
 
-        return model_type
+        return annotation
 
     def _to_model_value(self, orm_field: EntityField, value: t.Any) -> t.Any:
         """Convert an ORM field value to its model-side representation."""
@@ -171,19 +181,19 @@ class ModelsNamespace(t.Generic[EntityType]):
         return value
 
     @t.overload
-    def _build_model(self, projection: t.Literal['read']) -> type[ReadModel[EntityType]]: ...
+    def _build_model(self, projection: t.Literal['read']) -> type[ReadModel[_OwnerT]]: ...
 
     @t.overload
-    def _build_model(self, projection: t.Literal['create']) -> type[CreateModel[EntityType]]: ...
+    def _build_model(self, projection: t.Literal['create']) -> type[CreateModel[_OwnerT]]: ...
 
     @t.overload
-    def _build_model(self, projection: t.Literal['update']) -> type[UpdateModel[EntityType]]: ...
+    def _build_model(self, projection: t.Literal['update']) -> type[UpdateModel[_OwnerT]]: ...
 
-    def _build_model(self, projection: _ModelName) -> type[OrmModel[EntityType]]:
+    def _build_model(self, projection: SupportedModel) -> type[OrmModel[_OwnerT]]:
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to an entity class')
 
-        model_fields: dict[str, tuple[t.Any, t.Any]] = {}
+        model_fields: dict[str, t.Any] = {}
         orm_fields: dict[str, EntityField] = {}
 
         for name, orm_field in iter_fields(self._entity).items():
@@ -193,7 +203,7 @@ class ModelsNamespace(t.Generic[EntityType]):
                 continue
 
             model_fields[name] = _build_model_field(
-                self._model_field_type(orm_field),
+                self._model_field_annotation(orm_field, projection),
                 description=spec.description,
                 model_field_info=orm_field.model_field_info,
                 readonly=spec.readonly,
@@ -204,7 +214,7 @@ class ModelsNamespace(t.Generic[EntityType]):
         class_name = f'{projection.capitalize()}Model'
 
         model = t.cast(
-            type[OrmModel[EntityType]],
+            type[OrmModel[_OwnerT]],
             pdt.create_model(
                 f'{self._entity.__name__}{class_name}',
                 __base__=model_base,
@@ -221,7 +231,7 @@ class ModelsNamespace(t.Generic[EntityType]):
         return model
 
 
-def _model_base(projection: _ModelName) -> type[OrmModel[t.Any]]:
+def _model_base(projection: SupportedModel) -> type[OrmModel]:
     """Return the base class for a model projection."""
     if projection == 'read':
         return ReadModel
@@ -235,7 +245,7 @@ def _model_base(projection: _ModelName) -> type[OrmModel[t.Any]]:
     t.assert_never(projection)
 
 
-def _include_field(spec: EntityFieldSpec, projection: _ModelName) -> bool:
+def _include_field(spec: EntityFieldSpec, projection: SupportedModel) -> bool:
     """Return whether a field belongs to a model projection."""
     if projection == 'read':
         return True
@@ -257,7 +267,7 @@ def _build_model_field(
     readonly: bool = False,
 ) -> tuple[t.Any, t.Any]:
     """Build the Pydantic declaration for a model field."""
-    field_info = model_field_info if model_field_info is not None else ModelField()
+    field_info = model_field_info if model_field_info is not None else ModelFieldInfo()
     field_dict = field_info.asdict()
 
     metadata = field_dict['metadata']
@@ -265,7 +275,7 @@ def _build_model_field(
 
     if field_info.default is not PydanticUndefined:
         attributes['default'] = field_info.default
-    elif _is_nullable(model_type):
+    elif is_nullable(model_type):
         attributes['default'] = None
 
     if attributes['description'] is None and description:
@@ -290,27 +300,6 @@ def _build_model_field(
 
         attributes['json_schema_extra'] = json_schema_extra
 
-    annotation = _make_annotated(model_type, metadata)
+    annotation = make_annotated(model_type, metadata)
 
-    return annotation, ModelField(**attributes)
-
-
-def _is_nullable(annotation: t.Any) -> bool:
-    """Return whether an annotation accepts `None`."""
-    return type(None) in t.get_args(annotation)
-
-
-def _make_nullable(annotation: t.Any) -> t.Any:
-    """Return a nullable version of the annotation."""
-    if _is_nullable(annotation):
-        return annotation
-
-    return annotation | None
-
-
-def _make_annotated(annotation: t.Any, metadata: list[t.Any]) -> t.Any:
-    """Return an `Annotated` type compatible with Python 3.10."""
-    if not metadata:
-        return annotation
-
-    return t.Annotated[(annotation, *metadata)]
+    return annotation, ModelFieldInfo(**attributes)

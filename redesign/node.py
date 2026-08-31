@@ -8,7 +8,7 @@ from adapters import EntityPkAdapter, StrUuidAdapter
 from attributes import attributes_field
 from computer import Computer
 from entity import Entity, from_backend_entity
-from fields import ModelField, field
+from fields import ModelFieldInfo, field
 from node_models import NodeModelsNamespace
 from typing_extensions import Self
 from user import User
@@ -45,7 +45,7 @@ class Node(Entity[BackendNode]):
             raise ValueError('the computer is not stored')
 
         backend_computer = computer.backend_entity if computer else None
-        user = user if user else backend.default_user
+        user = user if user else backend.default_user  # type: ignore[assignment]
 
         if user is None:
             raise ValueError('the user cannot be None')
@@ -81,38 +81,38 @@ class Node(Entity[BackendNode]):
 
     @field(
         updatable=True,
-        model_field_info=ModelField(default=''),
+        model_field_info=ModelFieldInfo(default=''),
     )
     def label(self) -> str:
         """The label of the node."""
         return self._backend_entity.label
 
-    @label.setter
-    def label(self, value: str):
+    @label.setter  # type: ignore[no-redef]
+    def label(self, value: str) -> None:
         self._backend_entity.label = value
 
     @field(
         updatable=True,
-        model_field_info=ModelField(default=''),
+        model_field_info=ModelFieldInfo(default=''),
     )
     def description(self) -> str:
         """The description of the node."""
         return self._backend_entity.description
 
-    @description.setter
-    def description(self, value: str):
+    @description.setter  # type: ignore[no-redef]
+    def description(self, value: str) -> None:
         self._backend_entity.description = value
 
     @field(
         updatable=True,
-        model_field_info=ModelField(default_factory=dict),
+        model_field_info=ModelFieldInfo(default_factory=dict),
     )
     def extras(self) -> dict[str, t.Any]:
         """The extras of the node."""
         return self.base.extras.all
 
-    @extras.setter
-    def extras(self, value: dict[str, t.Any]):
+    @extras.setter  # type: ignore[no-redef]
+    def extras(self, value: dict[str, t.Any]) -> None:
         self.base.extras.reset(value)
 
     @attributes_field
@@ -120,13 +120,13 @@ class Node(Entity[BackendNode]):
         """The attributes of the node."""
         return self.base.attributes.all
 
-    @attributes.setter
-    def attributes(self, value: dict[str, t.Any]):
+    @attributes.setter  # type: ignore[no-redef]
+    def attributes(self, value: dict[str, t.Any]) -> None:
         self.base.attributes.reset(value)
 
     @field(
         readonly=True,
-        model_field_info=ModelField(description='The PK of the associated user.'),
+        model_field_info=ModelFieldInfo(description='The PK of the associated user.'),
         model_adapter=EntityPkAdapter(User),
     )
     def user(self) -> User:
@@ -135,7 +135,7 @@ class Node(Entity[BackendNode]):
 
     @field(
         readonly=True,
-        model_field_info=ModelField(description='The PK of the associated computer.'),
+        model_field_info=ModelFieldInfo(description='The PK of the associated computer.'),
         model_adapter=EntityPkAdapter(Computer),
     )
     def computer(self) -> Computer | None:
@@ -175,7 +175,7 @@ class Node(Entity[BackendNode]):
 
     @field(
         readonly=True,
-        model_field_info=ModelField(default_factory=dict),
+        model_field_info=ModelFieldInfo(default_factory=dict),
     )
     def repository_metadata(self) -> dict[str, t.Any]:
         """The repository metadata of the node."""
@@ -184,14 +184,14 @@ class Node(Entity[BackendNode]):
     @functools.cached_property
     def base(self) -> NodeBase:
         """Return the base of the node."""
-        return NodeBase(self)
+        return NodeBase(self)  # type: ignore[arg-type]
 
     @classproperty
-    def class_node_type(cls) -> str:  # noqa: N805
+    def class_node_type(cls: type[Node]) -> str:  # noqa: N805
         return cls._plugin_type_string
 
     @classproperty
-    def _plugin_type_string(cls) -> str:  # noqa: N805
+    def _plugin_type_string(cls: type[Node]) -> str:  # noqa: N805
         if not hasattr(cls, '__plugin_type_string'):
             cls.__plugin_type_string = get_type_string_from_class(cls.__module__, cls.__name__)
         return cls.__plugin_type_string
