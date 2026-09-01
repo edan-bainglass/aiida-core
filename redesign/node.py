@@ -134,8 +134,10 @@ class Node(Entity[BackendNode]):
         return from_backend_entity(User, self._backend_entity.user)
 
     @field(
-        readonly=True,
-        model_field_info=ModelFieldInfo(description='The PK of the associated computer.'),
+        model_field_info=ModelFieldInfo(
+            default=None,
+            description='The PK of the associated computer.',
+        ),
         model_adapter=EntityPkAdapter(Computer),
     )
     def computer(self) -> Computer | None:
