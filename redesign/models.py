@@ -254,7 +254,7 @@ def _include_field(spec: EntityFieldSpec, projection: SupportedModel) -> bool:
         return not spec.readonly
 
     if projection == 'update':
-        return spec.mutable
+        return spec.updatable
 
     t.assert_never(projection)
 

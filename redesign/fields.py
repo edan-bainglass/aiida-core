@@ -61,8 +61,8 @@ class EntityFieldSpec(BaseFieldSpec):
         return self.access is FieldAccess.CREATE_ONLY
 
     @property
-    def mutable(self) -> bool:
-        """Return whether the field is mutable."""
+    def updatable(self) -> bool:
+        """Return whether the field is mutable after creation."""
         return self.access is FieldAccess.MUTABLE
 
 
@@ -257,7 +257,7 @@ class EntityField(
         if self.fset is None:
             raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
 
-        if instance.is_stored and not self.spec.mutable:
+        if instance.is_stored and not self.spec.updatable:
             raise exceptions.ModificationNotAllowed(f'{self._owner.__name__}.{self._name} is immutable once stored')
 
         self.fset(instance, value)
@@ -272,7 +272,7 @@ class EntityField(
         if self.fdel is None:
             raise AttributeError(f'{self._owner.__name__}.{self._name} has no deleter')
 
-        if instance.is_stored and not self.spec.mutable:
+        if instance.is_stored and not self.spec.updatable:
             raise exceptions.ModificationNotAllowed(
                 f'{self._owner.__name__}.{self._name} cannot be deleted after storing'
             )
