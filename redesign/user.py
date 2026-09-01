@@ -4,6 +4,7 @@ from entity import Entity
 from fields import ModelFieldInfo, field
 
 from aiida import orm
+from aiida.common import exceptions
 from aiida.manage.manager import get_manager
 from aiida.orm.implementation import BackendUser, StorageBackend
 
@@ -93,9 +94,13 @@ class User(Entity[BackendUser]):
         return full_name
 
     @classmethod
-    def get_one(cls, pk: int) -> User | None:
-        """Get a user by primary key."""
-        return orm.User.collection.get(pk=pk)  # type: ignore[return-value]
+    def get_one(cls, identifier: int | str) -> User | None:
+        """Get a user by identifier (PK or email)."""
+        key = 'pk' if isinstance(identifier, int) else 'email'
+        try:
+            return orm.User.collection.get(**{key: identifier})  # type: ignore[return-value]
+        except exceptions.NotExistent:
+            return None
 
     @staticmethod
     def normalize_email(email: str) -> str:

@@ -9,6 +9,8 @@ from entity import Entity, from_backend_entity
 from fields import ModelFieldInfo, field
 from user import User
 
+from aiida import orm
+from aiida.common import exceptions
 from aiida.common.lang import classproperty
 from aiida.manage.manager import get_manager
 from aiida.orm import groups
@@ -102,9 +104,12 @@ class Group(Entity[BackendGroup]):
         return self._base
 
     @classmethod
-    def get_one(cls, pk: int) -> Group | None:
-        """Get a group by primary key."""
-        return groups.Group.collection.get(pk=pk)  # type: ignore[return-value]
+    def get_one(cls, identifier: int | str) -> Group | None:
+        """Get a group by identifier (PK or label)."""
+        try:
+            return orm.load_group(identifier)  # type: ignore[return-value]
+        except exceptions.NotExistent:
+            return None
 
     @classproperty
     def _type_string(cls: type[Group]) -> str | None:  # noqa: N805

@@ -47,8 +47,8 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
         return self
 
     @classmethod
-    def get_one(cls, pk: int) -> Self | None:
-        """Get an entity by primary key."""
+    def get_one(cls, identifier: int | str) -> Self | None:
+        """Get an entity by identifier."""
         raise NotImplementedError('get_one must be implemented in subclasses')
 
     @super_check

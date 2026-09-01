@@ -6,6 +6,7 @@ from entity import Entity
 from fields import ModelFieldInfo, field
 
 from aiida import orm
+from aiida.common import exceptions
 from aiida.manage.manager import get_manager
 from aiida.orm.implementation import BackendComputer, StorageBackend
 
@@ -91,6 +92,9 @@ class Computer(Entity[BackendComputer]):
         self._backend_entity.set_metadata(value)
 
     @classmethod
-    def get_one(cls, pk: int) -> Computer | None:
-        """Get a computer by primary key."""
-        return orm.Computer.collection.get(pk=pk)  # type: ignore[return-value]
+    def get_one(cls, identifier: int | str) -> Computer | None:
+        """Get a computer by identifier (PK or label)."""
+        try:
+            return orm.load_computer(identifier)  # type: ignore[return-value]
+        except exceptions.NotExistent:
+            return None
