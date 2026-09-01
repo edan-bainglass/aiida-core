@@ -4,10 +4,11 @@ import functools
 import typing as t
 
 import pydantic as pdt
-from attributes import NodeAttributesField, iter_attributes
-from fields import EntityField
-from models import ModelsNamespace, SupportedModel, _build_model_field
 from typing_extensions import Self
+
+from .attributes import NodeAttributesField, iter_attributes
+from .fields import EntityField
+from .models import ModelsNamespace, SupportedModel, _build_model_field
 
 __all__ = ('NodeModelsNamespace',)
 

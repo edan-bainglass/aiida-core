@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from entity import Entity
-from model_adapter import ModelAdapter
-
 from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
+
+from .entity import Entity
+from .model_adapter import ModelAdapter
 
 
 class EntityPkAdapter(ModelAdapter[Entity, int, qb_fields.QbNumericField]):

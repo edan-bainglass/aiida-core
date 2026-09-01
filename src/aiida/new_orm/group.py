@@ -4,17 +4,17 @@ import datetime
 import functools
 import typing as t
 
-from adapters import EntityPkAdapter, StrUuidAdapter
-from entity import Entity, from_backend_entity
-from fields import ModelFieldInfo, field
-from user import User
-
 from aiida import orm
 from aiida.common import exceptions
 from aiida.common.lang import classproperty
 from aiida.manage.manager import get_manager
 from aiida.orm import groups
 from aiida.orm.implementation import BackendGroup, StorageBackend
+
+from .adapters import EntityPkAdapter, StrUuidAdapter
+from .entity import Entity, from_backend_entity
+from .fields import ModelFieldInfo, field
+from .user import User
 
 
 class Group(Entity[BackendGroup]):

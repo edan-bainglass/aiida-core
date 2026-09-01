@@ -4,14 +4,7 @@ import datetime
 import functools
 import typing as t
 
-from adapters import EntityPkAdapter, StrUuidAdapter
-from attributes import attributes_field
-from computer import Computer
-from entity import Entity, from_backend_entity
-from fields import ModelFieldInfo, field
-from node_models import NodeModelsNamespace
 from typing_extensions import Self
-from user import User
 
 from aiida.common import exceptions
 from aiida.common.lang import classproperty
@@ -19,6 +12,14 @@ from aiida.manage import get_manager
 from aiida.orm.implementation import BackendNode, StorageBackend
 from aiida.orm.nodes.node import NodeBase
 from aiida.orm.utils.node import get_type_string_from_class
+
+from .adapters import EntityPkAdapter, StrUuidAdapter
+from .attributes import attributes_field
+from .computer import Computer
+from .entity import Entity, from_backend_entity
+from .fields import ModelFieldInfo, field
+from .node_models import NodeModelsNamespace
+from .user import User
 
 
 class Node(Entity[BackendNode]):

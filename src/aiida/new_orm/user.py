@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from entity import Entity
-from fields import ModelFieldInfo, field
-
 from aiida import orm
 from aiida.common import exceptions
 from aiida.manage.manager import get_manager
 from aiida.orm.implementation import BackendUser, StorageBackend
+
+from .entity import Entity
+from .fields import ModelFieldInfo, field
 
 
 class User(Entity[BackendUser]):
