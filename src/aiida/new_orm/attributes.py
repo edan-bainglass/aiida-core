@@ -5,7 +5,12 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
-from fields import (
+from typing_extensions import Self
+
+from aiida.common import exceptions
+from aiida.orm import fields as qb_fields
+
+from .fields import (
     BaseField,
     BaseFieldConfig,
     BaseFieldDecorator,
@@ -14,11 +19,7 @@ from fields import (
     ModelFieldInfo,
     Storable,
 )
-from model_adapter import ModelAdapter
-from typing_extensions import Self
-
-from aiida.common import exceptions
-from aiida.orm import fields as qb_fields
+from .model_adapter import ModelAdapter
 
 __all__ = (
     'NodeAttribute',

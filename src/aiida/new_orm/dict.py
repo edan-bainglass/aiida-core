@@ -3,11 +3,11 @@ from __future__ import annotations
 import typing as t
 from copy import deepcopy
 
-from attributes import attribute
-from data import Data
-from primitive import PrimitiveData
-
 from aiida.common import exceptions
+
+from .attributes import attribute
+from .data import Data
+from .primitive import PrimitiveData
 
 
 class Dict(PrimitiveData):

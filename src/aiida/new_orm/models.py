@@ -4,20 +4,21 @@ import functools
 import typing as t
 
 import pydantic as pdt
-from _utils import (
-    is_nullable,
-    make_annotated,
-    make_nullable,
-    make_required,
-)
-from fields import (
+from pydantic_core import PydanticUndefined
+from typing_extensions import Self
+
+from .fields import (
     EntityField,
     EntityFieldSpec,
     ModelFieldInfo,
     iter_fields,
 )
-from pydantic_core import PydanticUndefined
-from typing_extensions import Self
+from .utils import (
+    is_nullable,
+    make_annotated,
+    make_nullable,
+    make_required,
+)
 
 __all__ = (
     'CreateModel',

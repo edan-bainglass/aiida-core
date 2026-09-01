@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from attributes import attribute
-from data import Data
+from .attributes import attribute
+from .data import Data
 
 
 class PrimitiveData(Data):

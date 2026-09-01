@@ -7,15 +7,16 @@ import functools
 import typing as t
 from collections.abc import Callable
 
-from _utils import is_nullable
-from cli_adapter import CliAdapter
-from model_adapter import ModelAdapter
 from pydantic.fields import FieldInfo as ModelFieldInfo
 from typing_extensions import Self
 
 from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
+
+from .cli_adapter import CliAdapter
+from .model_adapter import ModelAdapter
+from .utils import is_nullable
 
 __all__ = (
     'CliFieldInfo',

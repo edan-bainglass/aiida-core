@@ -3,13 +3,14 @@ from __future__ import annotations
 import abc
 import typing as t
 
-from fields import field
-from models import ModelsNamespace
 from plumpy.base import call_with_super_check, super_check
 from typing_extensions import Self
 
 from aiida.common.lang import type_check
 from aiida.orm.implementation import BackendEntity
+
+from .fields import field
+from .models import ModelsNamespace
 
 _EntityT = t.TypeVar('_EntityT', bound='Entity')
 _BackendEntityT = t.TypeVar('_BackendEntityT', bound=BackendEntity)

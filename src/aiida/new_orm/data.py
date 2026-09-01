@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import typing as t
 
-from attributes import attribute
-from node import Node
+from .attributes import attribute
+from .node import Node
 
 
 class Data(Node, extra_attributes='allow'):
