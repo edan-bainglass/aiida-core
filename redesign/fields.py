@@ -3,14 +3,17 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import enum
+import functools
 import typing as t
 from collections.abc import Callable
 
 from _utils import is_nullable
+from cli_adapter import CliAdapter
 from model_adapter import ModelAdapter
 from pydantic.fields import FieldInfo as ModelFieldInfo
 from typing_extensions import Self
 
+from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
 
@@ -74,11 +77,11 @@ class CliFieldInfo:
     This class contains only CLI-specific interaction and presentation settings.
     """
 
-    option: str | tuple[str, ...] | None = None
-    metavar: str | None = None
-    help: str | None = None
-    prompt: bool | str | None = None
-    hidden: bool = False
+    prompt: str = ''
+    help: str = ''
+    short_name: str = ''
+    priority: int = 0
+    option_cls: functools.partial[TemplateInteractiveOption] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -87,6 +90,8 @@ class BaseFieldConfig:
 
     model_field_info: ModelFieldInfo | None = None
     model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None
+    cli_field_info: CliFieldInfo | None = None
+    cli_adapter: CliAdapter[t.Any, t.Any] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -97,7 +102,6 @@ class EntityFieldConfig(BaseFieldConfig):
     readonly: bool = False
     updatable: bool = False
     required_once_stored: bool = False
-    cli_field_info: CliFieldInfo | None = None
 
 
 class Storable(t.Protocol):
@@ -174,6 +178,14 @@ class BaseField(
             return self.model_adapter.model_type
 
         return self.spec.value_type
+
+    @property
+    def cli_field_info(self) -> CliFieldInfo | None:
+        return self._config.cli_field_info
+
+    @property
+    def cli_adapter(self) -> CliAdapter[t.Any, t.Any] | None:
+        return self._config.cli_adapter
 
     def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
         """Set the getter and return this descriptor."""
@@ -278,11 +290,6 @@ class EntityField(
             )
 
         self.fdel(instance)
-
-    @property
-    def cli_field_info(self) -> CliFieldInfo | None:
-        """Return optional CLI-specific field configuration."""
-        return self._config.cli_field_info
 
     def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
         """Set the getter and return this descriptor."""
@@ -545,6 +552,7 @@ class EntityFieldDecorator(
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: ModelAdapter[_AdaptedOrmT, _AdaptedModelT, _QbFieldT],
         cli_field_info: CliFieldInfo | None = None,
+        cli_adapter: CliAdapter[t.Any, t.Any] | None = None,
     ) -> ConfiguredFieldDecorator[_QbFieldT]: ...
 
     @t.overload
@@ -558,6 +566,7 @@ class EntityFieldDecorator(
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: None = None,
         cli_field_info: CliFieldInfo | None = None,
+        cli_adapter: CliAdapter[t.Any, t.Any] | None = None,
     ) -> Self: ...
 
     def __call__(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
