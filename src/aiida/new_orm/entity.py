@@ -10,7 +10,7 @@ from aiida.common.lang import type_check
 from aiida.orm.implementation import BackendEntity
 
 from .fields import field
-from .models import ModelsNamespace
+from .models import EntityModel, ModelsNamespace
 
 _EntityT = t.TypeVar('_EntityT', bound='Entity')
 _BackendEntityT = t.TypeVar('_BackendEntityT', bound=BackendEntity)
@@ -58,6 +58,30 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
 
         This will be called after the constructor is called or an entity is created from an existing backend entity.
         """
+
+    def serialize(
+        self,
+        *,
+        context: dict[str, t.Any] | None = None,
+        minimal: bool = False,
+        mode: t.Literal['json', 'python'] = 'python',
+        exclude_unset: bool = True,
+        exclude_none: bool = True,
+    ) -> dict[str, t.Any]:
+        """Serialize the entity instance to JSON."""
+        models = self.__class__.models
+        model: type[EntityModel] = models.read if self.is_stored else models.create
+        if minimal:
+            model = model.minimize()
+        return model.from_entity(
+            self,
+            context=context,
+            minimal=minimal,
+        ).model_dump(
+            mode=mode,
+            exclude_none=exclude_none,
+            exclude_unset=exclude_unset,
+        )
 
 
 def from_backend_entity(cls: type[_EntityT], backend_entity: BackendEntity) -> _EntityT:

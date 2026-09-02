@@ -53,6 +53,7 @@ class EntityFieldSpec(BaseFieldSpec):
     backend_key: str
     access: FieldAccess
     required_once_stored: bool
+    may_be_large: bool = False
 
     @property
     def readonly(self) -> bool:
@@ -103,6 +104,7 @@ class EntityFieldConfig(BaseFieldConfig):
     readonly: bool = False
     updatable: bool = False
     required_once_stored: bool = False
+    may_be_large: bool = False
 
 
 class Storable(t.Protocol):
@@ -169,7 +171,7 @@ class BaseField(
 
     @property
     def model_adapter(self) -> ModelAdapter[t.Any, t.Any, t.Any] | None:
-        """Return the ORM/model value adapter."""
+        """Return the entity/model value adapter."""
         return self._config.model_adapter
 
     @property
@@ -362,6 +364,7 @@ class EntityField(
             backend_key=self._config.backend_key or self._name,
             access=access,
             required_once_stored=self._config.required_once_stored,
+            may_be_large=self._config.may_be_large,
         )
 
         if spec.required_once_stored and not is_nullable(spec.value_type):
@@ -403,7 +406,7 @@ class BaseFieldDecorator(
 
 _ConfiguredQbFieldT = t.TypeVar('_ConfiguredQbFieldT', bound=qb_fields.QbField)
 
-_AdaptedOrmT = t.TypeVar('_AdaptedOrmT')
+_AdaptedEntityT = t.TypeVar('_AdaptedEntityT')
 _AdaptedModelT = t.TypeVar('_AdaptedModelT')
 
 
@@ -550,8 +553,9 @@ class EntityFieldDecorator(
         readonly: bool = False,
         updatable: bool = False,
         required_once_stored: bool = False,
+        may_be_large: bool = False,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, _AdaptedModelT, _QbFieldT],
+        model_adapter: ModelAdapter[_AdaptedEntityT, _AdaptedModelT, _QbFieldT],
         cli_field_info: CliFieldInfo | None = None,
         cli_adapter: CliAdapter[t.Any, t.Any] | None = None,
     ) -> ConfiguredFieldDecorator[_QbFieldT]: ...
@@ -564,6 +568,7 @@ class EntityFieldDecorator(
         readonly: bool = False,
         updatable: bool = False,
         required_once_stored: bool = False,
+        may_be_large: bool = False,
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: None = None,
         cli_field_info: CliFieldInfo | None = None,

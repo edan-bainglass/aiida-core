@@ -1,3 +1,4 @@
+"""Redesign of the AiiDA ORM layer."""
 
 # AUTO-GENERATED
 
@@ -13,6 +14,7 @@ __all__ = (
     'CreateModel',
     'EntityField',
     'EntityFieldSpec',
+    'EntityModel',
     'FieldAccess',
     'ModelFieldInfo',
     'ModelsNamespace',
@@ -20,7 +22,6 @@ __all__ = (
     'NodeAttributeSpec',
     'NodeAttributesField',
     'NodeModelsNamespace',
-    'OrmModel',
     'ReadModel',
     'UpdateModel',
     'attribute',

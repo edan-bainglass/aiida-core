@@ -16,6 +16,7 @@ from .fields import (
     BaseFieldDecorator,
     BaseFieldSpec,
     EntityField,
+    EntityFieldConfig,
     ModelFieldInfo,
     Storable,
 )
@@ -109,7 +110,7 @@ class ConfiguredAttributeDecorator(t.Protocol[_ConfiguredQbFieldT]):
     ) -> NodeAttribute[_OwnerT, _ValueT, _ConfiguredQbFieldT]: ...
 
 
-_AdaptedOrmT = t.TypeVar('_AdaptedOrmT')
+_AdaptedEntityT = t.TypeVar('_AdaptedEntityT')
 _AdaptedModelT = t.TypeVar('_AdaptedModelT')
 
 
@@ -243,7 +244,7 @@ class NodeAttributeDecorator(
         self,
         *,
         model_field_info: ModelFieldInfo | None = None,
-        model_adapter: ModelAdapter[_AdaptedOrmT, _AdaptedModelT, _QbFieldT],
+        model_adapter: ModelAdapter[_AdaptedEntityT, _AdaptedModelT, _QbFieldT],
     ) -> ConfiguredAttributeDecorator[_QbFieldT]: ...
 
     @t.overload
@@ -285,7 +286,7 @@ class NodeAttributesField(
     """ORM entity field representing the typed Node attributes mapping."""
 
     def __init__(self, fget: Callable[[_OwnerT], dict[str, t.Any]]) -> None:
-        super().__init__(fget)
+        super().__init__(fget, config=EntityFieldConfig(may_be_large=True))
 
         # The typed child registry depends on the concrete Node subclass.
         self._qb_fields: dict[type[_OwnerT], qb_fields.QbAttributesField] = {}
