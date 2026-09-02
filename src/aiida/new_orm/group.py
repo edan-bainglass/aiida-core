@@ -88,6 +88,7 @@ class Group(Entity[BackendGroup]):
 
     @field(
         updatable=True,
+        may_be_large=True,
         model_field_info=ModelFieldInfo(default_factory=dict),
     )
     def extras(self) -> dict[str, t.Any]:

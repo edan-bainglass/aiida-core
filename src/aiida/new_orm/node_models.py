@@ -35,32 +35,38 @@ class NodeModelsNamespace(ModelsNamespace[_OwnerT]):
 
         return _build_attributes_model(self._entity)
 
-    def _model_field_annotation(self, orm_field: EntityField, projection: SupportedModel) -> t.Any:
-        """Return the model-side annotation for a Node field."""
-        if isinstance(orm_field, NodeAttributesField):
+    def _model_field_annotation(self, field: EntityField, projection: SupportedModel) -> t.Any:
+        """Return the model field annotation for a Node field."""
+        if isinstance(field, NodeAttributesField):
             return self.attributes
 
-        return super()._model_field_annotation(orm_field, projection)
+        return super()._model_field_annotation(field, projection)
 
-    def _to_model_value(self, orm_field: EntityField, value: t.Any) -> t.Any:
-        """Convert a Node field value to its model-side representation."""
-        if isinstance(orm_field, NodeAttributesField):
+    def _to_model_value(
+        self,
+        field: EntityField,
+        value: t.Any,
+        *,
+        context: dict[str, t.Any] | None = None,
+    ) -> t.Any:
+        """Convert a Node field value to its model representation."""
+        if isinstance(field, NodeAttributesField):
             if self._entity is None:
                 raise RuntimeError('model namespace is not bound to a Node class')
 
-            return _attributes_to_model(self._entity, value)
+            return _attributes_to_model(self._entity, value, context=context)
 
-        return super()._to_model_value(orm_field, value)
+        return super()._to_model_value(field, value, context=context)
 
-    def _to_orm_value(self, orm_field: EntityField, value: t.Any) -> t.Any:
-        """Convert a model field value to its Node-side representation."""
-        if isinstance(orm_field, NodeAttributesField):
+    def _to_entity_value(self, field: EntityField, value: t.Any) -> t.Any:
+        """Convert a model field value to its Node representation."""
+        if isinstance(field, NodeAttributesField):
             if self._entity is None:
                 raise RuntimeError('model namespace is not bound to a Node class')
 
-            return _attributes_to_orm(self._entity, value)
+            return _model_to_attributes(self._entity, value)
 
-        return super()._to_orm_value(orm_field, value)
+        return super()._to_entity_value(field, value)
 
 
 def _build_attributes_model(node_type: type[_OwnerT]) -> type[pdt.BaseModel]:
@@ -95,8 +101,13 @@ def _build_attributes_model(node_type: type[_OwnerT]) -> type[pdt.BaseModel]:
     )
 
 
-def _attributes_to_model(node_type: type[_OwnerT], value: dict[str, t.Any]) -> dict[str, t.Any]:
-    """Convert raw Node attributes to their model-side representations."""
+def _attributes_to_model(
+    node_type: type[_OwnerT],
+    value: dict[str, t.Any],
+    *,
+    context: dict[str, t.Any] | None = None,
+) -> dict[str, t.Any]:
+    """Convert raw Node attributes to their model representations."""
     values = dict(value)
 
     for name, node_attribute in iter_attributes(node_type).items():
@@ -104,13 +115,13 @@ def _attributes_to_model(node_type: type[_OwnerT], value: dict[str, t.Any]) -> d
             continue
 
         if values[name] is not None and (adapter := node_attribute.model_adapter):
-            values[name] = adapter.to_model(values[name])
+            values[name] = adapter.to_model(values[name], context=context)
 
     return values
 
 
-def _attributes_to_orm(node_type: type[_OwnerT], value: pdt.BaseModel | dict[str, t.Any]) -> dict[str, t.Any]:
-    """Convert a nested attributes model to raw ORM attributes."""
+def _model_to_attributes(node_type: type[_OwnerT], value: pdt.BaseModel | dict[str, t.Any]) -> dict[str, t.Any]:
+    """Convert a nested attributes model to raw Node attributes."""
     values = value.model_dump() if isinstance(value, pdt.BaseModel) else dict(value)
 
     for name, node_attribute in iter_attributes(node_type).items():
@@ -118,6 +129,6 @@ def _attributes_to_orm(node_type: type[_OwnerT], value: pdt.BaseModel | dict[str
             continue
 
         if values[name] is not None and (adapter := node_attribute.model_adapter):
-            values[name] = adapter.to_orm(values[name])
+            values[name] = adapter.to_entity(values[name])
 
     return values

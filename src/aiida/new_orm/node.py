@@ -107,6 +107,7 @@ class Node(Entity[BackendNode]):
 
     @field(
         updatable=True,
+        may_be_large=True,
         model_field_info=ModelFieldInfo(default_factory=dict),
     )
     def extras(self) -> dict[str, t.Any]:
@@ -179,6 +180,7 @@ class Node(Entity[BackendNode]):
 
     @field(
         readonly=True,
+        may_be_large=True,
         model_field_info=ModelFieldInfo(default_factory=dict),
     )
     def repository_metadata(self) -> dict[str, t.Any]:
@@ -216,3 +218,6 @@ class Node(Entity[BackendNode]):
         """
         if self.is_stored:
             raise exceptions.ModificationNotAllowed('the attributes of a stored entity are immutable')
+
+    def _validate(self) -> None:
+        """Validate information stored in Node object."""

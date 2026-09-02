@@ -82,7 +82,10 @@ class Computer(Entity[BackendComputer]):
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
-    @field(model_field_info=ModelFieldInfo(default_factory=dict))
+    @field(
+        may_be_large=True,
+        model_field_info=ModelFieldInfo(default_factory=dict),
+    )
     def metadata(self) -> dict[str, t.Any]:
         """The metadata of the computer."""
         return self._backend_entity.get_metadata()
