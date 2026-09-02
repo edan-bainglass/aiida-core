@@ -78,7 +78,7 @@ class CliFieldInfo:
     This class contains only CLI-specific interaction and presentation settings.
     """
 
-    prompt: str = ''
+    prompt: str | bool | None = None
     help: str = ''
     short_name: str = ''
     priority: int = 0

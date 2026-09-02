@@ -53,7 +53,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
         raise NotImplementedError('get_one must be implemented in subclasses')
 
     @super_check
-    def _initialize(self) -> None:
+    def initialize(self) -> None:
         """Initialize instance attributes.
 
         This will be called after the constructor is called or an entity is created from an existing backend entity.
@@ -71,5 +71,5 @@ def from_backend_entity(cls: type[_EntityT], backend_entity: BackendEntity) -> _
     type_check(backend_entity, BackendEntity)
     entity = cls.__new__(cls)
     entity._backend_entity = backend_entity
-    call_with_super_check(entity._initialize)
+    call_with_super_check(entity.initialize)
     return entity

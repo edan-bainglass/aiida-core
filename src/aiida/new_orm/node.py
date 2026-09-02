@@ -4,6 +4,7 @@ import datetime
 import functools
 import typing as t
 
+from importlib_metadata import EntryPoint
 from typing_extensions import Self
 
 from aiida.common import exceptions
@@ -188,6 +189,13 @@ class Node(Entity[BackendNode]):
     def base(self) -> NodeBase:
         """Return the base of the node."""
         return NodeBase(self)  # type: ignore[arg-type]
+
+    @classproperty
+    def entry_point(cls: type[Node]) -> EntryPoint | None:  # noqa: N805
+        """Return the entry point associated this node class."""
+        from aiida.plugins.entry_point import get_entry_point_from_class
+
+        return get_entry_point_from_class(cls.__module__, cls.__name__)[1]
 
     @classproperty
     def class_node_type(cls: type[Node]) -> str:  # noqa: N805
