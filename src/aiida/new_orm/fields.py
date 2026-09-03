@@ -81,8 +81,8 @@ class CliFieldInfo:
 
     prompt: str | bool | None = None
     help: str = ''
-    short_name: str = ''
     priority: int = 0
+    short_name: str = ''
     option_cls: functools.partial[TemplateInteractiveOption] | None = None
 
 
@@ -184,11 +184,21 @@ class BaseField(
 
     @property
     def cli_field_info(self) -> CliFieldInfo | None:
+        """Return optional CLI-specific field configuration."""
         return self._config.cli_field_info
 
     @property
     def cli_adapter(self) -> CliAdapter[t.Any, t.Any] | None:
+        """Return the entity/CLI value adapter."""
         return self._config.cli_adapter
+
+    @property
+    def title(self) -> str:
+        """Return the human-readable title of the field."""
+        if self.model_field_info is not None and self.model_field_info.title is not None:
+            return self.model_field_info.title
+
+        return self.spec.name.replace('_', ' ').title()
 
     def getter(self, fget: Callable[[_OwnerT], _ValueT], /) -> Self:
         """Set the getter and return this descriptor."""
@@ -373,7 +383,7 @@ class EntityField(
         return spec
 
 
-_FieldT = t.TypeVar('_FieldT')
+_FieldT = t.TypeVar('_FieldT', bound=BaseField)
 
 
 class BaseFieldDecorator(

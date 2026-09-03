@@ -52,6 +52,13 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
         """Get an entity by identifier."""
         raise NotImplementedError('get_one must be implemented in subclasses')
 
+    @classmethod
+    def get_cli_create_spec(cls):
+        """Return the CLI creation specification for this entity."""
+        from .cli import EntityCliCreateSpec
+
+        return EntityCliCreateSpec(cls)
+
     @super_check
     def initialize(self) -> None:
         """Initialize instance attributes.

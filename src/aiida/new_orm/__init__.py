@@ -5,17 +5,21 @@
 # fmt: off
 
 from .attributes import *
+from .cli import *
 from .fields import *
+from .installed import *
 from .models import *
 from .node_models import *
 
 __all__ = (
     'CliFieldInfo',
     'CreateModel',
+    'EntityCliCreateSpec',
     'EntityField',
     'EntityFieldSpec',
     'EntityModel',
     'FieldAccess',
+    'InstalledCode',
     'ModelFieldInfo',
     'ModelsNamespace',
     'NodeAttribute',

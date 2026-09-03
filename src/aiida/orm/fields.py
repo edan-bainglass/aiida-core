@@ -276,7 +276,7 @@ class QbDictField(QbField):
         """Return a filter for only values with these keys"""
         return QbFieldFilters(((self, 'has_key', value),))
 
-    def __getitem__(self, key: str) -> QbField:
+    def __getattr__(self, key: str) -> QbField:
         """Return a new `QbField` with a nested key."""
         return QbAnyField(
             key=f'{self.key}.{key}',
@@ -284,6 +284,10 @@ class QbDictField(QbField):
             dtype=t.Any,
             is_attribute=self._is_attribute,
         )
+
+    def __getitem__(self, key: str) -> QbField:
+        """Return a new `QbField` with a nested key."""
+        return self.__getattr__(key)
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__}({self.backend_key}[...]) -> {self._dtype}'

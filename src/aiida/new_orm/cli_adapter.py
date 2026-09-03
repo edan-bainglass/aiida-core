@@ -10,13 +10,13 @@ _ModelValueT = t.TypeVar('_ModelValueT')
 
 
 class CliAdapter(abc.ABC, t.Generic[_CliValueT, _ModelValueT]):
-    """Abstract base class for CLI adapters that convert between CLI and model values."""
+    """Abstract base class for adapters between CLI/external and model-side representations."""
 
     _cli_type: t.ClassVar[t.Any] = None
 
     @classproperty
     def cli_type(cls: type[CliAdapter]) -> t.Any:  # noqa: N805
-        """Return the CLI-side type inferred from `to_model`."""
+        """Return the CLI-side type inferred from the `to_model` value annotation."""
         if cls._cli_type is None:
             try:
                 cls._cli_type = t.get_type_hints(cls.to_model)['value']
@@ -27,4 +27,8 @@ class CliAdapter(abc.ABC, t.Generic[_CliValueT, _ModelValueT]):
 
     @abc.abstractmethod
     def to_model(self, value: _CliValueT) -> _ModelValueT:
-        """Convert a CLI value to its model-side representation."""
+        """Convert a CLI/external value to its model-side representation."""
+
+    @abc.abstractmethod
+    def to_cli(self, value: _ModelValueT) -> _CliValueT:
+        """Convert a model-side value to its CLI/external representation."""
