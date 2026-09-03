@@ -94,13 +94,13 @@ class User(Entity[BackendUser]):
         return full_name
 
     @classmethod
-    def get_one(cls, identifier: int | str) -> User | None:
+    def get_one(cls, identifier: int | str) -> User:
         """Get a user by identifier (PK or email)."""
         key = 'pk' if isinstance(identifier, int) else 'email'
         try:
             return orm.User.collection.get(**{key: identifier})  # type: ignore[return-value]
         except exceptions.NotExistent:
-            return None
+            raise ValueError(f'User with identifier {identifier} does not exist') from None
 
     @staticmethod
     def normalize_email(email: str) -> str:

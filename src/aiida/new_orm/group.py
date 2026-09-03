@@ -105,12 +105,12 @@ class Group(Entity[BackendGroup]):
         return self._base
 
     @classmethod
-    def get_one(cls, identifier: int | str) -> Group | None:
+    def get_one(cls, identifier: int | str) -> Group:
         """Get a group by identifier (PK or label)."""
         try:
             return orm.load_group(identifier)  # type: ignore[return-value]
         except exceptions.NotExistent:
-            return None
+            raise ValueError(f'Group with identifier {identifier} does not exist') from None
 
     @classproperty
     def _type_string(cls: type[Group]) -> str | None:  # noqa: N805
