@@ -20,7 +20,7 @@ import re
 import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, TypeVar, overload
+from typing import TYPE_CHECKING, Annotated, Any, TypeVar, get_args, overload
 from uuid import UUID
 
 from typing_extensions import Self
@@ -638,6 +638,35 @@ def batch_iter(
             length = 0
     if current:
         yield length, current
+
+
+def is_nullable(annotation: Any) -> bool:
+    """Return whether an annotation accepts `None`."""
+    return type(None) in get_args(annotation)
+
+
+def make_nullable(annotation: Any) -> Any:
+    """Return a nullable version of the annotation."""
+    if is_nullable(annotation):
+        return annotation
+
+    return annotation | None
+
+
+def make_required(annotation: Any) -> Any:
+    """Return a required (non-nullable) version of the annotation."""
+    if not is_nullable(annotation):
+        return annotation
+
+    return get_args(annotation)[0] if get_args(annotation) else annotation
+
+
+def make_annotated(annotation: Any, metadata: list[Any]) -> Any:
+    """Return an `Annotated` type compatible with Python 3.10."""
+    if not metadata:
+        return annotation
+
+    return Annotated[(annotation, *metadata)]
 
 
 # NOTE: This parameter is largely obsolete after implementing unnest()/json_each() for large IN clauses.
