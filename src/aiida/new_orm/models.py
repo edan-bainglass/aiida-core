@@ -8,17 +8,18 @@ import pydantic as pdt
 from pydantic_core import PydanticUndefined
 from typing_extensions import Self
 
+from aiida.common.utils import (
+    is_nullable,
+    make_annotated,
+    make_nullable,
+    make_required,
+)
+
 from .fields import (
     EntityField,
     EntityFieldSpec,
     ModelFieldInfo,
     iter_fields,
-)
-from .utils import (
-    is_nullable,
-    make_annotated,
-    make_nullable,
-    make_required,
 )
 
 __all__ = (
