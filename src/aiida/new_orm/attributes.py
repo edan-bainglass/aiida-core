@@ -10,11 +10,13 @@ from typing_extensions import Self
 from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
 
+from .cli_adapter import CliAdapter
 from .fields import (
     BaseField,
     BaseFieldConfig,
     BaseFieldDecorator,
     BaseFieldSpec,
+    CliFieldInfo,
     EntityField,
     EntityFieldConfig,
     ModelFieldInfo,
@@ -245,6 +247,8 @@ class NodeAttributeDecorator(
         *,
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: ModelAdapter[_AdaptedEntityT, _AdaptedModelT, _QbFieldT],
+        cli_field_info: CliFieldInfo | None = None,
+        cli_adapter: CliAdapter[t.Any, t.Any] | None = None,
     ) -> ConfiguredAttributeDecorator[_QbFieldT]: ...
 
     @t.overload
@@ -253,6 +257,8 @@ class NodeAttributeDecorator(
         *,
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: None = None,
+        cli_field_info: CliFieldInfo | None = None,
+        cli_adapter: CliAdapter[t.Any, t.Any] | None = None,
     ) -> Self: ...
 
     def __call__(self, *args: t.Any, **kwargs: t.Any) -> t.Any:

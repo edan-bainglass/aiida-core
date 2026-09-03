@@ -14,11 +14,14 @@
 
 from .groups import *
 from .params import *
+from .spec import *
 from .utils import *
 
 __all__ = (
     'AbsolutePathParamType',
     'CalculationParamType',
+    'CliCreateSpec',
+    'CliParameter',
     'CodeParamType',
     'ComputerParamType',
     'ConfigOptionParamType',
@@ -40,6 +43,7 @@ __all__ = (
     'PluginParamType',
     'ProcessParamType',
     'ProfileParamType',
+    'PydanticCliCreateSpec',
     'ShebangParamType',
     'UserParamType',
     'VerdiCommandGroup',

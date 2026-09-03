@@ -17,6 +17,7 @@ from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from aiida.common.log import AIIDA_LOGGER
+from aiida.common.pydantic import AiiDABaseModel
 
 if TYPE_CHECKING:
     from disk_objectstore.backup_utils import BackupManager
@@ -62,6 +63,8 @@ class StorageBackend(abc.ABC):
     """
 
     read_only = False
+
+    class CliModel(AiiDABaseModel): ...
 
     @classmethod
     @abc.abstractmethod
@@ -325,6 +328,13 @@ class StorageBackend(abc.ABC):
         :param full: flag to perform operations that require to stop using the profile to be maintained.
         :param dry_run: flag to only print the actions that would be taken without actually executing them.
         """
+
+    @classmethod
+    def get_cli_create_spec(cls):
+        """Return the CLI creation specification for this storage backend."""
+        from aiida.cmdline.spec import PydanticCliCreateSpec
+
+        return PydanticCliCreateSpec(cls.CliModel)
 
     def _backup(
         self,
