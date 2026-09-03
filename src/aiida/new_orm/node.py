@@ -7,6 +7,7 @@ import typing as t
 from importlib_metadata import EntryPoint
 from typing_extensions import Self
 
+from aiida import orm
 from aiida.common import exceptions
 from aiida.common.lang import classproperty
 from aiida.manage import get_manager
@@ -191,6 +192,14 @@ class Node(Entity[BackendNode]):
     def base(self) -> NodeBase:
         """Return the base of the node."""
         return NodeBase(self)  # type: ignore[arg-type]
+
+    @classmethod
+    def get_one(cls, identifier: int | str) -> Node:
+        """Get a node by identifier (PK or UUID)."""
+        try:
+            return orm.load_node(identifier)  # type: ignore[return-value]
+        except exceptions.NotExistent:
+            raise ValueError(f'Node with identifier {identifier} does not exist') from None
 
     @classproperty
     def entry_point(cls: type[Node]) -> EntryPoint | None:  # noqa: N805

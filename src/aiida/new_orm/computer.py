@@ -95,9 +95,9 @@ class Computer(Entity[BackendComputer]):
         self._backend_entity.set_metadata(value)
 
     @classmethod
-    def get_one(cls, identifier: int | str) -> Computer | None:
+    def get_one(cls, identifier: int | str) -> Computer:
         """Get a computer by identifier (PK or label)."""
         try:
             return orm.load_computer(identifier)  # type: ignore[return-value]
         except exceptions.NotExistent:
-            return None
+            raise ValueError(f'Computer with identifier {identifier} does not exist') from None
