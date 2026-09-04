@@ -7,7 +7,7 @@ from plumpy.base import call_with_super_check, super_check
 from typing_extensions import Self
 
 from aiida.common.lang import type_check
-from aiida.orm.implementation import BackendEntity
+from aiida.orm.implementation import BackendEntity, StorageBackend
 
 from .fields import field
 from .models import EntityModel, ModelsNamespace
@@ -30,12 +30,20 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
     )
     def pk(self) -> int | None:
         """The primary key of the entity."""
-        return self._backend_entity.pk
+        pk = self._backend_entity.pk
+        if self.is_stored and pk is None:
+            raise ValueError('Stored entity has no primary key.')
+        return pk
 
     @property
     def backend_entity(self) -> _BackendEntityT:
         """Get the implementing class for this object"""
         return self._backend_entity
+
+    @property
+    def backend(self) -> StorageBackend:
+        """Get the backend for this entity"""
+        return self._backend_entity.backend
 
     @property
     def is_stored(self) -> bool:

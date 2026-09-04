@@ -12,6 +12,8 @@ from .fields import ModelFieldInfo, field
 
 
 class Computer(Entity[BackendComputer]):
+    """Representation of a computer in the AiiDA ORM."""
+
     def __init__(
         self,
         label: str,
@@ -33,6 +35,12 @@ class Computer(Entity[BackendComputer]):
             metadata=metadata,
         )
         super().__init__(backend_entity, **kwargs)
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__}: {self!s}>'
+
+    def __str__(self) -> str:
+        return f'{self.label} ({self.hostname}), pk: {self.pk}'
 
     @field(updatable=True)
     def label(self) -> str:
@@ -93,6 +101,11 @@ class Computer(Entity[BackendComputer]):
     @metadata.setter  # type: ignore[no-redef]
     def metadata(self, value: dict[str, t.Any]) -> None:
         self._backend_entity.set_metadata(value)
+
+    @field(readonly=True)
+    def uuid(self) -> str:
+        """The UUID of the computer."""
+        return self._backend_entity.uuid
 
     @classmethod
     def get_one(cls, identifier: int | str) -> Computer:

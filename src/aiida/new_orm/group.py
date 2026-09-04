@@ -4,6 +4,8 @@ import datetime
 import functools
 import typing as t
 
+from typing_extensions import Self
+
 from aiida import orm
 from aiida.common import exceptions
 from aiida.common.lang import classproperty
@@ -46,6 +48,15 @@ class Group(Entity[BackendGroup]):
 
         if extras is not None:
             self._base.extras.set_many(extras)
+
+    def __repr__(self) -> str:
+        return (
+            f'<{self.__class__.__name__}: {self.label!r} '
+            f'[{"type " + self.type_string if self.type_string else "user-defined"}], of user {self.user.email}>'
+        )
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}<{self.label}>'
 
     @field(updatable=True)
     def label(self) -> str:
@@ -103,6 +114,18 @@ class Group(Entity[BackendGroup]):
     def base(self) -> groups.GroupBase:
         """Return the base of the group."""
         return self._base
+
+    @property
+    def type_string(self) -> str:
+        """:return: the string defining the type of the group"""
+        return self._backend_entity.type_string
+
+    def store(self) -> Self:
+        """Verify that the group is allowed to be stored, which is the case along as `type_string` is set."""
+        if self._type_string is None:
+            raise exceptions.StoringNotAllowed('`type_string` is `None` so the group cannot be stored.')
+
+        return super().store()
 
     @classmethod
     def get_one(cls, identifier: int | str) -> Group:

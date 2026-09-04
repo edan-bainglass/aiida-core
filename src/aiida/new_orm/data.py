@@ -9,7 +9,23 @@ from .node import Node
 class Data(Node, extra_attributes='allow'):
     """A data node."""
 
+    _source_attributes = (
+        'db_name',
+        'db_uri',
+        'uri',
+        'id',
+        'version',
+        'extras',
+        'source_md5',
+        'description',
+        'license',
+    )
+
     _export_format_replacements: dict[str, str] = {}
+
+    # Data nodes are storable
+    _storable = True
+    _unstorable_message = 'storing for this node has been disabled'
 
     @attribute
     def source(self) -> dict[str, t.Any] | None:
@@ -18,6 +34,11 @@ class Data(Node, extra_attributes='allow'):
 
     @source.setter  # type: ignore[no-redef]
     def source(self, value: dict[str, t.Any] | None):
+        if not isinstance(value, dict):
+            raise ValueError('Source must be supplied as a dictionary')
+        unknown_attrs = tuple(set(value.keys()) - set(self._source_attributes))
+        if unknown_attrs:
+            raise KeyError(f'Unknown source parameters: {", ".join(unknown_attrs)}')
         self.base.attributes.set('source', value)
 
     @classmethod

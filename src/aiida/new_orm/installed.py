@@ -122,5 +122,5 @@ class InstalledCode(Code):
 
         try:
             self.filepath_executable
-        except TypeError as exception:
+        except AttributeError as exception:
             raise exceptions.ValidationError('The `filepath_executable` is not set.') from exception
