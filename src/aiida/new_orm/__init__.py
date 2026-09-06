@@ -33,6 +33,7 @@ __all__ = (
     'NodeAttributeSpec',
     'NodeAttributesColumn',
     'NodeModelsNamespace',
+    'OrmModel',
     'ReadModel',
     'SinglefileData',
     'Storable',

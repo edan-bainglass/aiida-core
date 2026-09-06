@@ -20,6 +20,7 @@ from .columns import Column
 from .models import (
     EntityModel,
     ModelsNamespace,
+    OrmModel,
     SupportedModel,
     _build_model_field,
 )
@@ -38,12 +39,12 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
     """Model namespace for Nodes with typed nested attributes."""
 
     @functools.cached_property
-    def attributes(self) -> type[EntityModel[_NodeT]]:
+    def attributes(self) -> type[OrmModel[_NodeT]]:
         """Return the canonical persisted/read attributes model."""
         return self._build_attributes_model('read')
 
     @functools.cached_property
-    def _create_attributes(self) -> type[EntityModel[_NodeT]]:
+    def _create_attributes(self) -> type[OrmModel[_NodeT]]:
         """Return the attributes model used by the Node create projection."""
         return self._build_attributes_model('create')
 
@@ -57,7 +58,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
 
         return super()._model_field_annotation(column, projection)
 
-    def _attributes_model_annotation(self, projection: _AttributesProjection) -> type[EntityModel[_NodeT]]:
+    def _attributes_model_annotation(self, projection: _AttributesProjection) -> type[OrmModel[_NodeT]]:
         """Return the attributes model for a Node projection."""
         if projection == 'read':
             return self.attributes
@@ -73,18 +74,18 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
     ) -> t.Any:
         """Convert a Node column value to its model representation."""
         if isinstance(column, NodeAttributesColumn):
-            return self._attributes_to_model(value, context=context)
+            return self._attributes_to_model_value(value, context=context)
 
         return super()._to_model_value(column, value, context=context)
 
     def _to_entity_value(self, column: Column, value: t.Any) -> t.Any:
         """Convert a model value to its Node entity representation."""
         if isinstance(column, NodeAttributesColumn):
-            return self._attributes_to_entity(value)
+            return self._model_to_attributes_value(value)
 
         return super()._to_entity_value(column, value)
 
-    def _build_attributes_model(self, projection: _AttributesProjection) -> type[EntityModel[_NodeT]]:
+    def _build_attributes_model(self, projection: _AttributesProjection) -> type[OrmModel[_NodeT]]:
         """Build the typed attributes model for a Node projection."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to a Node class')
@@ -110,10 +111,10 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         extra = self._entity.__dict__.get('_extra_attributes', 'forbid')
 
         model = t.cast(
-            type[EntityModel[_NodeT]],
+            type[OrmModel[_NodeT]],
             pdt.create_model(
                 f'{self._entity.__name__}{class_name}',
-                __base__=EntityModel,
+                __base__=OrmModel,
                 __config__={
                     **EntityModel.model_config,
                     'extra': extra,
@@ -123,10 +124,6 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
                 **model_fields,
             ),
         )
-
-        model._entity = self._entity
-        model._entity_columns = {}
-        model._models_namespace = self
 
         return model
 
@@ -148,7 +145,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
 
         return annotation
 
-    def _attributes_to_model(
+    def _attributes_to_model_value(
         self,
         attributes: dict[str, t.Any],
         *,
@@ -158,57 +155,30 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to a Node class')
 
-        values: dict[str, t.Any] = {}
-        declared_attributes = iter_attributes(self._entity)
+        values = dict(attributes)
 
-        for name, attribute in declared_attributes.items():
-            if name not in attributes:
+        for name, attribute in iter_attributes(self._entity).items():
+            if name not in values:
                 continue
 
-            value = attributes[name]
-
-            if value is not None and attribute.model_adapter is not None:
-                value = attribute.model_adapter.to_model(
-                    value,
-                    context=context,
-                )
-
-            values[name] = value
-
-        if self._entity.__dict__.get('_extra_attributes', 'forbid') == 'allow':
-            for name, value in attributes.items():
-                if name not in declared_attributes:
-                    values[name] = value
+            if values[name] is not None and (adapter := attribute.model_adapter):
+                values[name] = adapter.to_model(values[name], context=context)
 
         return values
 
-    def _attributes_to_entity(self, attributes: EntityModel | dict[str, t.Any]) -> dict[str, t.Any]:
+    def _model_to_attributes_value(self, model: OrmModel[_NodeT] | dict[str, t.Any]) -> dict[str, t.Any]:
         """Convert model-side Node attributes to ORM representations."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to a Node class')
 
-        if isinstance(attributes, pdt.BaseModel):
-            values = {
-                name: getattr(attributes, name)
-                for name in attributes.__class__.model_fields
-                if name in attributes.model_fields_set
-            }
-        else:
-            values = dict(attributes)
+        values = model.model_dump() if isinstance(model, pdt.BaseModel) else dict(model)
+        print(values)
 
-        declared_attributes = iter_attributes(self._entity)
-        result: dict[str, t.Any] = {}
-
-        for name, value in values.items():
-            attribute = declared_attributes.get(name)
-
-            if attribute is None:
-                result[name] = value
+        for name, node_attribute in iter_attributes(self._entity).items():
+            if name not in values:
                 continue
 
-            if value is not None and attribute.model_adapter is not None:
-                value = attribute.model_adapter.to_entity(value)  # noqa: PLW2901
+            if values[name] is not None and (adapter := node_attribute.model_adapter):
+                values[name] = adapter.to_entity(values[name])
 
-            result[name] = value
-
-        return result
+        return values

@@ -22,19 +22,18 @@ __all__ = (
     'CreateModel',
     'EntityModel',
     'ModelsNamespace',
+    'OrmModel',
     'ReadModel',
     'SupportedModel',
     'UpdateModel',
 )
 
 
-_EntityT = t.TypeVar('_EntityT')
+_OwnerT = t.TypeVar('_OwnerT')
 
 
-class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
-    """Base class for dynamically generated ORM entity models."""
-
-    _minimal_model: t.ClassVar[type[EntityModel] | None] = None
+class OrmModel(pdt.BaseModel, t.Generic[_OwnerT]):
+    """Base class for ORM models."""
 
     model_config = pdt.ConfigDict(
         extra='forbid',
@@ -43,9 +42,17 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
         validate_by_name=True,
     )
 
+
+_EntityT = t.TypeVar('_EntityT')
+
+
+class EntityModel(OrmModel[_EntityT]):
+    """Base class for dynamically generated ORM entity models."""
+
     _entity: t.ClassVar[type[_EntityT]]
     _entity_columns: t.ClassVar[dict[str, Column]]
     _models_namespace: t.ClassVar[ModelsNamespace[t.Any]]
+    _minimal_model: t.ClassVar[type[EntityModel[_EntityT]] | None] = None
 
     @classmethod
     def field_spec(cls, name: str) -> ColumnSpec:
@@ -96,7 +103,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
         }
 
     @classmethod
-    def minimize(cls) -> type[EntityModel]:
+    def minimize(cls) -> type[EntityModel[_EntityT]]:
         """Return a derived model excluding columns marked as `may_be_large`."""
         cached = cls.__dict__.get('_minimal_model')
 
@@ -124,7 +131,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
             model_fields[name] = (annotation, field_info)
 
         minimal_model = t.cast(
-            type[EntityModel],
+            type[EntityModel[_EntityT]],
             pdt.create_model(
                 f'Minimal{cls.__name__}',
                 __config__=deepcopy(cls.model_config) | {'extra': 'ignore'},
