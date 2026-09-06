@@ -10,6 +10,7 @@ from .fields import *
 from .installed import *
 from .models import *
 from .node_models import *
+from .singlefile import *
 
 __all__ = (
     'CliFieldInfo',
@@ -26,6 +27,7 @@ __all__ = (
     'NodeAttributesField',
     'NodeModelsNamespace',
     'ReadModel',
+    'SinglefileData',
     'SupportedModel',
     'UpdateModel',
     'attribute',
