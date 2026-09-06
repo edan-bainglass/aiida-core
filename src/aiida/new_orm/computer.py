@@ -13,7 +13,7 @@ from .fields import ModelFieldInfo
 
 
 class Computer(Entity[BackendComputer]):
-    """Representation of a computer in the AiiDA ORM."""
+    """ORM representation of an AiiDA computer."""
 
     def __init__(
         self,
@@ -24,7 +24,6 @@ class Computer(Entity[BackendComputer]):
         description: str = '',
         metadata: dict[str, t.Any] | None = None,
         backend: StorageBackend | None = None,
-        **kwargs,
     ):
         backend = backend or get_manager().get_profile_storage()
         backend_entity = backend.computers.create(
@@ -35,7 +34,7 @@ class Computer(Entity[BackendComputer]):
             description=description,
             metadata=metadata,
         )
-        super().__init__(backend_entity, **kwargs)
+        super().__init__(backend_entity)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__}: {self!s}>'

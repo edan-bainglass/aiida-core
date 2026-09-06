@@ -11,6 +11,8 @@ from .fields import ModelFieldInfo
 
 
 class User(Entity[BackendUser]):
+    """ORM representation of an AiiDA user."""
+
     def __init__(
         self,
         email: str,
@@ -18,7 +20,6 @@ class User(Entity[BackendUser]):
         last_name: str = '',
         institution: str = '',
         backend: StorageBackend | None = None,
-        **kwargs,
     ):
         backend = backend or get_manager().get_profile_storage()
         backend_entity = backend.users.create(
@@ -27,7 +28,7 @@ class User(Entity[BackendUser]):
             last_name=last_name,
             institution=institution,
         )
-        super().__init__(backend_entity, **kwargs)
+        super().__init__(backend_entity)
 
     def __str__(self) -> str:
         return self.email

@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import functools
 import pathlib
+import typing as t
 
 from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
@@ -251,7 +252,7 @@ class Code(Data, abc.ABC):
 
         return builder
 
-    def _prepare_yaml(self, *args, **kwargs) -> tuple[bytes | str | None, dict]:
+    def _prepare_yaml(self, *args, **kwargs: t.Any) -> tuple[bytes | str | None, dict]:
         """Export code to a YAML file."""
         import pathlib
 
@@ -276,6 +277,6 @@ class Code(Data, abc.ABC):
             {},
         )
 
-    def _prepare_yml(self, *args, **kwargs) -> tuple[bytes | str | None, dict]:
+    def _prepare_yml(self, *args, **kwargs: t.Any) -> tuple[bytes | str | None, dict]:
         """Also allow for export as .yml"""
         return self._prepare_yaml(*args, **kwargs)

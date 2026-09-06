@@ -17,11 +17,13 @@ _BackendEntityT = t.TypeVar('_BackendEntityT', bound=BackendEntity)
 
 
 class Entity(abc.ABC, t.Generic[_BackendEntityT]):
+    """Base class for all ORM entities."""
+
     models: ModelsNamespace[Self] = ModelsNamespace()
 
-    def __init__(self, backend_entity: _BackendEntityT, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, backend_entity: _BackendEntityT):
         self._backend_entity = backend_entity
+        call_with_super_check(self.initialize)
 
     @column(
         backend_key='id',

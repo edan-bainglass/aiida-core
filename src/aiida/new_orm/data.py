@@ -59,7 +59,7 @@ class Data(Node, extra_attributes='allow'):
         """Return the node type of the class."""
         return cls.class_node_type
 
-    def export(self, path, fileformat=None, overwrite=False, **kwargs):
+    def export(self, path, fileformat=None, overwrite=False, **kwargs: t.Any):
         """Save a Data object to a file."""
         import os
 
@@ -113,7 +113,7 @@ class Data(Node, extra_attributes='allow'):
         ]  # filter them
         return sorted(valid_format_names)
 
-    def importstring(self, inputstring, fileformat, **kwargs):
+    def importstring(self, inputstring, fileformat, **kwargs: t.Any):
         """Converts a Data object to other text format."""
         importers = self._get_importers()
 
@@ -169,7 +169,7 @@ class Data(Node, extra_attributes='allow'):
 
         return func(*args)
 
-    def _exportcontent(self, fileformat, main_file_name='', **kwargs):
+    def _exportcontent(self, fileformat, main_file_name='', **kwargs: t.Any):
         """Converts a Data node to one (or multiple) files.
 
         Note: Export plugins should return utf8-encoded **bytes**, which can be

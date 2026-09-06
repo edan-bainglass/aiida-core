@@ -21,6 +21,8 @@ from .user import User
 
 
 class Group(Entity[BackendGroup]):
+    """ORM representation of an AiiDA group."""
+
     __type_string: t.ClassVar[str | None]
 
     def __init__(
@@ -31,7 +33,6 @@ class Group(Entity[BackendGroup]):
         time: datetime.datetime | None = None,
         extras: dict[str, t.Any] | None = None,
         backend: StorageBackend | None = None,
-        **kwargs,
     ):
         backend = backend or get_manager().get_profile_storage()
         user = t.cast(User, user or backend.default_user)

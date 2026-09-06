@@ -35,6 +35,8 @@ if t.TYPE_CHECKING:
 
 
 class Node(Entity[BackendNode]):
+    """ORM representation of an AiiDA node."""
+
     models: NodeModelsNamespace[Self] = NodeModelsNamespace()
 
     _CLS_NODE_LINKS = NodeLinks
@@ -70,7 +72,6 @@ class Node(Entity[BackendNode]):
         computer: Computer | None = None,
         user: User | None = None,
         backend: StorageBackend | None = None,
-        **kwargs,
     ):
         backend = backend or get_manager().get_profile_storage()
 
@@ -89,10 +90,9 @@ class Node(Entity[BackendNode]):
             node_type=self.class_node_type,
             user=user.backend_entity,
             computer=backend_computer,
-            **kwargs,
         )
 
-        super().__init__(backend_entity, **kwargs)
+        super().__init__(backend_entity)
 
         if attributes:
             self.base.attributes.set_many(attributes)
@@ -107,7 +107,7 @@ class Node(Entity[BackendNode]):
             'allow',
             'forbid',
         ] = 'forbid',
-        **kwargs,
+        **kwargs: t.Any,
     ) -> None:
         super().__init_subclass__(**kwargs)
         cls._extra_attributes = extra_attributes
