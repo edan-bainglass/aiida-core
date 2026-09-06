@@ -22,10 +22,11 @@ from aiida.orm.nodes.node import NodeBase
 from aiida.orm.utils.node import get_type_string_from_class
 
 from .adapters import EntityPkAdapter, StrUuidAdapter
-from .attributes import attributes_field
-from .columns import ModelFieldInfo, field
+from .attributes import attributes_column
+from .columns import column
 from .computer import Computer
 from .entity import Entity, from_backend_entity
+from .fields import ModelFieldInfo
 from .node_models import NodeModelsNamespace
 from .user import User
 
@@ -138,7 +139,7 @@ class Node(Entity[BackendNode]):
         """Deep copying a Node is not supported in general, but only for the Data sub class."""
         raise exceptions.InvalidOperation('deep copying a base Node is not supported')
 
-    @field(
+    @column(
         updatable=True,
         model_field_info=ModelFieldInfo(default=''),
     )
@@ -150,7 +151,7 @@ class Node(Entity[BackendNode]):
     def label(self, value: str) -> None:
         self._backend_entity.label = value
 
-    @field(
+    @column(
         updatable=True,
         model_field_info=ModelFieldInfo(default=''),
     )
@@ -162,7 +163,7 @@ class Node(Entity[BackendNode]):
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
-    @field(
+    @column(
         updatable=True,
         may_be_large=True,
         model_field_info=ModelFieldInfo(default_factory=dict),
@@ -175,7 +176,7 @@ class Node(Entity[BackendNode]):
     def extras(self, value: dict[str, t.Any]) -> None:
         self.base.extras.reset(value)
 
-    @attributes_field
+    @attributes_column
     def attributes(self) -> dict[str, t.Any]:
         """The attributes of the node."""
         return self.base.attributes.all
@@ -184,7 +185,7 @@ class Node(Entity[BackendNode]):
     def attributes(self, value: dict[str, t.Any]) -> None:
         self.base.attributes.reset(value)
 
-    @field(
+    @column(
         readonly=True,
         model_field_info=ModelFieldInfo(description='The PK of the associated user.'),
         model_adapter=EntityPkAdapter(User),
@@ -193,7 +194,7 @@ class Node(Entity[BackendNode]):
         """The user associated with the node."""
         return from_backend_entity(User, self._backend_entity.user)
 
-    @field(
+    @column(
         model_field_info=ModelFieldInfo(
             default=None,
             description='The PK of the associated computer.',
@@ -207,7 +208,7 @@ class Node(Entity[BackendNode]):
 
         return None
 
-    @field(
+    @column(
         readonly=True,
         model_adapter=StrUuidAdapter(),
     )
@@ -215,27 +216,27 @@ class Node(Entity[BackendNode]):
         """The UUID of the node."""
         return self._backend_entity.uuid
 
-    @field(readonly=True)
+    @column(readonly=True)
     def node_type(self) -> str:
         """The type of the node."""
         return self._backend_entity.node_type
 
-    @field(readonly=True)
+    @column(readonly=True)
     def process_type(self) -> str | None:
         """The process type of the node."""
         return self._backend_entity.process_type
 
-    @field(readonly=True)
+    @column(readonly=True)
     def ctime(self) -> datetime.datetime:
         """The creation time of the node."""
         return self._backend_entity.ctime
 
-    @field(readonly=True)
+    @column(readonly=True)
     def mtime(self) -> datetime.datetime:
         """The last modification time of the node."""
         return self._backend_entity.mtime
 
-    @field(
+    @column(
         readonly=True,
         may_be_large=True,
         model_field_info=ModelFieldInfo(default_factory=dict),

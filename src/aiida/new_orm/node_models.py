@@ -13,10 +13,10 @@ from aiida.common.utils import (
 
 from .attributes import (
     NodeAttribute,
-    NodeAttributesField,
+    NodeAttributesColumn,
     iter_attributes,
 )
-from .columns import EntityField
+from .columns import Column
 from .models import (
     EntityModel,
     ModelsNamespace,
@@ -47,15 +47,15 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         """Return the attributes model used by the Node create projection."""
         return self._build_attributes_model('create')
 
-    def _model_field_annotation(self, field: EntityField, projection: SupportedModel) -> t.Any:
-        """Return the model-side annotation for a Node entity field."""
-        if isinstance(field, NodeAttributesField):
+    def _model_field_annotation(self, column: Column, projection: SupportedModel) -> t.Any:
+        """Return the model-side annotation for a Node column."""
+        if isinstance(column, NodeAttributesColumn):
             if projection == 'update':
-                raise RuntimeError('attributes are immutable and should not have an update projection')
+                raise RuntimeError('attributes are immutable and cannot have an update projection')
 
             return self._attributes_model_annotation(projection)
 
-        return super()._model_field_annotation(field, projection)
+        return super()._model_field_annotation(column, projection)
 
     def _attributes_model_annotation(self, projection: _AttributesProjection) -> type[EntityModel[_NodeT]]:
         """Return the attributes model for a Node projection."""
@@ -66,23 +66,23 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
 
     def _to_model_value(
         self,
-        field: EntityField,
+        column: Column,
         value: t.Any,
         *,
         context: t.Any | None = None,
     ) -> t.Any:
-        """Convert a Node entity field value to its model representation."""
-        if isinstance(field, NodeAttributesField):
+        """Convert a Node column value to its model representation."""
+        if isinstance(column, NodeAttributesColumn):
             return self._attributes_to_model(value, context=context)
 
-        return super()._to_model_value(field, value, context=context)
+        return super()._to_model_value(column, value, context=context)
 
-    def _to_entity_value(self, field: EntityField, value: t.Any) -> t.Any:
-        """Convert a model field value to its Node entity representation."""
-        if isinstance(field, NodeAttributesField):
+    def _to_entity_value(self, column: Column, value: t.Any) -> t.Any:
+        """Convert a model value to its Node entity representation."""
+        if isinstance(column, NodeAttributesColumn):
             return self._attributes_to_entity(value)
 
-        return super()._to_entity_value(field, value)
+        return super()._to_entity_value(column, value)
 
     def _build_attributes_model(self, projection: _AttributesProjection) -> type[EntityModel[_NodeT]]:
         """Build the typed attributes model for a Node projection."""
@@ -107,7 +107,6 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
             )
 
         class_name = 'AttributesModel' if projection == 'read' else 'CreateAttributesModel'
-
         extra = self._entity.__dict__.get('_extra_attributes', 'forbid')
 
         model = t.cast(
@@ -126,7 +125,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         )
 
         model._entity = self._entity
-        model._entity_fields = {}
+        model._entity_columns = {}
         model._models_namespace = self
 
         return model
@@ -139,10 +138,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         """Return the model-side annotation for a typed Node attribute."""
         spec = attribute.spec
 
-        if attribute.model_adapter is None:
-            annotation = spec.value_type
-        else:
-            annotation = attribute.model_adapter.model_type
+        annotation = attribute.model_adapter.model_type if attribute.model_adapter is not None else spec.value_type
 
         if is_nullable(spec.value_type):
             annotation = make_nullable(annotation)
@@ -158,7 +154,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         *,
         context: dict[str, t.Any] | None = None,
     ) -> dict[str, t.Any]:
-        """Convert Node attribute values to model-side representations."""
+        """Convert Node attributes to model-side representations."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to a Node class')
 

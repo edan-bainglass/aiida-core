@@ -15,12 +15,8 @@ from aiida.common.utils import (
     make_required,
 )
 
-from .columns import (
-    EntityField,
-    EntityFieldSpec,
-    ModelFieldInfo,
-    iter_fields,
-)
+from .columns import Column, ColumnSpec, iter_columns
+from .fields import ModelFieldInfo
 
 __all__ = (
     'CreateModel',
@@ -47,15 +43,14 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
         validate_by_name=True,
     )
 
-    # Set on each dynamically generated model class.
     _entity: t.ClassVar[type[_EntityT]]
-    _entity_fields: t.ClassVar[dict[str, EntityField]]
+    _entity_columns: t.ClassVar[dict[str, Column]]
     _models_namespace: t.ClassVar[ModelsNamespace[t.Any]]
 
     @classmethod
-    def field_spec(cls, name: str) -> EntityFieldSpec:
-        """Return the canonical ORM entity specification for a model field."""
-        return cls._entity_fields[name].spec
+    def field_spec(cls, name: str) -> ColumnSpec:
+        """Return the canonical ORM column specification for a model field."""
+        return cls._entity_columns[name].spec
 
     @classmethod
     def from_entity(
@@ -77,24 +72,24 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
         context: dict[str, t.Any] | None = None,
         minimal: bool = False,
     ) -> dict[str, t.Any]:
-        """Convert ORM entity field values to model-side representations."""
+        """Convert ORM entity values to model-side representations."""
         return {
             name: cls._models_namespace._to_model_value(
-                field,
+                column,
                 getattr(entity, name),
                 context=context,
             )
-            for name, field in cls._entity_fields.items()
-            if not (field.spec.may_be_large and minimal)
+            for name, column in cls._entity_columns.items()
+            if not (column.spec.may_be_large and minimal)
         }
 
     def _to_entity_field_values(self, *, only_set: bool = False) -> dict[str, t.Any]:
-        """Convert model field values to entity-side representations."""
+        """Convert model values to entity-side representations."""
         names: t.Iterable[str] = self.model_fields_set if only_set else self.__class__.model_fields
 
         return {
             name: self.__class__._models_namespace._to_entity_value(
-                self.__class__._entity_fields[name],
+                self.__class__._entity_columns[name],
                 getattr(self, name),
             )
             for name in names
@@ -102,7 +97,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
 
     @classmethod
     def minimize(cls) -> type[EntityModel]:
-        """Return a derived model excluding fields marked as `may_be_large`."""
+        """Return a derived model excluding columns marked as `may_be_large`."""
         cached = cls.__dict__.get('_minimal_model')
 
         if cached is not None:
@@ -111,9 +106,9 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
         model_fields: dict[str, t.Any] = {}
 
         for name, model_field in cls.model_fields.items():
-            field = cls._entity_fields.get(name)
+            column = cls._entity_columns.get(name)
 
-            if field is not None and field.spec.may_be_large:
+            if column is not None and column.spec.may_be_large:
                 continue
 
             annotation = model_field.annotation
@@ -141,13 +136,12 @@ class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
         )
 
         minimal_model._entity = cls._entity
-        minimal_model._entity_fields = {
-            name: field for name, field in cls._entity_fields.items() if name in model_fields
+        minimal_model._entity_columns = {
+            name: column for name, column in cls._entity_columns.items() if name in model_fields
         }
         minimal_model._models_namespace = cls._models_namespace
 
         cls._minimal_model = minimal_model
-
         return minimal_model
 
 
@@ -207,27 +201,24 @@ class ModelsNamespace(t.Generic[_EntityT]):
 
     @functools.cached_property
     def read(self) -> type[ReadModel[_EntityT]]:
-        """Return the read projection for the entity."""
+        """Return the read projection."""
         return self._build_model('read')
 
     @functools.cached_property
     def create(self) -> type[CreateModel[_EntityT]]:
-        """Return the create projection for the entity."""
+        """Return the create projection."""
         return self._build_model('create')
 
     @functools.cached_property
     def update(self) -> type[UpdateModel[_EntityT]]:
-        """Return the update projection for the entity."""
+        """Return the update projection."""
         return self._build_model('update')
 
-    def _model_field_annotation(self, field: EntityField, projection: SupportedModel) -> t.Any:
-        """Return the model-side annotation for an entity field."""
-        spec = field.spec
+    def _model_field_annotation(self, column: Column, projection: SupportedModel) -> t.Any:
+        """Return the model-side annotation for an entity column."""
+        spec = column.spec
 
-        if field.model_adapter is None:
-            annotation = spec.value_type
-        else:
-            annotation = field.model_adapter.model_type
+        annotation = column.model_adapter.model_type if column.model_adapter is not None else spec.value_type
 
         if is_nullable(spec.value_type):
             annotation = make_nullable(annotation)
@@ -239,20 +230,20 @@ class ModelsNamespace(t.Generic[_EntityT]):
 
     def _to_model_value(
         self,
-        field: EntityField,
+        column: Column,
         value: t.Any,
         *,
         context: t.Any | None = None,
     ) -> t.Any:
-        """Convert an entity field value to its model representation."""
-        if value is not None and (adapter := field.model_adapter):
+        """Convert an entity column value to its model representation."""
+        if value is not None and (adapter := column.model_adapter):
             return adapter.to_model(value, context=context)
 
         return value
 
-    def _to_entity_value(self, field: EntityField, value: t.Any) -> t.Any:
-        """Convert a model field value to its entity representation."""
-        if value is not None and (adapter := field.model_adapter):
+    def _to_entity_value(self, column: Column, value: t.Any) -> t.Any:
+        """Convert a model value to its entity representation."""
+        if value is not None and (adapter := column.model_adapter):
             return adapter.to_entity(value)
 
         return value
@@ -272,21 +263,22 @@ class ModelsNamespace(t.Generic[_EntityT]):
             raise RuntimeError('model namespace is not bound to an entity class')
 
         model_fields: dict[str, t.Any] = {}
-        entity_fields: dict[str, EntityField] = {}
+        entity_columns: dict[str, Column] = {}
 
-        for name, field in iter_fields(self._entity).items():
-            spec = field.spec
+        for name, column in iter_columns(self._entity).items():
+            spec = column.spec
 
-            if not _include_field(spec, projection):
+            if not _include_column(spec, projection):
                 continue
 
             model_fields[name] = _build_model_field(
-                self._model_field_annotation(field, projection),
+                self._model_field_annotation(column, projection),
                 description=spec.description,
-                model_field_info=field.model_field_info,
+                model_field_info=column.model_field_info,
                 readonly=spec.readonly,
             )
-            entity_fields[name] = field
+
+            entity_columns[name] = column
 
         model_base = _model_base(projection)
         class_name = f'{projection.capitalize()}Model'
@@ -303,7 +295,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
         )
 
         model._entity = self._entity
-        model._entity_fields = entity_fields
+        model._entity_columns = entity_columns
         model._models_namespace = self
 
         return model
@@ -323,8 +315,8 @@ def _model_base(projection: SupportedModel) -> type[EntityModel]:
     t.assert_never(projection)
 
 
-def _include_field(spec: EntityFieldSpec, projection: SupportedModel) -> bool:
-    """Return whether a field belongs to a model projection."""
+def _include_column(spec: ColumnSpec, projection: SupportedModel) -> bool:
+    """Return whether a column belongs to a model projection."""
     if projection == 'read':
         return True
 

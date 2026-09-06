@@ -14,8 +14,9 @@ from aiida.orm import groups
 from aiida.orm.implementation import BackendGroup, StorageBackend
 
 from .adapters import EntityPkAdapter, StrUuidAdapter
-from .columns import ModelFieldInfo, field
+from .columns import column
 from .entity import Entity, from_backend_entity
+from .fields import ModelFieldInfo
 from .user import User
 
 
@@ -58,7 +59,7 @@ class Group(Entity[BackendGroup]):
     def __str__(self) -> str:
         return f'{self.__class__.__name__}<{self.label}>'
 
-    @field(updatable=True)
+    @column(updatable=True)
     def label(self) -> str:
         """The label of the group."""
         return self._backend_entity.label
@@ -67,7 +68,7 @@ class Group(Entity[BackendGroup]):
     def label(self, value: str) -> None:
         self._backend_entity.label = value
 
-    @field(updatable=True)
+    @column(updatable=True)
     def description(self) -> str:
         """The description of the group."""
         return self._backend_entity.description
@@ -76,7 +77,7 @@ class Group(Entity[BackendGroup]):
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
-    @field(
+    @column(
         readonly=True,
         model_adapter=StrUuidAdapter(),
     )
@@ -84,12 +85,12 @@ class Group(Entity[BackendGroup]):
         """The UUID of the group."""
         return self._backend_entity.uuid
 
-    @field(readonly=True)
+    @column(readonly=True)
     def time(self) -> datetime.datetime:
         """The time of the group."""
         return self._backend_entity.time
 
-    @field(
+    @column(
         readonly=True,
         model_adapter=EntityPkAdapter(User),
     )
@@ -97,7 +98,7 @@ class Group(Entity[BackendGroup]):
         """The user of the group."""
         return from_backend_entity(User, self._backend_entity.user)
 
-    @field(
+    @column(
         updatable=True,
         may_be_large=True,
         model_field_info=ModelFieldInfo(default_factory=dict),

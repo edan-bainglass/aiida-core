@@ -10,15 +10,16 @@ from aiida.cmdline.spec import CliParameter
 from aiida.common.utils import is_nullable, make_nullable, make_required
 
 from .attributes import NodeAttribute, iter_attributes
-from .columns import BaseField, iter_fields
+from .columns import iter_columns
 from .entity import Entity
+from .fields import BaseField
 from .models import EntityModel
 
 __all__ = ('EntityCliCreateSpec',)
 
 
 @dataclasses.dataclass(frozen=True)
-class _EntityCliField:
+class _CliField:
     """Resolved ORM field participating in CLI creation."""
 
     name: str
@@ -135,12 +136,12 @@ class EntityCliCreateSpec:
 
         return values
 
-    def _iter_fields(self) -> t.Iterator[_EntityCliField]:
+    def _iter_fields(self) -> t.Iterator[_CliField]:
         """Yield all CLI-exposed fields in their flat external namespace."""
         create_model = self.entity_type.models.create
 
-        for name, field in iter_fields(self.entity_type).items():
-            if field.cli_field_info is None:
+        for name, column in iter_columns(self.entity_type).items():
+            if column.cli_field_info is None:
                 continue
 
             model_field = create_model.model_fields.get(name)
@@ -148,9 +149,9 @@ class EntityCliCreateSpec:
             if model_field is None:
                 continue
 
-            yield _EntityCliField(
+            yield _CliField(
                 name=name,
-                field=field,
+                field=column,
                 model_field=model_field,
             )
 
@@ -170,7 +171,7 @@ class EntityCliCreateSpec:
             if model_field is None:
                 continue
 
-            yield _EntityCliField(
+            yield _CliField(
                 name=name,
                 field=attribute,
                 model_field=model_field,

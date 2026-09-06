@@ -9,7 +9,7 @@ from typing_extensions import Self
 from aiida.common.lang import type_check
 from aiida.orm.implementation import BackendEntity, StorageBackend
 
-from .columns import field
+from .columns import column
 from .models import EntityModel, ModelsNamespace
 
 _EntityT = t.TypeVar('_EntityT', bound='Entity')
@@ -23,7 +23,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
         super().__init__(**kwargs)
         self._backend_entity = backend_entity
 
-    @field(
+    @column(
         backend_key='id',
         readonly=True,
         required_once_stored=True,

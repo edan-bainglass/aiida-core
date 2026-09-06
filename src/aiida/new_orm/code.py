@@ -12,9 +12,10 @@ from aiida.engine import ProcessBuilder
 from aiida.plugins.factories import CalculationFactory
 
 from .attributes import attribute
-from .columns import CliFieldInfo, ModelFieldInfo, field
+from .columns import column
 from .computer import Computer
 from .data import Data
+from .fields import CliFieldInfo, ModelFieldInfo
 
 
 class Code(Data, abc.ABC):
@@ -34,7 +35,7 @@ class Code(Data, abc.ABC):
 
         return f"Remote code '{self.label}' on {self.computer.label} pk: {self.pk}, uuid: {self.uuid}"
 
-    @field(
+    @column(
         cli_field_info=CliFieldInfo(
             short_name='-L',
             priority=4,
@@ -53,7 +54,7 @@ class Code(Data, abc.ABC):
 
         self._backend_entity.label = value
 
-    @field(
+    @column(
         updatable=True,
         model_field_info=ModelFieldInfo(default=''),
         cli_field_info=CliFieldInfo(

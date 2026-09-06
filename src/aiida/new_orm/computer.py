@@ -7,8 +7,9 @@ from aiida.common import exceptions
 from aiida.manage.manager import get_manager
 from aiida.orm.implementation import BackendComputer, StorageBackend
 
-from .columns import ModelFieldInfo, field
+from .columns import column
 from .entity import Entity
+from .fields import ModelFieldInfo
 
 
 class Computer(Entity[BackendComputer]):
@@ -42,7 +43,7 @@ class Computer(Entity[BackendComputer]):
     def __str__(self) -> str:
         return f'{self.label} ({self.hostname}), pk: {self.pk}'
 
-    @field(updatable=True)
+    @column(updatable=True)
     def label(self) -> str:
         """The label of the computer."""
         return self._backend_entity.label
@@ -51,7 +52,7 @@ class Computer(Entity[BackendComputer]):
     def label(self, value: str) -> None:
         self._backend_entity.label = value
 
-    @field
+    @column
     def hostname(self) -> str:
         """The hostname of the computer."""
         return self._backend_entity.hostname
@@ -60,7 +61,7 @@ class Computer(Entity[BackendComputer]):
     def hostname(self, value: str) -> None:
         self._backend_entity.hostname = value
 
-    @field
+    @column
     def transport_type(self) -> str:
         """The transport type of the computer."""
         return self._backend_entity.get_transport_type()
@@ -69,7 +70,7 @@ class Computer(Entity[BackendComputer]):
     def transport_type(self, value: str) -> None:
         self._backend_entity.set_transport_type(value)
 
-    @field
+    @column
     def scheduler_type(self) -> str:
         """The scheduler type of the computer."""
         return self._backend_entity.get_scheduler_type()
@@ -78,7 +79,7 @@ class Computer(Entity[BackendComputer]):
     def scheduler_type(self, value: str) -> None:
         self._backend_entity.set_scheduler_type(value)
 
-    @field(
+    @column(
         updatable=True,
         model_field_info=ModelFieldInfo(default=''),
     )
@@ -90,7 +91,7 @@ class Computer(Entity[BackendComputer]):
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
-    @field(
+    @column(
         may_be_large=True,
         model_field_info=ModelFieldInfo(default_factory=dict),
     )
@@ -102,7 +103,7 @@ class Computer(Entity[BackendComputer]):
     def metadata(self, value: dict[str, t.Any]) -> None:
         self._backend_entity.set_metadata(value)
 
-    @field(readonly=True)
+    @column(readonly=True)
     def uuid(self) -> str:
         """The UUID of the computer."""
         return self._backend_entity.uuid

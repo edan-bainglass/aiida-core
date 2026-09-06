@@ -9,8 +9,9 @@ from aiida.common.log import override_log_level
 from .adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter
 from .attributes import attribute
 from .code import Code
-from .columns import CliFieldInfo, ModelFieldInfo, field
+from .columns import column
 from .computer import Computer
+from .fields import CliFieldInfo, ModelFieldInfo
 
 __all__ = ('InstalledCode',)
 
@@ -18,7 +19,7 @@ __all__ = ('InstalledCode',)
 class InstalledCode(Code):
     """Data plugin representing an executable code on a remote computer."""
 
-    @field(
+    @column(
         model_field_info=ModelFieldInfo(description='The PK of the associated computer.'),
         model_adapter=EntityPkAdapter(Computer),
         cli_field_info=CliFieldInfo(

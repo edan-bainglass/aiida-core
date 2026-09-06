@@ -11,14 +11,13 @@ from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
 
 from .cli_adapter import CliAdapter
-from .columns import (
+from .columns import Column, ColumnConfig
+from .fields import (
     BaseField,
     BaseFieldConfig,
     BaseFieldDecorator,
     BaseFieldSpec,
     CliFieldInfo,
-    EntityField,
-    EntityFieldConfig,
     ModelFieldInfo,
     Storable,
 )
@@ -26,10 +25,11 @@ from .model_adapter import ModelAdapter
 
 __all__ = (
     'NodeAttribute',
+    'NodeAttributeConfig',
     'NodeAttributeSpec',
-    'NodeAttributesField',
+    'NodeAttributesColumn',
     'attribute',
-    'attributes_field',
+    'attributes_column',
     'iter_attributes',
 )
 
@@ -92,7 +92,7 @@ class NodeAttribute(
             raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
 
         if instance.is_stored:
-            raise exceptions.ModificationNotAllowed(f'{self._owner.__name__}.{self._name} is immutable when stored')
+            raise exceptions.ModificationNotAllowed(f'{self._owner.__name__}.{self._name} is immutable once stored')
 
         self.fset(instance, value)
 
@@ -294,28 +294,27 @@ def iter_attributes(entity: type) -> dict[str, NodeAttribute]:
     return result
 
 
-class NodeAttributesField(
-    EntityField[
+class NodeAttributesColumn(
+    Column[
         _NodeT,
         dict[str, t.Any],
         qb_fields.QbAttributesField,
     ]
 ):
-    """ORM entity field representing the typed Node attributes mapping."""
+    """Top-level entity column representing the Node attributes mapping."""
 
     def __init__(self, fget: Callable[[_NodeT], dict[str, t.Any]]) -> None:
         super().__init__(
             fget,
-            config=EntityFieldConfig(
+            config=ColumnConfig(
                 may_be_large=True,
             ),
         )
 
-        # The typed child registry depends on the concrete Node subclass.
         self._qb_fields: dict[type[_NodeT], qb_fields.QbAttributesField] = {}
 
     def _get_qb_field(self, owner: type[_NodeT]) -> qb_fields.QbAttributesField:
-        """Return the attributes field specialized for the concrete Node type."""
+        """Return the attributes QueryBuilder field specialized for the concrete Node type."""
         if qb_field := self._qb_fields.get(owner):
             return qb_field
 
@@ -335,15 +334,15 @@ class NodeAttributesField(
         return qb_field
 
 
-class NodeAttributesFieldDecorator:
-    """Decorator for the top-level Node `attributes` field."""
+class NodeAttributesColumnDecorator:
+    """Decorator for the top-level Node `attributes` column."""
 
     def __call__(
         self,
         fget: Callable[[_NodeT], dict[str, t.Any]],
         /,
-    ) -> NodeAttributesField[_NodeT]:
-        return NodeAttributesField(fget)
+    ) -> NodeAttributesColumn[_NodeT]:
+        return NodeAttributesColumn(fget)
 
 
-attributes_field = NodeAttributesFieldDecorator()
+attributes_column = NodeAttributesColumnDecorator()
