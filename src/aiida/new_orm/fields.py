@@ -34,7 +34,7 @@ class FieldAccess(enum.Enum):
 
     READ_ONLY = 'read_only'
     CREATE_ONLY = 'create_only'
-    MUTABLE = 'mutable'
+    UPDATABLE = 'updatable'
 
 
 @dataclasses.dataclass(frozen=True)
@@ -68,7 +68,7 @@ class EntityFieldSpec(BaseFieldSpec):
     @property
     def updatable(self) -> bool:
         """Return whether the field is mutable after creation."""
-        return self.access is FieldAccess.MUTABLE
+        return self.access is FieldAccess.UPDATABLE
 
 
 @dataclasses.dataclass(frozen=True)
@@ -366,7 +366,7 @@ class EntityField(
         if self._config.readonly:
             access = FieldAccess.READ_ONLY
         elif self._config.updatable:
-            access = FieldAccess.MUTABLE
+            access = FieldAccess.UPDATABLE
         else:
             access = FieldAccess.CREATE_ONLY
 
