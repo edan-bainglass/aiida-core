@@ -32,10 +32,10 @@ __all__ = (
 )
 
 
-_OwnerT = t.TypeVar('_OwnerT')
+_EntityT = t.TypeVar('_EntityT')
 
 
-class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
+class EntityModel(pdt.BaseModel, t.Generic[_EntityT]):
     """Base class for dynamically generated ORM entity models."""
 
     _minimal_model: t.ClassVar[type[EntityModel] | None] = None
@@ -48,7 +48,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
     )
 
     # Set on each dynamically generated model class.
-    _entity: t.ClassVar[type[_OwnerT]]
+    _entity: t.ClassVar[type[_EntityT]]
     _entity_fields: t.ClassVar[dict[str, EntityField]]
     _models_namespace: t.ClassVar[ModelsNamespace[t.Any]]
 
@@ -60,7 +60,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
     @classmethod
     def from_entity(
         cls,
-        entity: _OwnerT,
+        entity: _EntityT,
         *,
         context: dict[str, t.Any] | None = None,
         minimal: bool = False,
@@ -72,7 +72,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
     @classmethod
     def _from_entity_field_values(
         cls,
-        entity: _OwnerT,
+        entity: _EntityT,
         *,
         context: dict[str, t.Any] | None = None,
         minimal: bool = False,
@@ -151,22 +151,22 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
         return minimal_model
 
 
-class ReadModel(EntityModel[_OwnerT]):
+class ReadModel(EntityModel[_EntityT]):
     """Read projection of an ORM entity."""
 
 
-class CreateModel(EntityModel[_OwnerT]):
+class CreateModel(EntityModel[_EntityT]):
     """Input projection for constructing an ORM entity."""
 
-    def to_entity(self) -> _OwnerT:
+    def to_entity(self) -> _EntityT:
         """Construct an ORM entity from this model."""
         return self.__class__._entity(**self._to_entity_field_values())
 
 
-class UpdateModel(EntityModel[_OwnerT]):
+class UpdateModel(EntityModel[_EntityT]):
     """PATCH-like projection for mutating an ORM entity."""
 
-    def apply(self, entity: _OwnerT) -> _OwnerT:
+    def apply(self, entity: _EntityT) -> _EntityT:
         """Apply explicitly set values to an ORM entity."""
         for name, value in self._to_entity_field_values(only_set=True).items():
             setattr(entity, name, value)
@@ -177,20 +177,20 @@ class UpdateModel(EntityModel[_OwnerT]):
 SupportedModel = t.Literal['read', 'create', 'update']
 
 
-class ModelsNamespace(t.Generic[_OwnerT]):
+class ModelsNamespace(t.Generic[_EntityT]):
     """Lazily generated model projections for one entity class."""
 
-    def __init__(self, *, entity: type[_OwnerT] | None = None) -> None:
+    def __init__(self, *, entity: type[_EntityT] | None = None) -> None:
         self._entity = entity
         self._namespaces: dict[type[t.Any], Self] = {}
 
     @t.overload
-    def __get__(self, instance: None, owner: type[_OwnerT]) -> Self: ...
+    def __get__(self, instance: None, owner: type[_EntityT]) -> Self: ...
 
     @t.overload
-    def __get__(self, instance: object, owner: type[_OwnerT] | None = None) -> t.Never: ...
+    def __get__(self, instance: object, owner: type[_EntityT] | None = None) -> t.Never: ...
 
-    def __get__(self, instance: object | None, owner: type[_OwnerT] | None = None) -> Self:
+    def __get__(self, instance: object | None, owner: type[_EntityT] | None = None) -> Self:
         if owner is None:
             raise AttributeError('models must be accessed through an entity class')
 
@@ -206,17 +206,17 @@ class ModelsNamespace(t.Generic[_OwnerT]):
         return namespace
 
     @functools.cached_property
-    def read(self) -> type[ReadModel[_OwnerT]]:
+    def read(self) -> type[ReadModel[_EntityT]]:
         """Return the read projection for the entity."""
         return self._build_model('read')
 
     @functools.cached_property
-    def create(self) -> type[CreateModel[_OwnerT]]:
+    def create(self) -> type[CreateModel[_EntityT]]:
         """Return the create projection for the entity."""
         return self._build_model('create')
 
     @functools.cached_property
-    def update(self) -> type[UpdateModel[_OwnerT]]:
+    def update(self) -> type[UpdateModel[_EntityT]]:
         """Return the update projection for the entity."""
         return self._build_model('update')
 
@@ -258,15 +258,15 @@ class ModelsNamespace(t.Generic[_OwnerT]):
         return value
 
     @t.overload
-    def _build_model(self, projection: t.Literal['read']) -> type[ReadModel[_OwnerT]]: ...
+    def _build_model(self, projection: t.Literal['read']) -> type[ReadModel[_EntityT]]: ...
 
     @t.overload
-    def _build_model(self, projection: t.Literal['create']) -> type[CreateModel[_OwnerT]]: ...
+    def _build_model(self, projection: t.Literal['create']) -> type[CreateModel[_EntityT]]: ...
 
     @t.overload
-    def _build_model(self, projection: t.Literal['update']) -> type[UpdateModel[_OwnerT]]: ...
+    def _build_model(self, projection: t.Literal['update']) -> type[UpdateModel[_EntityT]]: ...
 
-    def _build_model(self, projection: SupportedModel) -> type[EntityModel[_OwnerT]]:
+    def _build_model(self, projection: SupportedModel) -> type[EntityModel[_EntityT]]:
         """Build a model projection."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to an entity class')
@@ -292,7 +292,7 @@ class ModelsNamespace(t.Generic[_OwnerT]):
         class_name = f'{projection.capitalize()}Model'
 
         model = t.cast(
-            type[EntityModel[_OwnerT]],
+            type[EntityModel[_EntityT]],
             pdt.create_model(
                 f'{self._entity.__name__}{class_name}',
                 __base__=model_base,
