@@ -34,7 +34,7 @@ class Data(Node, extra_attributes='allow'):
         """Return the source of the node."""
         return self.base.attributes.get('source', None)
 
-    @source.setter  # type: ignore[no-redef]
+    @source.setter
     def source(self, value: dict[str, t.Any] | None):
         if not isinstance(value, dict):
             raise ValueError('Source must be supplied as a dictionary')

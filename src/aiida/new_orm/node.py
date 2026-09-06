@@ -147,7 +147,7 @@ class Node(Entity[BackendNode]):
         """The label of the node."""
         return self._backend_entity.label
 
-    @label.setter  # type: ignore[no-redef]
+    @label.setter
     def label(self, value: str) -> None:
         self._backend_entity.label = value
 
@@ -159,7 +159,7 @@ class Node(Entity[BackendNode]):
         """The description of the node."""
         return self._backend_entity.description
 
-    @description.setter  # type: ignore[no-redef]
+    @description.setter
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
@@ -172,7 +172,7 @@ class Node(Entity[BackendNode]):
         """The extras of the node."""
         return self.base.extras.all
 
-    @extras.setter  # type: ignore[no-redef]
+    @extras.setter
     def extras(self, value: dict[str, t.Any]) -> None:
         self.base.extras.reset(value)
 
@@ -181,7 +181,7 @@ class Node(Entity[BackendNode]):
         """The attributes of the node."""
         return self.base.attributes.all
 
-    @attributes.setter  # type: ignore[no-redef]
+    @attributes.setter
     def attributes(self, value: dict[str, t.Any]) -> None:
         self.base.attributes.reset(value)
 

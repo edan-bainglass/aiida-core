@@ -231,98 +231,98 @@ class ColumnDecorator(
     field_type = Column
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], int],
         /,
     ) -> Column[_EntityT, int, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], int | None],
         /,
     ) -> Column[_EntityT, int | None, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], float],
         /,
     ) -> Column[_EntityT, float, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], float | None],
         /,
     ) -> Column[_EntityT, float | None, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], datetime.datetime],
         /,
     ) -> Column[_EntityT, datetime.datetime, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], datetime.datetime | None],
         /,
     ) -> Column[_EntityT, datetime.datetime | None, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], str],
         /,
     ) -> Column[_EntityT, str, qb_fields.QbStrField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], str | None],
         /,
     ) -> Column[_EntityT, str | None, qb_fields.QbStrField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], list[_ValueT]],
         /,
     ) -> Column[_EntityT, list[_ValueT], qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], list[_ValueT] | None],
         /,
     ) -> Column[_EntityT, list[_ValueT] | None, qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], tuple[_ValueT, ...]],
         /,
     ) -> Column[_EntityT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], tuple[_ValueT, ...] | None],
         /,
     ) -> Column[_EntityT, tuple[_ValueT, ...] | None, qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], dict[str, _ValueT]],
         /,
     ) -> Column[_EntityT, dict[str, _ValueT], qb_fields.QbDictField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_EntityT], dict[str, _ValueT] | None],
         /,
@@ -336,7 +336,7 @@ class ColumnDecorator(
     ) -> Column[_EntityT, object, qb_fields.QbAnyField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-cannot-match]
+    def __call__(
         self,
         fget: Callable[[_EntityT], _ValueT],
         /,

@@ -64,7 +64,7 @@ class Group(Entity[BackendGroup]):
         """The label of the group."""
         return self._backend_entity.label
 
-    @label.setter  # type: ignore[no-redef]
+    @label.setter
     def label(self, value: str) -> None:
         self._backend_entity.label = value
 
@@ -73,7 +73,7 @@ class Group(Entity[BackendGroup]):
         """The description of the group."""
         return self._backend_entity.description
 
-    @description.setter  # type: ignore[no-redef]
+    @description.setter
     def description(self, value: str) -> None:
         self._backend_entity.description = value
 
@@ -107,7 +107,7 @@ class Group(Entity[BackendGroup]):
         """The extras of the group."""
         return self.base.extras.all
 
-    @extras.setter  # type: ignore[no-redef]
+    @extras.setter
     def extras(self, value: dict[str, t.Any]) -> None:
         self.base.extras.reset(value)
 

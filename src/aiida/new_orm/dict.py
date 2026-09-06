@@ -17,7 +17,7 @@ class Dict(PrimitiveData):
     def value(self) -> dict[str, t.Any]:
         return super().value
 
-    @value.setter  # type: ignore[no-redef]
+    @value.setter
     def value(self, new_value: dict[str, t.Any]):
         self.base.attributes.set('value', new_value)
 

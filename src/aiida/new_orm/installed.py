@@ -36,7 +36,7 @@ class InstalledCode(Code):
 
         return computer
 
-    @computer.setter  # type: ignore[no-redef]
+    @computer.setter
     def computer(self, computer: Computer) -> None:
         type_check(computer, Computer, allow_none=False)
         self.backend_entity.computer = computer.backend_entity
@@ -52,7 +52,7 @@ class InstalledCode(Code):
         """Filepath of the executable on the remote computer."""
         return pathlib.PurePath(self.base.attributes.get('filepath_executable'))
 
-    @filepath_executable.setter  # type: ignore[no-redef]
+    @filepath_executable.setter
     def filepath_executable(self, value: str) -> None:
         type_check(value, str)
         self.base.attributes.set('filepath_executable', value)

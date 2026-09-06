@@ -45,7 +45,7 @@ class Code(Data, abc.ABC):
         """A unique label to identify the code by."""
         return self._backend_entity.label
 
-    @label.setter  # type: ignore[no-redef]
+    @label.setter
     def label(self, value: str) -> None:
         type_check(value, str)
 
@@ -66,7 +66,7 @@ class Code(Data, abc.ABC):
         """Human-readable description, ideally including version and compilation environment."""
         return self._backend_entity.description
 
-    @description.setter  # type: ignore[no-redef]
+    @description.setter
     def description(self, value: str) -> None:
         type_check(value, str)
 
@@ -83,7 +83,7 @@ class Code(Data, abc.ABC):
         """Entry point name of the default plugin (as listed in `verdi plugin list aiida.calculations`)."""
         return self.base.attributes.get(self._KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, None)
 
-    @default_calc_job_plugin.setter  # type: ignore[no-redef]
+    @default_calc_job_plugin.setter
     def default_calc_job_plugin(self, value: str | None) -> None:
         type_check(value, str, allow_none=True)
         self.base.attributes.set(self._KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, value)
@@ -98,7 +98,7 @@ class Code(Data, abc.ABC):
         """Whether to escape the command line invocation of this code with double quotes."""
         return self.base.attributes.get(self._KEY_ATTRIBUTE_USE_DOUBLE_QUOTES, False)
 
-    @use_double_quotes.setter  # type: ignore[no-redef]
+    @use_double_quotes.setter
     def use_double_quotes(self, value: bool) -> None:
         type_check(value, bool)
         self.base.attributes.set(self._KEY_ATTRIBUTE_USE_DOUBLE_QUOTES, value)
@@ -119,7 +119,7 @@ class Code(Data, abc.ABC):
         """Whether the executable should be run as an MPI program."""
         return self.base.attributes.get(self._KEY_ATTRIBUTE_WITH_MPI, None)
 
-    @with_mpi.setter  # type: ignore[no-redef]
+    @with_mpi.setter
     def with_mpi(self, value: bool | None) -> None:
         type_check(value, bool, allow_none=True)
         self.base.attributes.set(self._KEY_ATTRIBUTE_WITH_MPI, value)
@@ -140,7 +140,7 @@ class Code(Data, abc.ABC):
         """Whether to wrap all command line parameters in double quotes."""
         return self.base.attributes.get(self._KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS, False)
 
-    @wrap_cmdline_params.setter  # type: ignore[no-redef]
+    @wrap_cmdline_params.setter
     def wrap_cmdline_params(self, value: bool) -> None:
         type_check(value, bool)
         self.base.attributes.set(self._KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS, value)
@@ -164,7 +164,7 @@ class Code(Data, abc.ABC):
         """Bash commands that should be appended to the run line in all submit scripts for this code."""
         return self.base.attributes.get(self._KEY_ATTRIBUTE_APPEND_TEXT, '')
 
-    @append_text.setter  # type: ignore[no-redef]
+    @append_text.setter
     def append_text(self, value: str) -> None:
         type_check(value, str, allow_none=True)
         self.base.attributes.set(self._KEY_ATTRIBUTE_APPEND_TEXT, value)
@@ -188,7 +188,7 @@ class Code(Data, abc.ABC):
         """Bash commands that should be prepended to the run line in all submit scripts for this code."""
         return self.base.attributes.get(self._KEY_ATTRIBUTE_PREPEND_TEXT, '')
 
-    @prepend_text.setter  # type: ignore[no-redef]
+    @prepend_text.setter
     def prepend_text(self, value: str) -> None:
         type_check(value, str, allow_none=True)
         self.base.attributes.set(self._KEY_ATTRIBUTE_PREPEND_TEXT, value)

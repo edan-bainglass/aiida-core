@@ -138,98 +138,98 @@ class NodeAttributeDecorator(
     field_type = NodeAttribute
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], int],
         /,
     ) -> NodeAttribute[_NodeT, int, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], int | None],
         /,
     ) -> NodeAttribute[_NodeT, int | None, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], float],
         /,
     ) -> NodeAttribute[_NodeT, float, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], float | None],
         /,
     ) -> NodeAttribute[_NodeT, float | None, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], datetime.datetime],
         /,
     ) -> NodeAttribute[_NodeT, datetime.datetime, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], datetime.datetime | None],
         /,
     ) -> NodeAttribute[_NodeT, datetime.datetime | None, qb_fields.QbNumericField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], str],
         /,
     ) -> NodeAttribute[_NodeT, str, qb_fields.QbStrField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], str | None],
         /,
     ) -> NodeAttribute[_NodeT, str | None, qb_fields.QbStrField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], list[_ValueT]],
         /,
     ) -> NodeAttribute[_NodeT, list[_ValueT], qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], list[_ValueT] | None],
         /,
     ) -> NodeAttribute[_NodeT, list[_ValueT] | None, qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], tuple[_ValueT, ...]],
         /,
     ) -> NodeAttribute[_NodeT, tuple[_ValueT, ...], qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], tuple[_ValueT, ...] | None],
         /,
     ) -> NodeAttribute[_NodeT, tuple[_ValueT, ...] | None, qb_fields.QbArrayField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], dict[str, _ValueT]],
         /,
     ) -> NodeAttribute[_NodeT, dict[str, _ValueT], qb_fields.QbDictField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self,
         fget: Callable[[_NodeT], dict[str, _ValueT] | None],
         /,
@@ -243,7 +243,7 @@ class NodeAttributeDecorator(
     ) -> NodeAttribute[_NodeT, object, qb_fields.QbAnyField]: ...
 
     @t.overload
-    def __call__(  # type: ignore[overload-cannot-match]
+    def __call__(
         self,
         fget: Callable[[_NodeT], _ValueT],
         /,

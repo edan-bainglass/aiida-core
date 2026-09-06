@@ -434,6 +434,14 @@ module = [
   'wrapt.*'
 ]
 
+[[tool.mypy.overrides]]
+disable_error_code = [
+  'no-redef',
+  'overload-cannot-match',
+  'overload-overlap',
+]
+module = "aiida.new_orm.*"
+
 [tool.pytest.ini_options]
 addopts = '--benchmark-skip --durations=5 --durations-min=1 --strict-config --strict-markers -ra --cov-report xml --cov-append --tb=short --instafail'
 filterwarnings = [

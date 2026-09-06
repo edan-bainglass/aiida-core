@@ -43,7 +43,7 @@ class User(Entity[BackendUser]):
         """The email of the user."""
         return self._backend_entity.email
 
-    @email.setter  # type: ignore[no-redef]
+    @email.setter
     def email(self, email: str) -> None:
         self._backend_entity.email = email
 
@@ -52,7 +52,7 @@ class User(Entity[BackendUser]):
         """The first name of the user."""
         return self._backend_entity.first_name
 
-    @first_name.setter  # type: ignore[no-redef]
+    @first_name.setter
     def first_name(self, first_name: str) -> None:
         self._backend_entity.first_name = first_name
 
@@ -61,7 +61,7 @@ class User(Entity[BackendUser]):
         """The last name of the user."""
         return self._backend_entity.last_name
 
-    @last_name.setter  # type: ignore[no-redef]
+    @last_name.setter
     def last_name(self, last_name: str) -> None:
         self._backend_entity.last_name = last_name
 
@@ -70,7 +70,7 @@ class User(Entity[BackendUser]):
         """The institution of the user."""
         return self._backend_entity.institution
 
-    @institution.setter  # type: ignore[no-redef]
+    @institution.setter
     def institution(self, institution: str) -> None:
         self._backend_entity.institution = institution
 

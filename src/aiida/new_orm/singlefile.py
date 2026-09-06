@@ -71,7 +71,7 @@ class SinglefileData(Data):
             raise ValueError('Stored SinglefileData has no filename attribute.')
         return filename
 
-    @filename.setter  # type: ignore[no-redef]
+    @filename.setter
     def filename(self, value: str) -> None:
         self.base.attributes.set('filename', value)
 
