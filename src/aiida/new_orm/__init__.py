@@ -6,7 +6,7 @@
 
 from .attributes import *
 from .cli import *
-from .fields import *
+from .columns import *
 from .installed import *
 from .models import *
 from .node_models import *

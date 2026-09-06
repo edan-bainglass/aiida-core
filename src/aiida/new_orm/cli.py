@@ -10,8 +10,8 @@ from aiida.cmdline.spec import CliParameter
 from aiida.common.utils import is_nullable, make_nullable, make_required
 
 from .attributes import NodeAttribute, iter_attributes
+from .columns import BaseField, iter_fields
 from .entity import Entity
-from .fields import BaseField, iter_fields
 from .models import EntityModel
 
 __all__ = ('EntityCliCreateSpec',)

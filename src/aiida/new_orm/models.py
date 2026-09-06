@@ -15,7 +15,7 @@ from aiida.common.utils import (
     make_required,
 )
 
-from .fields import (
+from .columns import (
     EntityField,
     EntityFieldSpec,
     ModelFieldInfo,

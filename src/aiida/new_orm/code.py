@@ -12,9 +12,9 @@ from aiida.engine import ProcessBuilder
 from aiida.plugins.factories import CalculationFactory
 
 from .attributes import attribute
+from .columns import CliFieldInfo, ModelFieldInfo, field
 from .computer import Computer
 from .data import Data
-from .fields import CliFieldInfo, ModelFieldInfo, field
 
 
 class Code(Data, abc.ABC):

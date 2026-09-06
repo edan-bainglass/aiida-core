@@ -14,8 +14,8 @@ from aiida.orm import groups
 from aiida.orm.implementation import BackendGroup, StorageBackend
 
 from .adapters import EntityPkAdapter, StrUuidAdapter
+from .columns import ModelFieldInfo, field
 from .entity import Entity, from_backend_entity
-from .fields import ModelFieldInfo, field
 from .user import User
 
 

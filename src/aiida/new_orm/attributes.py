@@ -11,7 +11,7 @@ from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
 
 from .cli_adapter import CliAdapter
-from .fields import (
+from .columns import (
     BaseField,
     BaseFieldConfig,
     BaseFieldDecorator,

@@ -16,7 +16,7 @@ from .attributes import (
     NodeAttributesField,
     iter_attributes,
 )
-from .fields import EntityField
+from .columns import EntityField
 from .models import (
     EntityModel,
     ModelsNamespace,

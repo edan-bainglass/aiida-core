@@ -9,7 +9,7 @@ from typing_extensions import Self
 from aiida.common.lang import type_check
 from aiida.orm.implementation import BackendEntity, StorageBackend
 
-from .fields import field
+from .columns import field
 from .models import EntityModel, ModelsNamespace
 
 _EntityT = t.TypeVar('_EntityT', bound='Entity')

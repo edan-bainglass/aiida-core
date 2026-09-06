@@ -23,9 +23,9 @@ from aiida.orm.utils.node import get_type_string_from_class
 
 from .adapters import EntityPkAdapter, StrUuidAdapter
 from .attributes import attributes_field
+from .columns import ModelFieldInfo, field
 from .computer import Computer
 from .entity import Entity, from_backend_entity
-from .fields import ModelFieldInfo, field
 from .node_models import NodeModelsNamespace
 from .user import User
 

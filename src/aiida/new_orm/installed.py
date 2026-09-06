@@ -9,8 +9,8 @@ from aiida.common.log import override_log_level
 from .adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter
 from .attributes import attribute
 from .code import Code
+from .columns import CliFieldInfo, ModelFieldInfo, field
 from .computer import Computer
-from .fields import CliFieldInfo, ModelFieldInfo, field
 
 __all__ = ('InstalledCode',)
 
