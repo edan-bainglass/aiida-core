@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import typing as t
 
+from aiida.new_orm.entity import from_backend_entity
+
 from .attributes import attribute
 from .node import Node
 
@@ -40,6 +42,17 @@ class Data(Node, extra_attributes='allow'):
         if unknown_attrs:
             raise KeyError(f'Unknown source parameters: {", ".join(unknown_attrs)}')
         self.base.attributes.set('source', value)
+
+    def clone(self):
+        """Create a clone of the Data node."""
+        import copy
+
+        backend_clone = self.backend_entity.clone()
+        clone = from_backend_entity(self.__class__, backend_clone)
+        clone.base.attributes.reset(copy.deepcopy(self.base.attributes.all))
+        clone.base.repository._clone(self.base.repository)
+
+        return clone
 
     @classmethod
     def get_class_node_type(cls) -> str:
