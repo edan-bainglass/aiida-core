@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
-import enum
 import functools
 import typing as t
 from collections.abc import Callable
@@ -22,19 +21,10 @@ __all__ = (
     'CliFieldInfo',
     'EntityField',
     'EntityFieldSpec',
-    'FieldAccess',
     'ModelFieldInfo',
     'field',
     'iter_fields',
 )
-
-
-class FieldAccess(enum.Enum):
-    """Access semantics of an ORM entity field."""
-
-    READ_ONLY = 'read_only'
-    CREATE_ONLY = 'create_only'
-    UPDATABLE = 'updatable'
 
 
 @dataclasses.dataclass(frozen=True)
@@ -44,6 +34,8 @@ class BaseFieldSpec:
     name: str
     value_type: t.Any
     description: str
+    readonly: bool
+    required_once_stored: bool
 
 
 @dataclasses.dataclass(frozen=True)
@@ -51,29 +43,18 @@ class EntityFieldSpec(BaseFieldSpec):
     """Canonical semantic description of an ORM entity field."""
 
     backend_key: str
-    access: FieldAccess
-    required_once_stored: bool
+    updatable: bool
     may_be_large: bool = False
-
-    @property
-    def readonly(self) -> bool:
-        """Return whether the field is read-only."""
-        return self.access is FieldAccess.READ_ONLY
 
     @property
     def immutable(self) -> bool:
         """Return whether the field is immutable after creation."""
-        return self.access is FieldAccess.CREATE_ONLY
-
-    @property
-    def updatable(self) -> bool:
-        """Return whether the field is mutable after creation."""
-        return self.access is FieldAccess.UPDATABLE
+        return not self.updatable
 
 
 @dataclasses.dataclass(frozen=True)
 class CliFieldInfo:
-    """Optional Click-specific configuration for an ORM entity field.
+    """Optional Click-specific configuration for an ORM field.
 
     Validation, defaults and constraints are expected to come from the generated Pydantic model.
     This class contains only CLI-specific interaction and presentation settings.
@@ -90,6 +71,8 @@ class CliFieldInfo:
 class BaseFieldConfig:
     """Base class for field configuration."""
 
+    readonly: bool = False
+    required_once_stored: bool = False
     model_field_info: ModelFieldInfo | None = None
     model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None
     cli_field_info: CliFieldInfo | None = None
@@ -101,9 +84,7 @@ class EntityFieldConfig(BaseFieldConfig):
     """Unresolved configuration supplied to the `field` decorator."""
 
     backend_key: str | None = None
-    readonly: bool = False
     updatable: bool = False
-    required_once_stored: bool = False
     may_be_large: bool = False
 
 
@@ -189,12 +170,12 @@ class BaseField(
 
     @property
     def cli_adapter(self) -> CliAdapter[t.Any, t.Any] | None:
-        """Return the entity/CLI value adapter."""
+        """Return the model/CLI value adapter."""
         return self._config.cli_adapter
 
     @property
     def title(self) -> str:
-        """Return the human-readable title of the field."""
+        """Return the human-readable field title."""
         if self.model_field_info is not None and self.model_field_info.title is not None:
             return self.model_field_info.title
 
@@ -207,9 +188,19 @@ class BaseField(
         self._spec = None
         return self
 
-    def _build_spec(self, **kwargs) -> _SpecT:
+    def _build_spec(self, **kwargs: t.Any) -> _SpecT:
         """Resolve the declaration into the canonical specification."""
-        return self.spec_type(**self._base_spec_values(), **kwargs)
+        spec = self.spec_type(
+            **self._base_spec_values(),
+            readonly=self._config.readonly,
+            required_once_stored=self._config.required_once_stored,
+            **kwargs,
+        )
+
+        if spec.required_once_stored and not is_nullable(spec.value_type):
+            raise TypeError(f'{spec.name!r} cannot declare required_once_stored with a non-nullable type')
+
+        return spec
 
     def _base_spec_values(self) -> dict[str, t.Any]:
         """Return values shared by all field specifications."""
@@ -267,9 +258,6 @@ class EntityField(
 
             return self._get_qb_field(owner)
 
-        if self.fget is None:
-            raise AttributeError(f"'{self.spec.name}' is not readable")
-
         return self.fget(instance)
 
     def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
@@ -282,7 +270,7 @@ class EntityField(
         if self.fset is None:
             raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
 
-        if instance.is_stored and not self.spec.updatable:
+        if instance.is_stored and self.spec.immutable:
             raise exceptions.ModificationNotAllowed(f'{self._owner.__name__}.{self._name} is immutable once stored')
 
         self.fset(instance, value)
@@ -297,7 +285,7 @@ class EntityField(
         if self.fdel is None:
             raise AttributeError(f'{self._owner.__name__}.{self._name} has no deleter')
 
-        if instance.is_stored and not self.spec.updatable:
+        if instance.is_stored and self.spec.immutable:
             raise exceptions.ModificationNotAllowed(
                 f'{self._owner.__name__}.{self._name} cannot be deleted after storing'
             )
@@ -322,6 +310,9 @@ class EntityField(
 
     def deleter(self, fdel: Callable[[_OwnerT], None], /) -> Self:
         """Set the deleter and return this descriptor."""
+        if self._config.readonly:
+            raise TypeError('cannot define a deleter for a read-only ORM entity field')
+
         self.fdel = fdel
         return self
 
@@ -340,47 +331,31 @@ class EntityField(
         )
 
     def _get_qb_field(self, owner: type[_OwnerT]) -> _QbFieldT:
-        """Return the lazily generated QueryBuilder field."""
+        """Return the lazily read-only QueryBuilder field."""
         if self._qb_field is None:
             self._qb_field = self._build_qb_field()
 
         return self._qb_field
 
     def _build_spec(self, **kwargs) -> EntityFieldSpec:
-        """Resolve descriptor structure into the canonical `FieldSpec`."""
+        """Resolve descriptor structure into the canonical field specification."""
         if self._name is None:
             raise RuntimeError('field has not been assigned to an entity')
-
-        if self.fget is None:
-            raise TypeError(f'{self._name} has no getter')
 
         if self._config.readonly and self._config.updatable:
             raise TypeError(f'{self._name!r} cannot be both read-only and updatable')
 
         if self._config.readonly and self.fset is not None:
-            raise TypeError(f'{self._name!r} is declared read-only but defines a setter')
+            raise TypeError(f'{self._name!r} is read-only but defines a setter')
 
         if self._config.updatable and self.fset is None:
             raise TypeError(f'{self._name!r} is declared updatable but defines no setter')
 
-        if self._config.readonly:
-            access = FieldAccess.READ_ONLY
-        elif self._config.updatable:
-            access = FieldAccess.UPDATABLE
-        else:
-            access = FieldAccess.CREATE_ONLY
-
-        spec = super()._build_spec(
+        return super()._build_spec(
             backend_key=self._config.backend_key or self._name,
-            access=access,
-            required_once_stored=self._config.required_once_stored,
+            updatable=self._config.updatable,
             may_be_large=self._config.may_be_large,
         )
-
-        if spec.required_once_stored and not is_nullable(spec.value_type):
-            raise TypeError(f'{self._name} cannot be required_once_stored because its ORM type is not nullable')
-
-        return spec
 
 
 _FieldT = t.TypeVar('_FieldT', bound=BaseField)
@@ -416,9 +391,6 @@ class BaseFieldDecorator(
 
 _ConfiguredQbFieldT = t.TypeVar('_ConfiguredQbFieldT', bound=qb_fields.QbField)
 
-_AdaptedEntityT = t.TypeVar('_AdaptedEntityT')
-_AdaptedModelT = t.TypeVar('_AdaptedModelT')
-
 
 class ConfiguredFieldDecorator(t.Protocol[_ConfiguredQbFieldT]):
     """Configured field decorator with a known QueryBuilder field type."""
@@ -428,6 +400,10 @@ class ConfiguredFieldDecorator(t.Protocol[_ConfiguredQbFieldT]):
         fget: Callable[[_OwnerT], _ValueT],
         /,
     ) -> EntityField[_OwnerT, _ValueT, _ConfiguredQbFieldT]: ...
+
+
+_AdaptedEntityT = t.TypeVar('_AdaptedEntityT')
+_AdaptedModelT = t.TypeVar('_AdaptedModelT')
 
 
 class EntityFieldDecorator(

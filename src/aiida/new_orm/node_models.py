@@ -4,131 +4,215 @@ import functools
 import typing as t
 
 import pydantic as pdt
-from typing_extensions import Self
 
-from .attributes import NodeAttributesField, iter_attributes
+from aiida.common.utils import (
+    is_nullable,
+    make_nullable,
+    make_required,
+)
+
+from .attributes import (
+    NodeAttribute,
+    NodeAttributesField,
+    iter_attributes,
+)
 from .fields import EntityField
-from .models import ModelsNamespace, SupportedModel, _build_model_field
+from .models import (
+    EntityModel,
+    ModelsNamespace,
+    SupportedModel,
+    _build_model_field,
+)
+
+if t.TYPE_CHECKING:
+    from .node import Node
 
 __all__ = ('NodeModelsNamespace',)
 
-_OwnerT = t.TypeVar('_OwnerT')
+
+_NodeT = t.TypeVar('_NodeT', bound='Node')
+_AttributesProjection = t.Literal['read', 'create']
 
 
-class NodeModelsNamespace(ModelsNamespace[_OwnerT]):
-    """Model namespace with Node-specific attribute handling."""
-
-    @t.overload
-    def __get__(self, instance: None, owner: type[_OwnerT]) -> Self: ...
-
-    @t.overload
-    def __get__(self, instance: object, owner: type[_OwnerT] | None = None) -> t.Never: ...
-
-    def __get__(self, instance: object | None, owner: type[_OwnerT] | None = None) -> Self:
-        return super().__get__(instance, owner)
+class NodeModelsNamespace(ModelsNamespace[_NodeT]):
+    """Model namespace for Nodes with typed nested attributes."""
 
     @functools.cached_property
-    def attributes(self) -> type[pdt.BaseModel]:
-        """Return the lazily generated nested attributes model."""
-        if self._entity is None:
-            raise RuntimeError('model namespace is not bound to a Node class')
+    def attributes(self) -> type[EntityModel[_NodeT]]:
+        """Return the canonical persisted/read attributes model."""
+        return self._build_attributes_model('read')
 
-        return _build_attributes_model(self._entity)
+    @functools.cached_property
+    def _create_attributes(self) -> type[EntityModel[_NodeT]]:
+        """Return the attributes model used by the Node create projection."""
+        return self._build_attributes_model('create')
 
     def _model_field_annotation(self, field: EntityField, projection: SupportedModel) -> t.Any:
-        """Return the model field annotation for a Node field."""
+        """Return the model-side annotation for a Node entity field."""
         if isinstance(field, NodeAttributesField):
-            return self.attributes
+            if projection == 'update':
+                raise RuntimeError('attributes are immutable and should not have an update projection')
+
+            return self._attributes_model_annotation(projection)
 
         return super()._model_field_annotation(field, projection)
+
+    def _attributes_model_annotation(self, projection: _AttributesProjection) -> type[EntityModel[_NodeT]]:
+        """Return the attributes model for a Node projection."""
+        if projection == 'read':
+            return self.attributes
+
+        return self._create_attributes
 
     def _to_model_value(
         self,
         field: EntityField,
         value: t.Any,
         *,
-        context: dict[str, t.Any] | None = None,
+        context: t.Any | None = None,
     ) -> t.Any:
-        """Convert a Node field value to its model representation."""
+        """Convert a Node entity field value to its model representation."""
         if isinstance(field, NodeAttributesField):
-            if self._entity is None:
-                raise RuntimeError('model namespace is not bound to a Node class')
-
-            return _attributes_to_model(self._entity, value, context=context)
+            return self._attributes_to_model(value, context=context)
 
         return super()._to_model_value(field, value, context=context)
 
     def _to_entity_value(self, field: EntityField, value: t.Any) -> t.Any:
-        """Convert a model field value to its Node representation."""
+        """Convert a model field value to its Node entity representation."""
         if isinstance(field, NodeAttributesField):
-            if self._entity is None:
-                raise RuntimeError('model namespace is not bound to a Node class')
-
-            return _model_to_attributes(self._entity, value)
+            return self._attributes_to_entity(value)
 
         return super()._to_entity_value(field, value)
 
+    def _build_attributes_model(self, projection: _AttributesProjection) -> type[EntityModel[_NodeT]]:
+        """Build the typed attributes model for a Node projection."""
+        if self._entity is None:
+            raise RuntimeError('model namespace is not bound to a Node class')
 
-def _build_attributes_model(node_type: type[_OwnerT]) -> type[pdt.BaseModel]:
-    """Build the nested attributes model for a Node type."""
-    model_fields: dict[str, t.Any] = {}
+        model_fields: dict[str, t.Any] = {}
 
-    for name, node_attribute in iter_attributes(node_type).items():
-        spec = node_attribute.spec
-        model_type = (
-            node_attribute.model_adapter.model_type if node_attribute.model_adapter is not None else spec.value_type
+        for name, attribute in iter_attributes(self._entity).items():
+            spec = attribute.spec
+
+            if projection == 'create' and spec.readonly:
+                continue
+
+            annotation = self._attribute_model_annotation(attribute, projection)
+
+            model_fields[name] = _build_model_field(
+                annotation,
+                description=spec.description,
+                model_field_info=attribute.model_field_info,
+                readonly=spec.readonly,
+            )
+
+        class_name = 'AttributesModel' if projection == 'read' else 'CreateAttributesModel'
+
+        extra = self._entity.__dict__.get('_extra_attributes', 'forbid')
+
+        model = t.cast(
+            type[EntityModel[_NodeT]],
+            pdt.create_model(
+                f'{self._entity.__name__}{class_name}',
+                __base__=EntityModel,
+                __config__={
+                    **EntityModel.model_config,
+                    'extra': extra,
+                },
+                __module__=self._entity.__module__,
+                __qualname__=f'{self._entity.__qualname__}.{class_name}',
+                **model_fields,
+            ),
         )
 
-        model_fields[name] = _build_model_field(
-            model_type,
-            description=spec.description,
-            model_field_info=node_attribute.model_field_info,
-        )
+        model._entity = self._entity
+        model._entity_fields = {}
+        model._models_namespace = self
 
-    extra_attributes = node_type.__dict__.get('_extra_attributes', 'forbid')
+        return model
 
-    return pdt.create_model(
-        f'{node_type.__name__}AttributesModel',
-        __config__=pdt.ConfigDict(
-            extra=extra_attributes,
-            serialize_by_alias=True,
-            validate_by_alias=True,
-            validate_by_name=True,
-        ),
-        __module__=node_type.__module__,
-        __qualname__=f'{node_type.__qualname__}.AttributesModel',
-        **model_fields,
-    )
+    def _attribute_model_annotation(
+        self,
+        attribute: NodeAttribute,
+        projection: _AttributesProjection,
+    ) -> t.Any:
+        """Return the model-side annotation for a typed Node attribute."""
+        spec = attribute.spec
 
+        if attribute.model_adapter is None:
+            annotation = spec.value_type
+        else:
+            annotation = attribute.model_adapter.model_type
 
-def _attributes_to_model(
-    node_type: type[_OwnerT],
-    value: dict[str, t.Any],
-    *,
-    context: dict[str, t.Any] | None = None,
-) -> dict[str, t.Any]:
-    """Convert raw Node attributes to their model representations."""
-    values = dict(value)
+        if is_nullable(spec.value_type):
+            annotation = make_nullable(annotation)
 
-    for name, node_attribute in iter_attributes(node_type).items():
-        if name not in values:
-            continue
+        if projection == 'read' and spec.required_once_stored:
+            annotation = make_required(annotation)
 
-        if values[name] is not None and (adapter := node_attribute.model_adapter):
-            values[name] = adapter.to_model(values[name], context=context)
+        return annotation
 
-    return values
+    def _attributes_to_model(
+        self,
+        attributes: dict[str, t.Any],
+        *,
+        context: dict[str, t.Any] | None = None,
+    ) -> dict[str, t.Any]:
+        """Convert Node attribute values to model-side representations."""
+        if self._entity is None:
+            raise RuntimeError('model namespace is not bound to a Node class')
 
+        values: dict[str, t.Any] = {}
+        declared_attributes = iter_attributes(self._entity)
 
-def _model_to_attributes(node_type: type[_OwnerT], value: pdt.BaseModel | dict[str, t.Any]) -> dict[str, t.Any]:
-    """Convert a nested attributes model to raw Node attributes."""
-    values = value.model_dump() if isinstance(value, pdt.BaseModel) else dict(value)
+        for name, attribute in declared_attributes.items():
+            if name not in attributes:
+                continue
 
-    for name, node_attribute in iter_attributes(node_type).items():
-        if name not in values:
-            continue
+            value = attributes[name]
 
-        if values[name] is not None and (adapter := node_attribute.model_adapter):
-            values[name] = adapter.to_entity(values[name])
+            if value is not None and attribute.model_adapter is not None:
+                value = attribute.model_adapter.to_model(
+                    value,
+                    context=context,
+                )
 
-    return values
+            values[name] = value
+
+        if self._entity.__dict__.get('_extra_attributes', 'forbid') == 'allow':
+            for name, value in attributes.items():
+                if name not in declared_attributes:
+                    values[name] = value
+
+        return values
+
+    def _attributes_to_entity(self, attributes: EntityModel | dict[str, t.Any]) -> dict[str, t.Any]:
+        """Convert model-side Node attributes to ORM representations."""
+        if self._entity is None:
+            raise RuntimeError('model namespace is not bound to a Node class')
+
+        if isinstance(attributes, pdt.BaseModel):
+            values = {
+                name: getattr(attributes, name)
+                for name in attributes.__class__.model_fields
+                if name in attributes.model_fields_set
+            }
+        else:
+            values = dict(attributes)
+
+        declared_attributes = iter_attributes(self._entity)
+        result: dict[str, t.Any] = {}
+
+        for name, value in values.items():
+            attribute = declared_attributes.get(name)
+
+            if attribute is None:
+                result[name] = value
+                continue
+
+            if value is not None and attribute.model_adapter is not None:
+                value = attribute.model_adapter.to_entity(value)  # noqa: PLW2901
+
+            result[name] = value
+
+        return result

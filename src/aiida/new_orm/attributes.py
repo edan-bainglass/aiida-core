@@ -78,11 +78,15 @@ class NodeAttribute(
 
         attributes = getattr(owner, 'attributes')
         attribute = getattr(attributes, self.spec.name)
+
         return t.cast(_QbFieldT, attribute)
 
     def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
         if self._owner is None or self._name is None:
             raise RuntimeError('attribute has not been assigned to a Node class')
+
+        if self.spec.readonly:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
 
         if self.fset is None:
             raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
@@ -94,8 +98,12 @@ class NodeAttribute(
 
     def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
         """Set the setter and return this descriptor."""
+        if self._config.readonly:
+            raise TypeError('cannot define a setter for a read-only Node attribute')
+
         self.fset = fset
         self._spec = None
+
         return self
 
 
@@ -245,6 +253,8 @@ class NodeAttributeDecorator(
     def __call__(
         self,
         *,
+        readonly: bool = False,
+        required_once_stored: bool = False,
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: ModelAdapter[_AdaptedEntityT, _AdaptedModelT, _QbFieldT],
         cli_field_info: CliFieldInfo | None = None,
@@ -255,6 +265,8 @@ class NodeAttributeDecorator(
     def __call__(
         self,
         *,
+        readonly: bool = False,
+        required_once_stored: bool = False,
         model_field_info: ModelFieldInfo | None = None,
         model_adapter: None = None,
         cli_field_info: CliFieldInfo | None = None,
@@ -292,7 +304,12 @@ class NodeAttributesField(
     """ORM entity field representing the typed Node attributes mapping."""
 
     def __init__(self, fget: Callable[[_OwnerT], dict[str, t.Any]]) -> None:
-        super().__init__(fget, config=EntityFieldConfig(may_be_large=True))
+        super().__init__(
+            fget,
+            config=EntityFieldConfig(
+                may_be_large=True,
+            ),
+        )
 
         # The typed child registry depends on the concrete Node subclass.
         self._qb_fields: dict[type[_OwnerT], qb_fields.QbAttributesField] = {}

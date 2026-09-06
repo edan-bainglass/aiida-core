@@ -27,6 +27,7 @@ __all__ = (
     'EntityModel',
     'ModelsNamespace',
     'ReadModel',
+    'SupportedModel',
     'UpdateModel',
 )
 
@@ -64,7 +65,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
         context: dict[str, t.Any] | None = None,
         minimal: bool = False,
     ) -> Self:
-        """Create a read model from an ORM entity."""
+        """Create a model from an ORM entity."""
         values = cls._from_entity_field_values(entity, context=context, minimal=minimal)
         return cls.model_validate(values)
 
@@ -88,7 +89,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
         }
 
     def _to_entity_field_values(self, *, only_set: bool = False) -> dict[str, t.Any]:
-        """Convert model field values to entity representations."""
+        """Convert model field values to entity-side representations."""
         names: t.Iterable[str] = self.model_fields_set if only_set else self.__class__.model_fields
 
         return {
@@ -102,8 +103,10 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
     @classmethod
     def minimize(cls) -> type[EntityModel]:
         """Return a derived model excluding fields marked as `may_be_large`."""
-        if cls._minimal_model is not None:
-            return cls._minimal_model
+        cached = cls.__dict__.get('_minimal_model')
+
+        if cached is not None:
+            return cached
 
         model_fields: dict[str, t.Any] = {}
 
@@ -144,6 +147,7 @@ class EntityModel(pdt.BaseModel, t.Generic[_OwnerT]):
         minimal_model._models_namespace = cls._models_namespace
 
         cls._minimal_model = minimal_model
+
         return minimal_model
 
 
@@ -263,6 +267,7 @@ class ModelsNamespace(t.Generic[_OwnerT]):
     def _build_model(self, projection: t.Literal['update']) -> type[UpdateModel[_OwnerT]]: ...
 
     def _build_model(self, projection: SupportedModel) -> type[EntityModel[_OwnerT]]:
+        """Build a model projection."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to an entity class')
 
