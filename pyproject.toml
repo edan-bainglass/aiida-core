@@ -438,7 +438,7 @@ module = [
 disable_error_code = [
   'no-redef',
   'overload-cannot-match',
-  'overload-overlap',
+  'overload-overlap'
 ]
 module = "aiida.new_orm.*"
 
