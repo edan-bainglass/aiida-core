@@ -7,7 +7,6 @@ from collections.abc import Callable
 
 from typing_extensions import Self
 
-from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
 
 from .cli_adapter import CliAdapter
@@ -81,30 +80,12 @@ class NodeAttribute(
 
         return t.cast(_QbFieldT, attribute)
 
-    def __set__(self, instance: _NodeT, value: _ValueT) -> None:
-        if self._owner is None or self._name is None:
-            raise RuntimeError('attribute has not been assigned to a Node class')
+    def _immutable_once_stored(self, instance: _NodeT) -> bool:
+        return instance.is_stored
 
-        if self.spec.readonly:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
-
-        if self.fset is None:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
-
-        if instance.is_stored:
-            raise exceptions.ModificationNotAllowed(f'{self._owner.__name__}.{self._name} is immutable once stored')
-
-        self.fset(instance, value)
-
-    def setter(self, fset: Callable[[_NodeT, _ValueT], None], /) -> Self:
-        """Set the setter and return this descriptor."""
-        if self._config.readonly:
-            raise TypeError('cannot define a setter for a read-only Node attribute')
-
-        self.fset = fset
-        self._spec = None
-
-        return self
+    def _get_attribute_qb_field(self) -> _QbFieldT:
+        """Return the lazily constructed QueryBuilder attribute field."""
+        return self._get_qb_field(self.spec.name, is_attribute=True)
 
 
 _ConfiguredQbFieldT = t.TypeVar('_ConfiguredQbFieldT', bound=qb_fields.QbField)
@@ -313,24 +294,19 @@ class NodeAttributesColumn(
 
         self._qb_fields: dict[type[_NodeT], qb_fields.QbAttributesField] = {}
 
-    def _get_qb_field(self, owner: type[_NodeT]) -> qb_fields.QbAttributesField:
-        """Return the attributes QueryBuilder field specialized for the concrete Node type."""
+    def _get_column_qb_field(self, owner: type[_NodeT]) -> qb_fields.QbAttributesField:
+        """Return the attributes field specialized for a concrete Node class."""
         if qb_field := self._qb_fields.get(owner):
             return qb_field
 
-        qb_field = self._build_qb_field()
+        qb_field = self._build_qb_field(self.spec.backend_key, is_attribute=False)
 
         qb_field._typed_children = {
-            name: qb_fields.add_field(
-                name,
-                dtype=node_attribute.adapted_type,
-                doc=node_attribute.spec.description,
-                is_attribute=True,
-            )
-            for name, node_attribute in iter_attributes(owner).items()
+            name: attribute._get_attribute_qb_field() for name, attribute in iter_attributes(owner).items()
         }
 
         self._qb_fields[owner] = qb_field
+
         return qb_field
 
 

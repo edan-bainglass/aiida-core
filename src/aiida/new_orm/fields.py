@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import dataclasses
 import functools
 import typing as t
@@ -9,6 +10,7 @@ from pydantic.fields import FieldInfo as ModelFieldInfo
 from typing_extensions import Self
 
 from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
+from aiida.common import exceptions
 from aiida.common.utils import is_nullable
 from aiida.orm import fields as qb_fields
 
@@ -75,13 +77,14 @@ _ConfigT = t.TypeVar('_ConfigT', bound=BaseFieldConfig)
 
 
 class BaseField(
+    abc.ABC,
     t.Generic[
         _OwnerT,
         _ValueT,
         _QbFieldT,
         _SpecT,
         _ConfigT,
-    ]
+    ],
 ):
     """Common infrastructure for typed ORM field declarations."""
 
@@ -106,10 +109,19 @@ class BaseField(
         self._owner: type[_OwnerT] | None = None
         self._config = config
         self._spec: _SpecT | None = None
+        self._qb_field: _QbFieldT | None = None
 
     def __set_name__(self, owner: type[_OwnerT], name: str) -> None:
         self._name = name
         self._owner = owner
+
+    def __set__(self, instance: _OwnerT, value: _ValueT) -> None:
+        func = self._get_valid_mutability_function(instance, self.fset)
+        func(instance, value)
+
+    def __delete__(self, instance: _OwnerT) -> None:
+        func = self._get_valid_mutability_function(instance, self.fdel)
+        func(instance)
 
     @property
     def spec(self) -> _SpecT:
@@ -160,7 +172,50 @@ class BaseField(
         self.fget = fget
         self.__doc__ = getattr(fget, '__doc__', None)
         self._spec = None
+        self._qb_field = None
         return self
+
+    def setter(self, fset: Callable[[_OwnerT, _ValueT], None], /) -> Self:
+        """Set the setter and return this descriptor."""
+        if self._config.readonly:
+            raise TypeError('cannot define a setter for a read-only ORM field')
+
+        self.fset = fset
+        self._spec = None
+        return self
+
+    def deleter(self, fdel: Callable[[_OwnerT], None], /) -> Self:
+        """Set the deleter and return this descriptor."""
+        if self._config.readonly:
+            raise TypeError('cannot define a deleter for a read-only ORM field')
+
+        self.fdel = fdel
+        return self
+
+    def _get_valid_mutability_function(
+        self,
+        instance: _OwnerT,
+        func: Callable[..., t.Any] | None,
+    ) -> Callable[..., t.Any]:
+        """Return mutability function if field is mutable."""
+        if self._owner is None or self._name is None:
+            raise RuntimeError('column has not been assigned to an entity')
+
+        if func is None:
+            func_name = 'setter' if func is self.fset else 'deleter'
+            raise AttributeError(f'{self._owner.__name__}.{self._name} has no {func_name}')
+
+        if self.spec.readonly:
+            raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
+
+        if self._immutable_once_stored(instance):
+            raise exceptions.ModificationNotAllowed(f'{self._owner.__name__}.{self._name} is immutable once stored')
+
+        return func
+
+    @abc.abstractmethod
+    def _immutable_once_stored(self, instance: _OwnerT) -> bool:
+        """Check whether the field is immutable once stored."""
 
     def _build_spec(self, **kwargs: t.Any) -> _SpecT:
         """Resolve the declaration into the canonical specification."""
@@ -170,6 +225,9 @@ class BaseField(
             required_once_stored=self._config.required_once_stored,
             **kwargs,
         )
+
+        if spec.readonly and self.fset is not None:
+            raise TypeError(f'{spec.name!r} is declared read-only but defines a setter')
 
         if spec.required_once_stored and not is_nullable(spec.value_type):
             raise TypeError(f'{spec.name!r} cannot be required_once_stored because its declared type is not nullable')
@@ -188,6 +246,25 @@ class BaseField(
             'value_type': value_type,
             'description': (self.__doc__ or '').strip(),
         }
+
+    def _build_qb_field(self, key: str, *, is_attribute: bool) -> _QbFieldT:
+        """Build the QueryBuilder representation of this field."""
+        return t.cast(
+            _QbFieldT,
+            qb_fields.add_field(
+                key,
+                dtype=self.adapted_type,
+                doc=self.spec.description,
+                is_attribute=is_attribute,
+            ),
+        )
+
+    def _get_qb_field(self, key: str, *, is_attribute: bool) -> _QbFieldT:
+        """Return the lazily constructed QueryBuilder field."""
+        if self._qb_field is None:
+            self._qb_field = self._build_qb_field(key, is_attribute=is_attribute)
+
+        return self._qb_field
 
 
 _FieldT = t.TypeVar('_FieldT', bound=BaseField)

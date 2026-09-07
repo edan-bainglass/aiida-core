@@ -7,7 +7,6 @@ from collections.abc import Callable
 
 from typing_extensions import Self
 
-from aiida.common import exceptions
 from aiida.orm import fields as qb_fields
 
 from .cli_adapter import CliAdapter
@@ -73,17 +72,6 @@ class Column(
     config_type = ColumnConfig
     spec_type = ColumnSpec
 
-    def __init__(
-        self,
-        fget: Callable[[_EntityT], _ValueT],
-        fset: Callable[[_EntityT, _ValueT], None] | None = None,
-        fdel: Callable[[_EntityT], None] | None = None,
-        *,
-        config: ColumnConfig | None = None,
-    ) -> None:
-        super().__init__(fget, fset, fdel, config=config or ColumnConfig())
-        self._qb_field: _QbFieldT | None = None
-
     @t.overload
     def __get__(self, instance: None, owner: type[_EntityT]) -> _QbFieldT: ...
 
@@ -99,105 +87,35 @@ class Column(
             if owner is None:
                 raise AttributeError('ORM column must be accessed through an entity class')
 
-            return self._get_qb_field(owner)
+            return self._get_column_qb_field(owner)
 
         return self.fget(instance)
 
-    def __set__(self, instance: _EntityT, value: _ValueT) -> None:
-        if self._owner is None or self._name is None:
-            raise RuntimeError('column has not been assigned to an entity')
-
-        if self.spec.readonly:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
-
-        if self.fset is None:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} has no setter')
-
-        if instance.is_stored and self.spec.immutable:
-            raise exceptions.ModificationNotAllowed(f'{self._owner.__name__}.{self._name} is immutable once stored')
-
-        self.fset(instance, value)
-
-    def __delete__(self, instance: _EntityT) -> None:
-        if self._owner is None or self._name is None:
-            raise RuntimeError('column has not been assigned to an entity')
-
-        if self.spec.readonly:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} is read-only')
-
-        if self.fdel is None:
-            raise AttributeError(f'{self._owner.__name__}.{self._name} has no deleter')
-
-        if instance.is_stored and self.spec.immutable:
-            raise exceptions.ModificationNotAllowed(
-                f'{self._owner.__name__}.{self._name} cannot be deleted after storing'
-            )
-
-        self.fdel(instance)
-
-    def getter(self, fget: Callable[[_EntityT], _ValueT], /) -> Self:
-        """Set the getter and return this descriptor."""
-        super().getter(fget)
-        self._qb_field = None
-        return self
-
-    def setter(self, fset: Callable[[_EntityT, _ValueT], None], /) -> Self:
-        """Set the setter and return this descriptor."""
-        if self._config.readonly:
-            raise TypeError('cannot define a setter for a read-only ORM column')
-
-        self.fset = fset
-        self._spec = None
-        return self
-
-    def deleter(self, fdel: Callable[[_EntityT], None], /) -> Self:
-        """Set the deleter and return this descriptor."""
-        if self._config.readonly:
-            raise TypeError('cannot define a deleter for a read-only ORM column')
-
-        self.fdel = fdel
-        return self
-
-    def _build_qb_field(self) -> _QbFieldT:
-        """Build the QueryBuilder field."""
-        spec = self.spec
-
-        return t.cast(
-            _QbFieldT,
-            qb_fields.add_field(
-                spec.backend_key,
-                dtype=self.adapted_type,
-                doc=spec.description,
-                is_attribute=False,
-            ),
-        )
-
-    def _get_qb_field(self, owner: type[_EntityT]) -> _QbFieldT:
-        """Return the lazily generated QueryBuilder field."""
-        if self._qb_field is None:
-            self._qb_field = self._build_qb_field()
-
-        return self._qb_field
+    def _immutable_once_stored(self, instance: _EntityT) -> bool:
+        return instance.is_stored and self.spec.immutable
 
     def _build_spec(self, **kwargs: t.Any) -> ColumnSpec:
         """Resolve descriptor structure into the canonical column specification."""
         if self._name is None:
             raise RuntimeError('column has not been assigned to an entity')
 
-        if self._config.readonly and self._config.updatable:
-            raise TypeError(f'{self._name!r} cannot be both read-only and updatable')
-
-        if self._config.readonly and self.fset is not None:
-            raise TypeError(f'{self._name!r} is declared read-only but defines a setter')
-
-        if self._config.updatable and self.fset is None:
-            raise TypeError(f'{self._name!r} is declared updatable but defines no setter')
-
-        return super()._build_spec(
+        spec = super()._build_spec(
             backend_key=self._config.backend_key or self._name,
             updatable=self._config.updatable,
             may_be_large=self._config.may_be_large,
         )
+
+        if spec.updatable and self.fset is None:
+            raise TypeError(f'{spec.name!r} is declared updatable but defines no setter')
+
+        if spec.readonly and spec.updatable:
+            raise TypeError(f'{spec.name!r} cannot be both read-only and updatable')
+
+        return spec
+
+    def _get_column_qb_field(self, owner: type[_EntityT]) -> _QbFieldT:
+        """Return the lazily constructed QueryBuilder column."""
+        return self._get_qb_field(self.spec.backend_key, is_attribute=False)
 
 
 _ConfiguredQbFieldT = t.TypeVar('_ConfiguredQbFieldT', bound=qb_fields.QbField)
