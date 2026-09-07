@@ -35,7 +35,7 @@ class Data(Node, extra_attributes='allow'):
         return self.base.attributes.get('source', None)
 
     @source.setter
-    def source(self, value: dict[str, t.Any] | None):
+    def source(self, value: dict[str, t.Any] | None) -> None:
         if not isinstance(value, dict):
             raise ValueError('Source must be supplied as a dictionary')
         unknown_attrs = tuple(set(value.keys()) - set(self._source_attributes))

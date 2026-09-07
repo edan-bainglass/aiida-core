@@ -18,7 +18,7 @@ class Dict(PrimitiveData):
         return super().value
 
     @value.setter
-    def value(self, new_value: dict[str, t.Any]):
+    def value(self, new_value: dict[str, t.Any]) -> None:
         self.base.attributes.set('value', new_value)
 
     def __getitem__(self, key):
