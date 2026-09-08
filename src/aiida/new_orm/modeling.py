@@ -7,34 +7,27 @@ from collections.abc import Callable, Iterable
 import pydantic as pdt
 
 __all__ = (
-    'AttributesModelProjection',
-    'AttributesModelSerializerInfo',
-    'AttributesModelValidatorInfo',
-    'EntityModelSerializerInfo',
-    'EntityModelValidatorInfo',
+    'EntityModelProjection',
     'ModelMetadata',
     'ModelProjection',
-    'attributes_model_serializer',
-    'attributes_model_validator',
-    'entity_model_serializer',
-    'entity_model_validator',
-    'iter_attributes_model_serializers',
-    'iter_attributes_model_validators',
+    'ModelSerializerInfo',
+    'ModelValidatorInfo',
     'iter_model_serializers',
     'iter_model_validators',
     'make_model_serializer',
     'make_model_validator',
+    'model_serializer',
+    'model_validator',
 )
 
-ModelProjection = t.Literal['read', 'create', 'update']
 
+ModelProjection = t.Literal['read', 'create', 'update']
 EntityModelProjection = ModelProjection
-AttributesModelProjection = t.Literal['read', 'create']
 
 
 @dataclasses.dataclass(frozen=True)
 class ModelMetadata:
-    """Pydantic annotation metadata scoped to selected entity model projections.
+    """Pydantic annotation metadata scoped to selected model projections.
 
     If `projections` is `None`, the metadata applies to every projection in
     which the field itself participates.
@@ -45,44 +38,26 @@ class ModelMetadata:
 
 
 @dataclasses.dataclass(frozen=True)
-class EntityModelValidatorInfo:
+class ModelValidatorInfo:
     """Configuration for a generated entity-model validator."""
 
     mode: t.Literal['before', 'after', 'wrap']
-    projections: frozenset[ModelProjection] | None = None
+    projections: frozenset[EntityModelProjection] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
-class EntityModelSerializerInfo:
+class ModelSerializerInfo:
     """Configuration for a generated entity-model serializer."""
 
     mode: t.Literal['plain', 'wrap']
-    projections: frozenset[ModelProjection] | None = None
+    projections: frozenset[EntityModelProjection] | None = None
 
 
-@dataclasses.dataclass(frozen=True)
-class AttributesModelValidatorInfo:
-    """Configuration for a generated Node attributes-model validator."""
-
-    mode: t.Literal['before', 'after', 'wrap']
-    projections: frozenset[AttributesModelProjection] | None = None
+_ModelValidator = tuple[Callable[..., t.Any], ModelValidatorInfo]
+_ModelSerializer = tuple[Callable[..., t.Any], ModelSerializerInfo]
 
 
-@dataclasses.dataclass(frozen=True)
-class AttributesModelSerializerInfo:
-    """Configuration for a generated Node attributes-model serializer."""
-
-    mode: t.Literal['plain', 'wrap']
-    projections: frozenset[AttributesModelProjection] | None = None
-
-
-_EntityModelValidator = tuple[Callable[..., t.Any], EntityModelValidatorInfo]
-_EntityModelSerializer = tuple[Callable[..., t.Any], EntityModelSerializerInfo]
-_AttributesModelValidator = tuple[Callable[..., t.Any], AttributesModelValidatorInfo]
-_AttributesModelSerializer = tuple[Callable[..., t.Any], AttributesModelSerializerInfo]
-
-
-def entity_model_validator(
+def model_validator(
     *,
     mode: t.Literal['before', 'after', 'wrap'],
     projections: Iterable[EntityModelProjection] | None = None,
@@ -90,17 +65,17 @@ def entity_model_validator(
     """Declare a validator for generated entity models.
 
     The decorated method must be a `staticmethod`. The callback is later
-    installed as a real Pydantic model validator on each generated model
+    installed as a real Pydantic model validator on each generated entity-model
     projection to which it applies.
     """
-    info = EntityModelValidatorInfo(
+    info = ModelValidatorInfo(
         mode=mode,
         projections=None if projections is None else frozenset(projections),
     )
 
     def decorator(method: staticmethod) -> staticmethod:
         if not isinstance(method, staticmethod):
-            raise TypeError('entity_model_validator must decorate a staticmethod')
+            raise TypeError('model_validator must decorate a staticmethod')
 
         setattr(method.__func__, '__aiida_model_validator__', info)
         return method
@@ -108,7 +83,7 @@ def entity_model_validator(
     return decorator
 
 
-def entity_model_serializer(
+def model_serializer(
     *,
     mode: t.Literal['plain', 'wrap'],
     projections: Iterable[EntityModelProjection] | None = None,
@@ -116,17 +91,17 @@ def entity_model_serializer(
     """Declare a serializer for generated entity models.
 
     The decorated method must be a `staticmethod`. The callback is later
-    installed as a real Pydantic instance serializer on each generated model
-    projection to which it applies.
+    installed as a real Pydantic instance serializer on each generated
+    entity-model projection to which it applies.
     """
-    info = EntityModelSerializerInfo(
+    info = ModelSerializerInfo(
         mode=mode,
         projections=None if projections is None else frozenset(projections),
     )
 
     def decorator(method: staticmethod) -> staticmethod:
         if not isinstance(method, staticmethod):
-            raise TypeError('entity_model_serializer must decorate a staticmethod')
+            raise TypeError('model_serializer must decorate a staticmethod')
 
         setattr(method.__func__, '__aiida_model_serializer__', info)
         return method
@@ -134,51 +109,9 @@ def entity_model_serializer(
     return decorator
 
 
-def attributes_model_validator(
-    *,
-    mode: t.Literal['before', 'after', 'wrap'],
-    projections: Iterable[AttributesModelProjection] | None = None,
-) -> Callable[[staticmethod], staticmethod]:
-    """Declare a validator for generated Node attributes models."""
-    info = AttributesModelValidatorInfo(
-        mode=mode,
-        projections=None if projections is None else frozenset(projections),
-    )
-
-    def decorator(method: staticmethod) -> staticmethod:
-        if not isinstance(method, staticmethod):
-            raise TypeError('attributes_model_validator must decorate a staticmethod')
-
-        setattr(method.__func__, '__aiida_attributes_model_validator__', info)
-        return method
-
-    return decorator
-
-
-def attributes_model_serializer(
-    *,
-    mode: t.Literal['plain', 'wrap'],
-    projections: Iterable[AttributesModelProjection] | None = None,
-) -> Callable[[staticmethod], staticmethod]:
-    """Declare a serializer for generated Node attributes models."""
-    info = AttributesModelSerializerInfo(
-        mode=mode,
-        projections=None if projections is None else frozenset(projections),
-    )
-
-    def decorator(method: staticmethod) -> staticmethod:
-        if not isinstance(method, staticmethod):
-            raise TypeError('attributes_model_serializer must decorate a staticmethod')
-
-        setattr(method.__func__, '__aiida_attributes_model_serializer__', info)
-        return method
-
-    return decorator
-
-
-def iter_model_validators(entity: type) -> dict[str, _EntityModelValidator]:
-    """Return effective entity-model validators across an entity hierarchy."""
-    result: dict[str, _EntityModelValidator] = {}
+def iter_model_validators(entity: type) -> dict[str, _ModelValidator]:
+    """Return effective model validators across an entity hierarchy."""
+    result: dict[str, _ModelValidator] = {}
 
     for base in reversed(entity.__mro__):
         for name, value in vars(base).items():
@@ -186,7 +119,7 @@ def iter_model_validators(entity: type) -> dict[str, _EntityModelValidator]:
                 function = value.__func__
                 info = getattr(function, '__aiida_model_validator__', None)
 
-                if isinstance(info, EntityModelValidatorInfo):
+                if isinstance(info, ModelValidatorInfo):
                     result[name] = (function, info)
                     continue
 
@@ -195,9 +128,9 @@ def iter_model_validators(entity: type) -> dict[str, _EntityModelValidator]:
     return result
 
 
-def iter_model_serializers(entity: type) -> dict[str, _EntityModelSerializer]:
-    """Return effective entity-model serializers across an entity hierarchy."""
-    result: dict[str, _EntityModelSerializer] = {}
+def iter_model_serializers(entity: type) -> dict[str, _ModelSerializer]:
+    """Return effective model serializers across an entity hierarchy."""
+    result: dict[str, _ModelSerializer] = {}
 
     for base in reversed(entity.__mro__):
         for name, value in vars(base).items():
@@ -205,45 +138,7 @@ def iter_model_serializers(entity: type) -> dict[str, _EntityModelSerializer]:
                 function = value.__func__
                 info = getattr(function, '__aiida_model_serializer__', None)
 
-                if isinstance(info, EntityModelSerializerInfo):
-                    result[name] = (function, info)
-                    continue
-
-            result.pop(name, None)
-
-    return result
-
-
-def iter_attributes_model_validators(entity: type) -> dict[str, _AttributesModelValidator]:
-    """Return effective Node attributes-model validators across an entity hierarchy."""
-    result: dict[str, _AttributesModelValidator] = {}
-
-    for base in reversed(entity.__mro__):
-        for name, value in vars(base).items():
-            if isinstance(value, staticmethod):
-                function = value.__func__
-                info = getattr(function, '__aiida_attributes_model_validator__', None)
-
-                if isinstance(info, AttributesModelValidatorInfo):
-                    result[name] = (function, info)
-                    continue
-
-            result.pop(name, None)
-
-    return result
-
-
-def iter_attributes_model_serializers(entity: type) -> dict[str, _AttributesModelSerializer]:
-    """Return effective Node attributes-model serializers across an entity hierarchy."""
-    result: dict[str, _AttributesModelSerializer] = {}
-
-    for base in reversed(entity.__mro__):
-        for name, value in vars(base).items():
-            if isinstance(value, staticmethod):
-                function = value.__func__
-                info = getattr(function, '__aiida_attributes_model_serializer__', None)
-
-                if isinstance(info, AttributesModelSerializerInfo):
+                if isinstance(info, ModelSerializerInfo):
                     result[name] = (function, info)
                     continue
 
