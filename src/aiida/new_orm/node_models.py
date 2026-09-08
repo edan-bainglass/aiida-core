@@ -10,15 +10,14 @@ from aiida.common.utils import (
     make_nullable,
     make_required,
 )
-
-from .attributes import (
+from aiida.new_orm.attributes import (
     NodeAttribute,
     NodeAttributesColumn,
     iter_attributes,
 )
-from .columns import Column
-from .modeling import EntityModelProjection
-from .models import (
+from aiida.new_orm.columns import Column
+from aiida.new_orm.modeling import EntityModelProjection
+from aiida.new_orm.models import (
     ModelsNamespace,
     OrmModel,
     _build_model_field,
@@ -26,7 +25,7 @@ from .models import (
 )
 
 if t.TYPE_CHECKING:
-    from .node import Node
+    from aiida.new_orm.node import Node
 
 __all__ = ('NodeModelsNamespace',)
 

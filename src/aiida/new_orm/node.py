@@ -15,23 +15,24 @@ from aiida.common.lang import classproperty
 from aiida.common.links import LinkType
 from aiida.common.log import AIIDA_LOGGER
 from aiida.manage import get_manager
+from aiida.new_orm.adapters import EntityPkAdapter, StrUuidAdapter
+from aiida.new_orm.attributes import attributes_column
+from aiida.new_orm.columns import column
+from aiida.new_orm.computer import Computer
+from aiida.new_orm.entity import Entity, from_backend_entity
+from aiida.new_orm.fields import ModelFieldInfo
+from aiida.new_orm.node_models import NodeModelsNamespace
+from aiida.new_orm.user import User
 from aiida.orm.implementation import BackendNode, StorageBackend
 from aiida.orm.nodes.caching import NodeCaching
 from aiida.orm.nodes.links import NodeLinks
 from aiida.orm.nodes.node import NodeBase
 from aiida.orm.utils.node import get_type_string_from_class
 
-from .adapters import EntityPkAdapter, StrUuidAdapter
-from .attributes import attributes_column
-from .columns import column
-from .computer import Computer
-from .entity import Entity, from_backend_entity
-from .fields import ModelFieldInfo
-from .node_models import NodeModelsNamespace
-from .user import User
-
 if t.TYPE_CHECKING:
     from aiida.common.log import AiidaLoggerType
+
+__all__ = ('Node',)
 
 
 class Node(Entity[BackendNode]):

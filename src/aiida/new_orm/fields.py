@@ -12,11 +12,10 @@ from typing_extensions import Self
 from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.common.utils import is_nullable
+from aiida.new_orm.cli_adapter import CliAdapter
+from aiida.new_orm.model_adapter import ModelAdapter
+from aiida.new_orm.modeling import ModelMetadata
 from aiida.orm import fields as qb_fields
-
-from .cli_adapter import CliAdapter
-from .model_adapter import ModelAdapter
-from .modeling import ModelMetadata
 
 __all__ = (
     'BaseField',

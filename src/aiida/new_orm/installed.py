@@ -5,13 +5,12 @@ import pathlib
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_level
-
-from .adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter
-from .attributes import attribute
-from .code import Code
-from .columns import column
-from .computer import Computer
-from .fields import CliFieldInfo, ModelFieldInfo
+from aiida.new_orm.adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter
+from aiida.new_orm.attributes import attribute
+from aiida.new_orm.code import Code
+from aiida.new_orm.columns import column
+from aiida.new_orm.computer import Computer
+from aiida.new_orm.fields import CliFieldInfo, ModelFieldInfo
 
 __all__ = ('InstalledCode',)
 

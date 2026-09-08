@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from .attributes import attribute
-from .data import Data
+from aiida.new_orm.attributes import attribute
+from aiida.new_orm.data import Data
 
 
 class PrimitiveData(Data):

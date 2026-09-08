@@ -10,13 +10,14 @@ from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
 from aiida.engine import ProcessBuilder
+from aiida.new_orm.attributes import attribute
+from aiida.new_orm.columns import column
+from aiida.new_orm.computer import Computer
+from aiida.new_orm.data import Data
+from aiida.new_orm.fields import CliFieldInfo, ModelFieldInfo
 from aiida.plugins.factories import CalculationFactory
 
-from .attributes import attribute
-from .columns import column
-from .computer import Computer
-from .data import Data
-from .fields import CliFieldInfo, ModelFieldInfo
+__all__ = ('Code',)
 
 
 class Code(Data, abc.ABC):
@@ -258,7 +259,7 @@ class Code(Data, abc.ABC):
 
         import yaml
 
-        from .cli import EntityCliCreateSpec
+        from aiida.new_orm.cli import EntityCliCreateSpec
 
         code_data = EntityCliCreateSpec(type(self)).serialize(
             self,

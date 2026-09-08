@@ -4,15 +4,21 @@
 
 # fmt: off
 
-from .attributes import *
-from .cli import *
-from .columns import *
-from .fields import *
-from .installed import *
-from .modeling import *
-from .models import *
-from .node_models import *
-from .singlefile import *
+from aiida.new_orm.attributes import *
+from aiida.new_orm.cli import *
+from aiida.new_orm.code import *
+from aiida.new_orm.columns import *
+from aiida.new_orm.computer import *
+from aiida.new_orm.data import *
+from aiida.new_orm.dict import *
+from aiida.new_orm.fields import *
+from aiida.new_orm.group import *
+from aiida.new_orm.installed import *
+from aiida.new_orm.modeling import *
+from aiida.new_orm.models import *
+from aiida.new_orm.node_models import *
+from aiida.new_orm.singlefile import *
+from aiida.new_orm.user import *
 
 __all__ = (
     'BaseField',
@@ -20,13 +26,18 @@ __all__ = (
     'BaseFieldDecorator',
     'BaseFieldSpec',
     'CliFieldInfo',
+    'Code',
     'Column',
     'ColumnConfig',
     'ColumnSpec',
+    'Computer',
     'CreateModel',
+    'Data',
+    'Dict',
     'EntityCliCreateSpec',
     'EntityModel',
     'EntityModelProjection',
+    'Group',
     'InstalledCode',
     'ModelFieldInfo',
     'ModelMetadata',
@@ -44,6 +55,7 @@ __all__ = (
     'SinglefileData',
     'Storable',
     'UpdateModel',
+    'User',
     'attribute',
     'attributes_column',
     'column',

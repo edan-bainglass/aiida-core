@@ -8,12 +8,11 @@ from pydantic_core import PydanticUndefined
 
 from aiida.cmdline.spec import CliParameter
 from aiida.common.utils import is_nullable, make_nullable, make_required
-
-from .attributes import NodeAttribute, iter_attributes
-from .columns import iter_columns
-from .entity import Entity
-from .fields import BaseField
-from .models import EntityModel
+from aiida.new_orm.attributes import NodeAttribute, iter_attributes
+from aiida.new_orm.columns import iter_columns
+from aiida.new_orm.entity import Entity
+from aiida.new_orm.fields import BaseField
+from aiida.new_orm.models import EntityModel
 
 __all__ = ('EntityCliCreateSpec',)
 

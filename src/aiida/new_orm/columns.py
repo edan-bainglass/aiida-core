@@ -7,10 +7,8 @@ from collections.abc import Callable
 
 from typing_extensions import Self
 
-from aiida.orm import fields as qb_fields
-
-from .cli_adapter import CliAdapter
-from .fields import (
+from aiida.new_orm.cli_adapter import CliAdapter
+from aiida.new_orm.fields import (
     BaseField,
     BaseFieldConfig,
     BaseFieldDecorator,
@@ -19,8 +17,9 @@ from .fields import (
     ModelFieldInfo,
     Storable,
 )
-from .model_adapter import ModelAdapter
-from .modeling import ModelMetadata
+from aiida.new_orm.model_adapter import ModelAdapter
+from aiida.new_orm.modeling import ModelMetadata
+from aiida.orm import fields as qb_fields
 
 __all__ = (
     'Column',

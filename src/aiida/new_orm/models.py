@@ -14,10 +14,9 @@ from aiida.common.utils import (
     make_nullable,
     make_required,
 )
-
-from .columns import Column, ColumnSpec, iter_columns
-from .fields import BaseField, ModelFieldInfo
-from .modeling import (
+from aiida.new_orm.columns import Column, ColumnSpec, iter_columns
+from aiida.new_orm.fields import BaseField, ModelFieldInfo
+from aiida.new_orm.modeling import (
     EntityModelProjection,
     ModelMetadata,
     iter_model_serializers,

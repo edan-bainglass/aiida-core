@@ -5,11 +5,12 @@ import typing as t
 from aiida import orm
 from aiida.common import exceptions
 from aiida.manage.manager import get_manager
+from aiida.new_orm.columns import column
+from aiida.new_orm.entity import Entity
+from aiida.new_orm.fields import ModelFieldInfo
 from aiida.orm.implementation import BackendComputer, StorageBackend
 
-from .columns import column
-from .entity import Entity
-from .fields import ModelFieldInfo
+__all__ = ('Computer',)
 
 
 class Computer(Entity[BackendComputer]):

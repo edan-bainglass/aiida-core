@@ -6,6 +6,8 @@ import typing as t
 from aiida.common.lang import classproperty
 from aiida.orm import fields as qb_fields
 
+__all__ = ('ModelAdapter',)
+
 _EntityValueT = t.TypeVar('_EntityValueT')
 _ModelValueT = t.TypeVar('_ModelValueT')
 _QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)

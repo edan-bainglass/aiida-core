@@ -19,8 +19,7 @@ import typing as t
 from aiida.common import exceptions
 from aiida.common.typing import FilePath
 from aiida.new_orm.attributes import attribute
-
-from .data import Data
+from aiida.new_orm.data import Data
 
 __all__ = ('SinglefileData',)
 

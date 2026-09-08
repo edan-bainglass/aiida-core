@@ -10,14 +10,15 @@ from aiida import orm
 from aiida.common import exceptions
 from aiida.common.lang import classproperty
 from aiida.manage.manager import get_manager
+from aiida.new_orm.adapters import EntityPkAdapter, StrUuidAdapter
+from aiida.new_orm.columns import column
+from aiida.new_orm.entity import Entity, from_backend_entity
+from aiida.new_orm.fields import ModelFieldInfo
+from aiida.new_orm.user import User
 from aiida.orm import groups
 from aiida.orm.implementation import BackendGroup, StorageBackend
 
-from .adapters import EntityPkAdapter, StrUuidAdapter
-from .columns import column
-from .entity import Entity, from_backend_entity
-from .fields import ModelFieldInfo
-from .user import User
+__all__ = ('Group',)
 
 
 class Group(Entity[BackendGroup]):

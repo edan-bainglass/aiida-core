@@ -4,10 +4,11 @@ import typing as t
 from copy import deepcopy
 
 from aiida.common import exceptions
+from aiida.new_orm.attributes import attribute
+from aiida.new_orm.data import Data
+from aiida.new_orm.primitive import PrimitiveData
 
-from .attributes import attribute
-from .data import Data
-from .primitive import PrimitiveData
+__all__ = ('Dict',)
 
 
 class Dict(PrimitiveData):
