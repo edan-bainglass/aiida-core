@@ -18,7 +18,7 @@ import io
 import os
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, TypeVar, get_args, overload
 from uuid import UUID
@@ -661,7 +661,7 @@ def make_required(annotation: Any) -> Any:
     return get_args(annotation)[0] if get_args(annotation) else annotation
 
 
-def make_annotated(annotation: Any, metadata: list[Any]) -> Any:
+def make_annotated(annotation: Any, metadata: Sequence[Any]) -> Any:
     """Return an `Annotated` type compatible with Python 3.10."""
     if not metadata:
         return annotation

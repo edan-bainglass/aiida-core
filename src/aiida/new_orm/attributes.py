@@ -21,6 +21,7 @@ from .fields import (
     Storable,
 )
 from .model_adapter import ModelAdapter
+from .modeling import ModelMetadata
 
 __all__ = (
     'NodeAttribute',
@@ -237,6 +238,7 @@ class NodeAttributeDecorator(
         readonly: bool = False,
         required_once_stored: bool = False,
         model_field_info: ModelFieldInfo | None = None,
+        model_metadata: tuple[ModelMetadata, ...] = (),
         model_adapter: ModelAdapter[_AdaptedEntityT, _AdaptedModelT, _QbFieldT],
         cli_field_info: CliFieldInfo | None = None,
         cli_adapter: CliAdapter[t.Any, t.Any] | None = None,
@@ -249,6 +251,7 @@ class NodeAttributeDecorator(
         readonly: bool = False,
         required_once_stored: bool = False,
         model_field_info: ModelFieldInfo | None = None,
+        model_metadata: tuple[ModelMetadata, ...] = (),
         model_adapter: None = None,
         cli_field_info: CliFieldInfo | None = None,
         cli_adapter: CliAdapter[t.Any, t.Any] | None = None,

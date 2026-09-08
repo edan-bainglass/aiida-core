@@ -16,6 +16,7 @@ from aiida.orm import fields as qb_fields
 
 from .cli_adapter import CliAdapter
 from .model_adapter import ModelAdapter
+from .modeling import ModelMetadata
 
 __all__ = (
     'BaseField',
@@ -54,12 +55,15 @@ class CliFieldInfo:
 class BaseFieldConfig:
     """Base unresolved configuration for an ORM field."""
 
-    model_field_info: ModelFieldInfo | None = None
-    model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None
-    cli_field_info: CliFieldInfo | None = None
-    cli_adapter: CliAdapter[t.Any, t.Any] | None = None
     readonly: bool = False
     required_once_stored: bool = False
+
+    model_field_info: ModelFieldInfo | None = None
+    model_metadata: tuple[ModelMetadata, ...] = ()
+    model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None
+
+    cli_field_info: CliFieldInfo | None = None
+    cli_adapter: CliAdapter[t.Any, t.Any] | None = None
 
 
 class Storable(t.Protocol):
@@ -135,6 +139,11 @@ class BaseField(
     def model_field_info(self) -> ModelFieldInfo | None:
         """Return optional Pydantic-specific field configuration."""
         return self._config.model_field_info
+
+    @property
+    def model_metadata(self) -> tuple[ModelMetadata, ...]:
+        """Return additional Pydantic `Annotated` metadata."""
+        return self._config.model_metadata
 
     @property
     def model_adapter(self) -> ModelAdapter[t.Any, t.Any, t.Any] | None:

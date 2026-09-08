@@ -17,12 +17,20 @@ from .attributes import (
     iter_attributes,
 )
 from .columns import Column
+from .modeling import (
+    AttributesModelProjection,
+    EntityModelProjection,
+    iter_attributes_model_serializers,
+    iter_attributes_model_validators,
+    make_model_serializer,
+    make_model_validator,
+)
 from .models import (
     EntityModel,
     ModelsNamespace,
     OrmModel,
-    SupportedModel,
     _build_model_field,
+    _model_metadata,
 )
 
 if t.TYPE_CHECKING:
@@ -48,7 +56,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         """Return the attributes model used by the Node create projection."""
         return self._build_attributes_model('create')
 
-    def _model_field_annotation(self, column: Column, projection: SupportedModel) -> t.Any:
+    def _model_field_annotation(self, column: Column, projection: EntityModelProjection) -> t.Any:
         """Return the model-side annotation for a Node column."""
         if isinstance(column, NodeAttributesColumn):
             if projection == 'update':
@@ -104,8 +112,11 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
                 annotation,
                 description=spec.description,
                 model_field_info=attribute.model_field_info,
+                model_metadata=_model_metadata(attribute, projection),
                 readonly=spec.readonly,
             )
+
+        model_decorators = self._attributes_model_decorators(projection)
 
         class_name = 'AttributesModel' if projection == 'read' else 'CreateAttributesModel'
         extra = self._entity.__dict__.get('_extra_attributes', 'forbid')
@@ -121,6 +132,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
                 },
                 __module__=self._entity.__module__,
                 __qualname__=f'{self._entity.__qualname__}.{class_name}',
+                __validators__=model_decorators,
                 **model_fields,
             ),
         )
@@ -172,7 +184,6 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
             raise RuntimeError('model namespace is not bound to a Node class')
 
         values = model.model_dump() if isinstance(model, pdt.BaseModel) else dict(model)
-        print(values)
 
         for name, node_attribute in iter_attributes(self._entity).items():
             if name not in values:
@@ -182,3 +193,24 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
                 values[name] = adapter.to_entity(values[name])
 
         return values
+
+    def _attributes_model_decorators(self, projection: AttributesModelProjection) -> dict[str, t.Any]:
+        """Return Pydantic-decorated hooks for an attributes model."""
+        if self._entity is None:
+            raise RuntimeError('model namespace is not bound to a Node class')
+
+        decorators: dict[str, t.Any] = {}
+
+        for name, (function, validator) in iter_attributes_model_validators(self._entity).items():
+            if validator.projections is not None and projection not in validator.projections:
+                continue
+
+            decorators[name] = make_model_validator(function, mode=validator.mode)
+
+        for name, (function, serializer) in iter_attributes_model_serializers(self._entity).items():
+            if serializer.projections is not None and projection not in serializer.projections:
+                continue
+
+            decorators[name] = make_model_serializer(function, mode=serializer.mode)
+
+        return decorators
