@@ -147,7 +147,14 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         """Return the model-side annotation for a typed Node attribute."""
         spec = attribute.spec
 
-        annotation = attribute.model_adapter.model_type if attribute.model_adapter is not None else spec.value_type
+        field_info = attribute.model_field_info
+
+        if field_info is not None and field_info.annotation is not None:
+            annotation = field_info.annotation
+        elif attribute.model_adapter is not None:
+            annotation = attribute.model_adapter.model_type
+        else:
+            annotation = spec.value_type
 
         if is_nullable(spec.value_type):
             annotation = make_nullable(annotation)

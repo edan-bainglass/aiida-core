@@ -229,7 +229,14 @@ class ModelsNamespace(t.Generic[_EntityT]):
         """Return the model-side annotation for an entity column."""
         spec = column.spec
 
-        annotation = column.model_adapter.model_type if column.model_adapter is not None else spec.value_type
+        field_info = column.model_field_info
+
+        if field_info is not None and field_info.annotation is not None:
+            annotation = field_info.annotation
+        elif column.model_adapter is not None:
+            annotation = column.model_adapter.model_type
+        else:
+            annotation = spec.value_type
 
         if is_nullable(spec.value_type):
             annotation = make_nullable(annotation)
