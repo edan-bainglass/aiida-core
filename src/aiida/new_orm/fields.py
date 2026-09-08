@@ -236,10 +236,21 @@ class BaseField(
 
     def _base_spec_values(self) -> dict[str, t.Any]:
         """Return values shared by all field specifications."""
-        if self._name is None:
+        if self._owner is None or self._name is None:
             raise RuntimeError('field has not been assigned to a class')
 
-        value_type = t.get_type_hints(self.fget).get('return', t.Any)
+        value_type = t.get_type_hints(self.fget).get('return')
+
+        field = f'{self._owner.__name__}.{self._name}'
+
+        if value_type is None:
+            raise TypeError(f'{field!r} is missing a return type annotation')
+
+        if value_type is t.Any:
+            raise TypeError(
+                f"{field!r} has return type 'Any'. Use 'object' instead to express an unconstrained type, "
+                "as 'Any' is too permissive for reliable ORM field typing."
+            )
 
         return {
             'name': self._name,
