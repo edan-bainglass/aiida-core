@@ -7,7 +7,6 @@ from collections.abc import Callable, Iterable
 import pydantic as pdt
 
 __all__ = (
-    'EntityModelProjection',
     'ModelMetadata',
     'ModelProjection',
     'ModelSerializerInfo',
@@ -22,7 +21,6 @@ __all__ = (
 
 
 ModelProjection = t.Literal['read', 'create', 'update']
-EntityModelProjection = ModelProjection
 
 
 @dataclasses.dataclass(frozen=True)
@@ -42,7 +40,7 @@ class ModelValidatorInfo:
     """Configuration for a generated entity-model validator."""
 
     mode: t.Literal['before', 'after', 'wrap']
-    projections: frozenset[EntityModelProjection] | None = None
+    projections: frozenset[ModelProjection] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -50,7 +48,7 @@ class ModelSerializerInfo:
     """Configuration for a generated entity-model serializer."""
 
     mode: t.Literal['plain', 'wrap']
-    projections: frozenset[EntityModelProjection] | None = None
+    projections: frozenset[ModelProjection] | None = None
 
 
 _ModelValidator = tuple[Callable[..., t.Any], ModelValidatorInfo]
@@ -60,7 +58,7 @@ _ModelSerializer = tuple[Callable[..., t.Any], ModelSerializerInfo]
 def model_validator(
     *,
     mode: t.Literal['before', 'after', 'wrap'],
-    projections: Iterable[EntityModelProjection] | None = None,
+    projections: Iterable[ModelProjection] | None = None,
 ) -> Callable[[staticmethod], staticmethod]:
     """Declare a validator for generated entity models.
 
@@ -86,7 +84,7 @@ def model_validator(
 def model_serializer(
     *,
     mode: t.Literal['plain', 'wrap'],
-    projections: Iterable[EntityModelProjection] | None = None,
+    projections: Iterable[ModelProjection] | None = None,
 ) -> Callable[[staticmethod], staticmethod]:
     """Declare a serializer for generated entity models.
 

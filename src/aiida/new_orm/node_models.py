@@ -16,7 +16,7 @@ from aiida.new_orm.attributes import (
     iter_attributes,
 )
 from aiida.new_orm.columns import Column
-from aiida.new_orm.modeling import EntityModelProjection
+from aiida.new_orm.modeling import ModelProjection
 from aiida.new_orm.models import (
     ModelsNamespace,
     OrmModel,
@@ -31,6 +31,7 @@ __all__ = ('NodeModelsNamespace',)
 
 
 _NodeT = t.TypeVar('_NodeT', bound='Node')
+
 _AttributesProjection = t.Literal['read', 'create']
 
 
@@ -47,7 +48,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         """Return the attributes model used by the Node create projection."""
         return self._build_attributes_model('create')
 
-    def _model_field_annotation(self, column: Column, projection: EntityModelProjection) -> t.Any:
+    def _model_field_annotation(self, column: Column, projection: ModelProjection) -> t.Any:
         """Return the model-side annotation for a Node column."""
         if isinstance(column, NodeAttributesColumn):
             if projection == 'update':

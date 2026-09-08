@@ -17,8 +17,8 @@ from aiida.common.utils import (
 from aiida.new_orm.columns import Column, ColumnSpec, iter_columns
 from aiida.new_orm.fields import BaseField, ModelFieldInfo
 from aiida.new_orm.modeling import (
-    EntityModelProjection,
     ModelMetadata,
+    ModelProjection,
     iter_model_serializers,
     iter_model_validators,
     make_model_serializer,
@@ -224,7 +224,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
         """Return the update projection."""
         return self._build_model('update')
 
-    def _model_field_annotation(self, column: Column, projection: EntityModelProjection) -> t.Any:
+    def _model_field_annotation(self, column: Column, projection: ModelProjection) -> t.Any:
         """Return the model-side annotation for an entity column."""
         spec = column.spec
 
@@ -274,7 +274,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
     @t.overload
     def _build_model(self, projection: t.Literal['update']) -> type[UpdateModel[_EntityT]]: ...
 
-    def _build_model(self, projection: EntityModelProjection) -> type[EntityModel[_EntityT]]:
+    def _build_model(self, projection: ModelProjection) -> type[EntityModel[_EntityT]]:
         """Build a model projection."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to an entity class')
@@ -321,7 +321,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
 
         return model
 
-    def _model_decorators(self, projection: EntityModelProjection) -> dict[str, t.Any]:
+    def _model_decorators(self, projection: ModelProjection) -> dict[str, t.Any]:
         """Return Pydantic-decorated model hooks for an entity projection."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to an entity class')
@@ -343,7 +343,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
         return decorators
 
 
-def _model_base(projection: EntityModelProjection) -> type[EntityModel]:
+def _model_base(projection: ModelProjection) -> type[EntityModel]:
     """Return the base class for a model projection."""
     if projection == 'read':
         return ReadModel
@@ -357,7 +357,7 @@ def _model_base(projection: EntityModelProjection) -> type[EntityModel]:
     t.assert_never(projection)
 
 
-def _include_column(spec: ColumnSpec, projection: EntityModelProjection) -> bool:
+def _include_column(spec: ColumnSpec, projection: ModelProjection) -> bool:
     """Return whether a column belongs to a model projection."""
     if projection == 'read':
         return True
@@ -418,7 +418,7 @@ def _build_model_field(
     return annotation, ModelFieldInfo(**attributes)
 
 
-def _model_metadata(field: BaseField, projection: EntityModelProjection) -> tuple[t.Any, ...]:
+def _model_metadata(field: BaseField, projection: ModelProjection) -> tuple[t.Any, ...]:
     """Return Pydantic metadata applicable to this projection."""
     return tuple(
         metadata
