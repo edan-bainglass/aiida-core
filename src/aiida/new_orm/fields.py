@@ -2,19 +2,14 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-import functools
 import typing as t
 from collections.abc import Callable
 
-from pydantic.fields import FieldInfo as ModelFieldInfo
+import pydantic as pdt
 from typing_extensions import Self
 
-from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.common.utils import is_nullable
-from aiida.new_orm.cli_adapter import CliAdapter
-from aiida.new_orm.model_adapter import ModelAdapter
-from aiida.new_orm.modeling import ModelMetadata
 from aiida.orm import fields as qb_fields
 
 __all__ = (
@@ -22,10 +17,12 @@ __all__ = (
     'BaseFieldConfig',
     'BaseFieldDecorator',
     'BaseFieldSpec',
-    'CliFieldInfo',
-    'ModelFieldInfo',
     'Storable',
 )
+
+if t.TYPE_CHECKING:
+    from aiida.new_orm.cli import CliAdapter, CliFieldInfo
+    from aiida.new_orm.modeling import ModelAdapter, ModelMetadata
 
 
 @dataclasses.dataclass(frozen=True)
@@ -40,24 +37,13 @@ class BaseFieldSpec:
 
 
 @dataclasses.dataclass(frozen=True)
-class CliFieldInfo:
-    """Optional Click-specific configuration for an ORM field."""
-
-    prompt: str | bool | None = None
-    help: str = ''
-    priority: int = 0
-    short_name: str = ''
-    option_cls: functools.partial[TemplateInteractiveOption] | None = None
-
-
-@dataclasses.dataclass(frozen=True)
 class BaseFieldConfig:
     """Base unresolved configuration for an ORM field."""
 
     readonly: bool = False
     required_once_stored: bool = False
 
-    model_field_info: ModelFieldInfo | None = None
+    model_field_info: pdt.fields.FieldInfo | None = None
     model_metadata: tuple[ModelMetadata, ...] = ()
     model_adapter: ModelAdapter[t.Any, t.Any, t.Any] | None = None
 
@@ -135,7 +121,7 @@ class BaseField(
         return self._spec
 
     @property
-    def model_field_info(self) -> ModelFieldInfo | None:
+    def model_field_info(self) -> pdt.fields.FieldInfo | None:
         """Return optional Pydantic-specific field configuration."""
         return self._config.model_field_info
 

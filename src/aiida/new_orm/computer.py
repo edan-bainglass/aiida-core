@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import typing as t
 
+import pydantic as pdt
+
 from aiida import orm
 from aiida.common import exceptions
 from aiida.manage.manager import get_manager
 from aiida.new_orm.columns import column
 from aiida.new_orm.entity import Entity
-from aiida.new_orm.fields import ModelFieldInfo
-from aiida.orm.implementation import BackendComputer, StorageBackend
+from aiida.orm.implementation import BackendComputer
+
+if t.TYPE_CHECKING:
+    from aiida.orm.implementation import StorageBackend
 
 __all__ = ('Computer',)
 
@@ -81,7 +85,7 @@ class Computer(Entity[BackendComputer]):
 
     @column(
         updatable=True,
-        model_field_info=ModelFieldInfo(default=''),
+        model_field_info=pdt.fields.FieldInfo(default=''),
     )
     def description(self) -> str:
         """The description of the computer."""
@@ -93,7 +97,7 @@ class Computer(Entity[BackendComputer]):
 
     @column(
         may_be_large=True,
-        model_field_info=ModelFieldInfo(default_factory=dict),
+        model_field_info=pdt.fields.FieldInfo(default_factory=dict),
     )
     def metadata(self) -> dict[str, t.Any]:
         """The metadata of the computer."""

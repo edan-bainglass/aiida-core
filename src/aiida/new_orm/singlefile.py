@@ -1,13 +1,3 @@
-###########################################################################
-# Copyright (c), The AiiDA team. All rights reserved.                     #
-# This file is part of the AiiDA code.                                    #
-#                                                                         #
-# The code is hosted on GitHub at https://github.com/aiidateam/aiida-core #
-# For further information on the license, see the LICENSE.txt file        #
-# For further information please visit http://www.aiida.net               #
-###########################################################################
-"""Data class that can be used to store a single file in its repository."""
-
 from __future__ import annotations
 
 import contextlib
@@ -17,9 +7,11 @@ import pathlib
 import typing as t
 
 from aiida.common import exceptions
-from aiida.common.typing import FilePath
 from aiida.new_orm.attributes import attribute
 from aiida.new_orm.data import Data
+
+if t.TYPE_CHECKING:
+    from aiida.common.typing import FilePath
 
 __all__ = ('SinglefileData',)
 

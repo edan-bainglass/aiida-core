@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import pathlib
 
+import pydantic as pdt
+
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_level
 from aiida.new_orm.adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter
 from aiida.new_orm.attributes import attribute
+from aiida.new_orm.cli import CliFieldInfo
 from aiida.new_orm.code import Code
 from aiida.new_orm.columns import column
 from aiida.new_orm.computer import Computer
-from aiida.new_orm.fields import CliFieldInfo, ModelFieldInfo
 
 __all__ = ('InstalledCode',)
 
@@ -19,7 +21,7 @@ class InstalledCode(Code):
     """Data plugin representing an executable code on a remote computer."""
 
     @column(
-        model_field_info=ModelFieldInfo(description='The PK of the associated computer.'),
+        model_field_info=pdt.fields.FieldInfo(description='The PK of the associated computer.'),
         model_adapter=EntityPkAdapter(Computer),
         cli_field_info=CliFieldInfo(
             help='The label of the associated computer.',

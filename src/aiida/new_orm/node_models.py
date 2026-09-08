@@ -15,8 +15,6 @@ from aiida.new_orm.attributes import (
     NodeAttributesColumn,
     iter_attributes,
 )
-from aiida.new_orm.columns import Column
-from aiida.new_orm.modeling import ModelProjection
 from aiida.new_orm.models import (
     ModelsNamespace,
     OrmModel,
@@ -25,6 +23,8 @@ from aiida.new_orm.models import (
 )
 
 if t.TYPE_CHECKING:
+    from aiida.new_orm.columns import Column
+    from aiida.new_orm.modeling import ModelProjection
     from aiida.new_orm.node import Node
 
 __all__ = ('NodeModelsNamespace',)

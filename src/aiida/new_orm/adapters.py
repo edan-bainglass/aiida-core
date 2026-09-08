@@ -7,9 +7,9 @@ from uuid import UUID
 from typing_extensions import Self
 
 from aiida.common import exceptions
-from aiida.new_orm.cli_adapter import CliAdapter
+from aiida.new_orm.cli import CliAdapter
 from aiida.new_orm.entity import Entity
-from aiida.new_orm.model_adapter import ModelAdapter
+from aiida.new_orm.modeling import ModelAdapter
 from aiida.orm import fields as qb_fields
 
 

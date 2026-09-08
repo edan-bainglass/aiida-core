@@ -14,16 +14,18 @@ from aiida.common.utils import (
     make_nullable,
     make_required,
 )
-from aiida.new_orm.columns import Column, ColumnSpec, iter_columns
-from aiida.new_orm.fields import BaseField, ModelFieldInfo
+from aiida.new_orm.columns import iter_columns
 from aiida.new_orm.modeling import (
-    ModelMetadata,
-    ModelProjection,
     iter_model_serializers,
     iter_model_validators,
     make_model_serializer,
     make_model_validator,
 )
+
+if t.TYPE_CHECKING:
+    from aiida.new_orm.columns import Column, ColumnSpec
+    from aiida.new_orm.fields import BaseField
+    from aiida.new_orm.modeling import ModelMetadata, ModelProjection
 
 __all__ = (
     'CreateModel',
@@ -375,12 +377,12 @@ def _build_model_field(
     model_type: t.Any,
     *,
     description: str = '',
-    model_field_info: ModelFieldInfo | None = None,
+    model_field_info: pdt.fields.FieldInfo | None = None,
     model_metadata: tuple[ModelMetadata, ...] = (),
     readonly: bool = False,
 ) -> tuple[t.Any, t.Any]:
     """Build the Pydantic declaration for a model field."""
-    field_info = model_field_info if model_field_info is not None else ModelFieldInfo()
+    field_info = model_field_info if model_field_info is not None else pdt.fields.FieldInfo()
     field_dict = field_info.asdict()
 
     metadata = (*field_dict['metadata'], *model_metadata)
@@ -415,7 +417,7 @@ def _build_model_field(
 
     annotation = make_annotated(model_type, metadata)
 
-    return annotation, ModelFieldInfo(**attributes)
+    return annotation, pdt.fields.FieldInfo(**attributes)
 
 
 def _model_metadata(field: BaseField, projection: ModelProjection) -> tuple[t.Any, ...]:

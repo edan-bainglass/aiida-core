@@ -5,17 +5,21 @@ import functools
 import pathlib
 import typing as t
 
+import pydantic as pdt
+
 from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
 from aiida.engine import ProcessBuilder
 from aiida.new_orm.attributes import attribute
+from aiida.new_orm.cli import CliFieldInfo
 from aiida.new_orm.columns import column
-from aiida.new_orm.computer import Computer
 from aiida.new_orm.data import Data
-from aiida.new_orm.fields import CliFieldInfo, ModelFieldInfo
 from aiida.plugins.factories import CalculationFactory
+
+if t.TYPE_CHECKING:
+    from aiida.new_orm.computer import Computer
 
 __all__ = ('Code',)
 
@@ -58,7 +62,7 @@ class Code(Data, abc.ABC):
 
     @column(
         updatable=True,
-        model_field_info=ModelFieldInfo(default=''),
+        model_field_info=pdt.fields.FieldInfo(default=''),
         cli_field_info=CliFieldInfo(
             short_name='-D',
             priority=3,
@@ -75,7 +79,7 @@ class Code(Data, abc.ABC):
         self._backend_entity.description = value
 
     @attribute(
-        model_field_info=ModelFieldInfo(
+        model_field_info=pdt.fields.FieldInfo(
             default=None,
             title='Default `CalcJob` plugin',
         ),
@@ -91,7 +95,7 @@ class Code(Data, abc.ABC):
         self.base.attributes.set(self._KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, value)
 
     @attribute(
-        model_field_info=ModelFieldInfo(
+        model_field_info=pdt.fields.FieldInfo(
             default=False,
             title='Escape using double quotes',
         ),
@@ -106,7 +110,7 @@ class Code(Data, abc.ABC):
         self.base.attributes.set(self._KEY_ATTRIBUTE_USE_DOUBLE_QUOTES, value)
 
     @attribute(
-        model_field_info=ModelFieldInfo(
+        model_field_info=pdt.fields.FieldInfo(
             default=None,
             title='Run with MPI',
         ),
@@ -127,7 +131,7 @@ class Code(Data, abc.ABC):
         self.base.attributes.set(self._KEY_ATTRIBUTE_WITH_MPI, value)
 
     @attribute(
-        model_field_info=ModelFieldInfo(
+        model_field_info=pdt.fields.FieldInfo(
             default=False,
             title='Wrap command line parameters in double quotes',
         ),
@@ -148,7 +152,7 @@ class Code(Data, abc.ABC):
         self.base.attributes.set(self._KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS, value)
 
     @attribute(
-        model_field_info=ModelFieldInfo(
+        model_field_info=pdt.fields.FieldInfo(
             default='',
             title='Append script',
         ),
@@ -172,7 +176,7 @@ class Code(Data, abc.ABC):
         self.base.attributes.set(self._KEY_ATTRIBUTE_APPEND_TEXT, value)
 
     @attribute(
-        model_field_info=ModelFieldInfo(
+        model_field_info=pdt.fields.FieldInfo(
             default='',
             title='Prepend script',
         ),

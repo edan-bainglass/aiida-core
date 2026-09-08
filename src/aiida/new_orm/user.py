@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import typing as t
+
+import pydantic as pdt
+
 from aiida import orm
 from aiida.common import exceptions
 from aiida.manage.manager import get_manager
 from aiida.new_orm.columns import column
 from aiida.new_orm.entity import Entity
-from aiida.new_orm.fields import ModelFieldInfo
-from aiida.orm.implementation import BackendUser, StorageBackend
+from aiida.orm.implementation import BackendUser
+
+if t.TYPE_CHECKING:
+    from aiida.orm.implementation import StorageBackend
+
+__all__ = ('User',)
 
 
 class User(Entity[BackendUser]):
@@ -47,7 +55,7 @@ class User(Entity[BackendUser]):
     def email(self, email: str) -> None:
         self._backend_entity.email = email
 
-    @column(model_field_info=ModelFieldInfo(default=''))
+    @column(model_field_info=pdt.fields.FieldInfo(default=''))
     def first_name(self) -> str:
         """The first name of the user."""
         return self._backend_entity.first_name
@@ -56,7 +64,7 @@ class User(Entity[BackendUser]):
     def first_name(self, first_name: str) -> None:
         self._backend_entity.first_name = first_name
 
-    @column(model_field_info=ModelFieldInfo(default=''))
+    @column(model_field_info=pdt.fields.FieldInfo(default=''))
     def last_name(self) -> str:
         """The last name of the user."""
         return self._backend_entity.last_name
@@ -65,7 +73,7 @@ class User(Entity[BackendUser]):
     def last_name(self, last_name: str) -> None:
         self._backend_entity.last_name = last_name
 
-    @column(model_field_info=ModelFieldInfo(default=''))
+    @column(model_field_info=pdt.fields.FieldInfo(default=''))
     def institution(self) -> str:
         """The institution of the user."""
         return self._backend_entity.institution

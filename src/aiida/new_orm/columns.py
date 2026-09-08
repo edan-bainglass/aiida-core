@@ -5,21 +5,21 @@ import datetime
 import typing as t
 from collections.abc import Callable
 
+import pydantic as pdt
 from typing_extensions import Self
 
-from aiida.new_orm.cli_adapter import CliAdapter
 from aiida.new_orm.fields import (
     BaseField,
     BaseFieldConfig,
     BaseFieldDecorator,
     BaseFieldSpec,
-    CliFieldInfo,
-    ModelFieldInfo,
     Storable,
 )
-from aiida.new_orm.model_adapter import ModelAdapter
-from aiida.new_orm.modeling import ModelMetadata
 from aiida.orm import fields as qb_fields
+
+if t.TYPE_CHECKING:
+    from aiida.new_orm.cli import CliAdapter, CliFieldInfo
+    from aiida.new_orm.modeling import ModelAdapter, ModelMetadata
 
 __all__ = (
     'Column',
@@ -269,7 +269,7 @@ class ColumnDecorator(
         updatable: bool = False,
         required_once_stored: bool = False,
         may_be_large: bool = False,
-        model_field_info: ModelFieldInfo | None = None,
+        model_field_info: pdt.fields.FieldInfo | None = None,
         model_metadata: tuple[ModelMetadata, ...] = (),
         model_adapter: ModelAdapter[_AdaptedEntityT, _AdaptedModelT, _QbFieldT],
         cli_field_info: CliFieldInfo | None = None,
@@ -285,7 +285,7 @@ class ColumnDecorator(
         updatable: bool = False,
         required_once_stored: bool = False,
         may_be_large: bool = False,
-        model_field_info: ModelFieldInfo | None = None,
+        model_field_info: pdt.fields.FieldInfo | None = None,
         model_metadata: tuple[ModelMetadata, ...] = (),
         model_adapter: None = None,
         cli_field_info: CliFieldInfo | None = None,

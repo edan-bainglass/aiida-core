@@ -3,9 +3,9 @@ from __future__ import annotations
 import datetime
 import functools
 import typing as t
-from typing import NoReturn
+from uuid import UUID
 
-from click import UUID
+import pydantic as pdt
 from importlib_metadata import EntryPoint
 from typing_extensions import Self
 
@@ -20,10 +20,9 @@ from aiida.new_orm.attributes import attributes_column
 from aiida.new_orm.columns import column
 from aiida.new_orm.computer import Computer
 from aiida.new_orm.entity import Entity, from_backend_entity
-from aiida.new_orm.fields import ModelFieldInfo
 from aiida.new_orm.node_models import NodeModelsNamespace
 from aiida.new_orm.user import User
-from aiida.orm.implementation import BackendNode, StorageBackend
+from aiida.orm.implementation import BackendNode
 from aiida.orm.nodes.caching import NodeCaching
 from aiida.orm.nodes.links import NodeLinks
 from aiida.orm.nodes.node import NodeBase
@@ -31,6 +30,7 @@ from aiida.orm.utils.node import get_type_string_from_class
 
 if t.TYPE_CHECKING:
     from aiida.common.log import AiidaLoggerType
+    from aiida.orm.implementation import StorageBackend
 
 __all__ = ('Node',)
 
@@ -132,17 +132,17 @@ class Node(Entity[BackendNode]):
 
         return f'uuid: {self.uuid} (pk: {self.pk})'
 
-    def __copy__(self) -> NoReturn:
+    def __copy__(self) -> t.NoReturn:
         """Copying a Node is not supported in general, but only for the Data sub class."""
         raise exceptions.InvalidOperation('copying a base Node is not supported')
 
-    def __deepcopy__(self, memo: t.Any) -> NoReturn:
+    def __deepcopy__(self, memo: t.Any) -> t.NoReturn:
         """Deep copying a Node is not supported in general, but only for the Data sub class."""
         raise exceptions.InvalidOperation('deep copying a base Node is not supported')
 
     @column(
         updatable=True,
-        model_field_info=ModelFieldInfo(default=''),
+        model_field_info=pdt.fields.FieldInfo(default=''),
     )
     def label(self) -> str:
         """The label of the node."""
@@ -154,7 +154,7 @@ class Node(Entity[BackendNode]):
 
     @column(
         updatable=True,
-        model_field_info=ModelFieldInfo(default=''),
+        model_field_info=pdt.fields.FieldInfo(default=''),
     )
     def description(self) -> str:
         """The description of the node."""
@@ -167,7 +167,7 @@ class Node(Entity[BackendNode]):
     @column(
         updatable=True,
         may_be_large=True,
-        model_field_info=ModelFieldInfo(default_factory=dict),
+        model_field_info=pdt.fields.FieldInfo(default_factory=dict),
     )
     def extras(self) -> dict[str, t.Any]:
         """The extras of the node."""
@@ -188,7 +188,7 @@ class Node(Entity[BackendNode]):
 
     @column(
         readonly=True,
-        model_field_info=ModelFieldInfo(description='The PK of the associated user.'),
+        model_field_info=pdt.fields.FieldInfo(description='The PK of the associated user.'),
         model_adapter=EntityPkAdapter(User),
     )
     def user(self) -> User:
@@ -196,7 +196,7 @@ class Node(Entity[BackendNode]):
         return from_backend_entity(User, self._backend_entity.user)
 
     @column(
-        model_field_info=ModelFieldInfo(
+        model_field_info=pdt.fields.FieldInfo(
             default=None,
             description='The PK of the associated computer.',
         ),
@@ -240,7 +240,7 @@ class Node(Entity[BackendNode]):
     @column(
         readonly=True,
         may_be_large=True,
-        model_field_info=ModelFieldInfo(default_factory=dict),
+        model_field_info=pdt.fields.FieldInfo(default_factory=dict),
     )
     def repository_metadata(self) -> dict[str, t.Any]:
         """The repository metadata of the node."""

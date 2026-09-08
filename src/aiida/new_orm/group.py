@@ -4,6 +4,7 @@ import datetime
 import functools
 import typing as t
 
+import pydantic as pdt
 from typing_extensions import Self
 
 from aiida import orm
@@ -13,10 +14,12 @@ from aiida.manage.manager import get_manager
 from aiida.new_orm.adapters import EntityPkAdapter, StrUuidAdapter
 from aiida.new_orm.columns import column
 from aiida.new_orm.entity import Entity, from_backend_entity
-from aiida.new_orm.fields import ModelFieldInfo
 from aiida.new_orm.user import User
 from aiida.orm import groups
-from aiida.orm.implementation import BackendGroup, StorageBackend
+from aiida.orm.implementation import BackendGroup
+
+if t.TYPE_CHECKING:
+    from aiida.orm.implementation import StorageBackend
 
 __all__ = ('Group',)
 
@@ -103,7 +106,7 @@ class Group(Entity[BackendGroup]):
     @column(
         updatable=True,
         may_be_large=True,
-        model_field_info=ModelFieldInfo(default_factory=dict),
+        model_field_info=pdt.fields.FieldInfo(default_factory=dict),
     )
     def extras(self) -> dict[str, t.Any]:
         """The extras of the group."""
