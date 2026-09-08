@@ -24,7 +24,6 @@ __all__ = (
     'iter_model_validators',
     'make_model_serializer',
     'make_model_validator',
-    'model_metadata',
 )
 
 ModelProjection = t.Literal['read', 'create', 'update']
@@ -43,17 +42,6 @@ class ModelMetadata:
 
     metadata: tuple[t.Any, ...]
     projections: frozenset[ModelProjection] | None = None
-
-
-def model_metadata(
-    *metadata: t.Any,
-    projections: Iterable[ModelProjection] | None = None,
-) -> ModelMetadata:
-    """Declare Pydantic annotation metadata for selected model projections."""
-    return ModelMetadata(
-        metadata=metadata,
-        projections=None if projections is None else frozenset(projections),
-    )
 
 
 @dataclasses.dataclass(frozen=True)
