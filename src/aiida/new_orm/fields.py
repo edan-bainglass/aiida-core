@@ -10,7 +10,7 @@ from typing_extensions import Self
 
 from aiida.common import exceptions
 from aiida.common.utils import is_nullable
-from aiida.orm import fields as qb_fields
+from aiida.orm import qb_fields
 
 __all__ = (
     'BaseField',

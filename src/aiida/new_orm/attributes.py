@@ -16,7 +16,7 @@ from aiida.new_orm.fields import (
     BaseFieldSpec,
     Storable,
 )
-from aiida.orm import fields as qb_fields
+from aiida.orm import qb_fields
 
 if t.TYPE_CHECKING:
     from aiida.new_orm.cli import CliAdapter, CliFieldInfo

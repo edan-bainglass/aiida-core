@@ -10,7 +10,7 @@ from aiida.common import exceptions
 from aiida.new_orm.cli import CliAdapter
 from aiida.new_orm.entity import Entity
 from aiida.new_orm.modeling import ModelAdapter
-from aiida.orm import fields as qb_fields
+from aiida.orm import qb_fields
 
 
 class EntityPkAdapter(ModelAdapter[Entity, int, qb_fields.QbNumericField]):

@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable
 import pydantic as pdt
 
 from aiida.common.lang import classproperty
-from aiida.orm import fields as qb_fields
+from aiida.orm import qb_fields
 
 __all__ = (
     'ModelAdapter',
