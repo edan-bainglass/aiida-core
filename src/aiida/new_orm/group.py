@@ -11,10 +11,10 @@ from aiida import orm
 from aiida.common import exceptions
 from aiida.common.lang import classproperty
 from aiida.manage.manager import get_manager
-from aiida.new_orm.adapters import EntityPkAdapter, StrUuidAdapter
 from aiida.new_orm.entity import Entity, from_backend_entity
 from aiida.new_orm.user import User
 from aiida.orm import groups
+from aiida.orm.adapters import EntityPkAdapter, StrUuidAdapter
 from aiida.orm.decorators.columns import column
 from aiida.orm.implementation import BackendGroup
 

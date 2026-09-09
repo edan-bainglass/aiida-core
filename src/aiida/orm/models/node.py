@@ -10,22 +10,22 @@ from aiida.common.utils import (
     make_nullable,
     make_required,
 )
-from aiida.new_orm.models import (
-    ModelsNamespace,
-    OrmModel,
-    _build_model_field,
-    _model_metadata,
-)
 from aiida.orm.decorators.attributes import (
     NodeAttribute,
     NodeAttributesColumn,
     iter_attributes,
 )
+from aiida.orm.models.entity import (
+    ModelsNamespace,
+    OrmModel,
+    _build_model_field,
+    _model_metadata,
+)
 
 if t.TYPE_CHECKING:
-    from aiida.new_orm.modeling import ModelProjection
     from aiida.new_orm.node import Node
     from aiida.orm.decorators.columns import Column
+    from aiida.orm.models.modeling import ModelProjection
 
 
 __all__ = ('NodeModelsNamespace',)

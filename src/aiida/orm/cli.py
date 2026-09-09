@@ -17,8 +17,8 @@ from aiida.orm.decorators.columns import iter_columns
 if t.TYPE_CHECKING:
     from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
     from aiida.new_orm.entity import Entity
-    from aiida.new_orm.models import EntityModel
     from aiida.orm.decorators.base import BaseField
+    from aiida.orm.models.entity import EntityModel
 
 __all__ = (
     'CliAdapter',

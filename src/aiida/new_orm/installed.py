@@ -7,10 +7,10 @@ import pydantic as pdt
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_level
-from aiida.new_orm.adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter
-from aiida.new_orm.cli import CliFieldInfo
 from aiida.new_orm.code import Code
 from aiida.new_orm.computer import Computer
+from aiida.orm.adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter
+from aiida.orm.cli import CliFieldInfo
 from aiida.orm.decorators.attributes import attribute
 from aiida.orm.decorators.columns import column
 

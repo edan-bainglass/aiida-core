@@ -30,7 +30,7 @@ from aiida.common import exceptions
 
 if TYPE_CHECKING:
     from aiida.new_orm.code import Code
-    from aiida.new_orm.models import CreateModel
+    from aiida.orm.models.entity import CreateModel
 
 
 @verdi.group('code')

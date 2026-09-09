@@ -18,8 +18,8 @@ from aiida.orm.decorators.base import (
 )
 
 if t.TYPE_CHECKING:
-    from aiida.new_orm.cli import CliAdapter, CliFieldInfo
-    from aiida.new_orm.modeling import ModelAdapter, ModelMetadata
+    from aiida.orm.cli import CliAdapter, CliFieldInfo
+    from aiida.orm.models.modeling import ModelAdapter, ModelMetadata
 
 __all__ = (
     'Column',

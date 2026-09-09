@@ -8,9 +8,9 @@ from plumpy.base import call_with_super_check, super_check
 from typing_extensions import Self
 
 from aiida.common.lang import type_check
-from aiida.new_orm.models import EntityModel, ModelsNamespace
 from aiida.orm.decorators.columns import column
 from aiida.orm.implementation import BackendEntity
+from aiida.orm.models.entity import EntityModel, ModelsNamespace
 
 if t.TYPE_CHECKING:
     from aiida.orm.implementation import StorageBackend
@@ -75,7 +75,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
     @classmethod
     def get_cli_create_spec(cls):
         """Return the CLI creation specification for this entity."""
-        from aiida.new_orm.cli import EntityCliCreateSpec
+        from aiida.orm.cli import EntityCliCreateSpec
 
         return EntityCliCreateSpec(cls)
 
