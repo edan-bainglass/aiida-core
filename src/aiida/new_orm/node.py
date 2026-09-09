@@ -317,6 +317,10 @@ class Node(Entity[BackendNode]):
 
         return self
 
+    def attach_file(self, filepath: str, fileobj: t.BinaryIO) -> None:
+        """Attach a file to the repository of this node."""
+        self.base.repository.put_object_from_filelike(fileobj, filepath)  # type: ignore[arg-type]
+
     @classproperty
     def _plugin_type_string(cls: type[Node]) -> str:  # noqa: N805
         if not hasattr(cls, '__plugin_type_string'):
