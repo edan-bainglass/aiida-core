@@ -18,12 +18,9 @@ import itertools
 import json
 import typing as t
 
-from pydantic import field_validator
-
 from aiida.common.constants import elements
 from aiida.common.exceptions import UnsupportedSpeciesError
 from aiida.orm.nodes.data.data import Data
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('Kind', 'Site', 'StructureData')
 
@@ -687,39 +684,39 @@ class StructureData(Data):
     _dimensionality_label = {0: '', 1: 'length', 2: 'surface', 3: 'volume'}
     _internal_kind_tags = None
 
-    class AttributesModel(Data.AttributesModel):
-        pbc1: bool = OrmMetadataField(
-            False,
-            description='Whether periodic in the a direction',
-        )
-        pbc2: bool = OrmMetadataField(
-            False,
-            description='Whether periodic in the b direction',
-        )
-        pbc3: bool = OrmMetadataField(
-            False,
-            description='Whether periodic in the c direction',
-        )
-        cell: list[list[float]] | None = OrmMetadataField(
-            None,
-            description='The cell parameters',
-        )
-        kinds: list[dict] = OrmMetadataField(
-            description='The kinds of atoms',
-        )
-        sites: list[dict] = OrmMetadataField(
-            description='The atomic sites',
-        )
+    # class AttributesModel(Data.AttributesModel):
+    #     pbc1: bool = OrmMetadataField(
+    #         False,
+    #         description='Whether periodic in the a direction',
+    #     )
+    #     pbc2: bool = OrmMetadataField(
+    #         False,
+    #         description='Whether periodic in the b direction',
+    #     )
+    #     pbc3: bool = OrmMetadataField(
+    #         False,
+    #         description='Whether periodic in the c direction',
+    #     )
+    #     cell: list[list[float]] | None = OrmMetadataField(
+    #         None,
+    #         description='The cell parameters',
+    #     )
+    #     kinds: list[dict] = OrmMetadataField(
+    #         description='The kinds of atoms',
+    #     )
+    #     sites: list[dict] = OrmMetadataField(
+    #         description='The atomic sites',
+    #     )
 
-        @field_validator('kinds', mode='before')
-        @classmethod
-        def _validate_kinds(cls, value: list[Kind | dict[str, t.Any]]) -> list[dict]:
-            return [kind.get_raw() if isinstance(kind, Kind) else kind for kind in value]
+    #     @field_validator('kinds', mode='before')
+    #     @classmethod
+    #     def _validate_kinds(cls, value: list[Kind | dict[str, t.Any]]) -> list[dict]:
+    #         return [kind.get_raw() if isinstance(kind, Kind) else kind for kind in value]
 
-        @field_validator('sites', mode='before')
-        @classmethod
-        def _validate_sites(cls, value: list[Site | dict[str, t.Any]]) -> list[dict]:
-            return [site.get_raw() if isinstance(site, Site) else site for site in value]
+    #     @field_validator('sites', mode='before')
+    #     @classmethod
+    #     def _validate_sites(cls, value: list[Site | dict[str, t.Any]]) -> list[dict]:
+    #         return [site.get_raw() if isinstance(site, Site) else site for site in value]
 
     def __init__(
         self,

@@ -13,12 +13,9 @@ periodic crystal structure).
 
 from __future__ import annotations
 
-import typing as t
-
 import numpy
 
 from aiida.orm.nodes.data.array.array import ArrayData
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('KpointsData',)
 
@@ -39,47 +36,47 @@ class KpointsData(ArrayData):
     set_cell_from_structure methods.
     """
 
-    class AttributesModel(ArrayData.AttributesModel):
-        labels: list[str] | None = OrmMetadataField(
-            None,
-            description='Labels associated with the list of kpoints',
-            orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('labels', None),
-        )
-        label_numbers: list[int] | None = OrmMetadataField(
-            None,
-            description='Index of the labels in the list of kpoints',
-            orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('label_numbers', None),
-        )
-        cell: list[list[float]] | None = OrmMetadataField(
-            None,
-            description='Unit cell of the crystal, in Angstroms',
-            orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('cell', None),
-        )
-        pbc1: bool | None = OrmMetadataField(
-            None,
-            description='Periodicity in the first lattice vector direction',
-            orm_to_model=lambda node: t.cast(KpointsData, node).pbc[0],
-        )
-        pbc2: bool | None = OrmMetadataField(
-            None,
-            description='Periodicity in the second lattice vector direction',
-            orm_to_model=lambda node: t.cast(KpointsData, node).pbc[1],
-        )
-        pbc3: bool | None = OrmMetadataField(
-            None,
-            description='Periodicity in the third lattice vector direction',
-            orm_to_model=lambda node: t.cast(KpointsData, node).pbc[2],
-        )
-        mesh: list[int] | None = OrmMetadataField(
-            None,
-            description='Mesh of kpoints',
-            orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('mesh', None),
-        )
-        offset: list[float] | None = OrmMetadataField(
-            None,
-            description='Offset of kpoints',
-            orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('offset', None),
-        )
+    # class AttributesModel(ArrayData.AttributesModel):
+    #     labels: list[str] | None = OrmMetadataField(
+    #         None,
+    #         description='Labels associated with the list of kpoints',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('labels', None),
+    #     )
+    #     label_numbers: list[int] | None = OrmMetadataField(
+    #         None,
+    #         description='Index of the labels in the list of kpoints',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('label_numbers', None),
+    #     )
+    #     cell: list[list[float]] | None = OrmMetadataField(
+    #         None,
+    #         description='Unit cell of the crystal, in Angstroms',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('cell', None),
+    #     )
+    #     pbc1: bool | None = OrmMetadataField(
+    #         None,
+    #         description='Periodicity in the first lattice vector direction',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).pbc[0],
+    #     )
+    #     pbc2: bool | None = OrmMetadataField(
+    #         None,
+    #         description='Periodicity in the second lattice vector direction',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).pbc[1],
+    #     )
+    #     pbc3: bool | None = OrmMetadataField(
+    #         None,
+    #         description='Periodicity in the third lattice vector direction',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).pbc[2],
+    #     )
+    #     mesh: list[int] | None = OrmMetadataField(
+    #         None,
+    #         description='Mesh of kpoints',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('mesh', None),
+    #     )
+    #     offset: list[float] | None = OrmMetadataField(
+    #         None,
+    #         description='Offset of kpoints',
+    #         orm_to_model=lambda node: t.cast(KpointsData, node).base.attributes.get('offset', None),
+    #     )
 
     def __init__(
         self,

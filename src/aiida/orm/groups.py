@@ -11,12 +11,11 @@
 from __future__ import annotations
 
 import datetime
+import typing as t
 import warnings
 from collections.abc import Sequence
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, cast
-from uuid import UUID
 
 from typing_extensions import Self
 
@@ -25,9 +24,8 @@ from aiida.common.lang import classproperty, type_check
 from aiida.common.warnings import warn_deprecation
 from aiida.manage import get_manager
 from aiida.orm import convert, entities, extras, users
-from aiida.orm.pydantic import OrmMetadataField
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from importlib_metadata import EntryPoint
 
     from aiida.orm import Node, User
@@ -61,7 +59,7 @@ def load_group_class(type_string: str) -> type[Group]:
 class GroupCollection(entities.Collection['Group']):
     """Collection of Groups"""
 
-    collection_type: ClassVar[str] = 'groups'
+    collection_type: t.ClassVar[str] = 'groups'
 
     @staticmethod
     def _entity_base_cls() -> type[Group]:
@@ -113,49 +111,9 @@ class GroupBase:
 class Group(entities.Entity['BackendGroup', GroupCollection]):
     """An AiiDA ORM implementation of group of nodes."""
 
-    __type_string: ClassVar[str | None]
+    __type_string: t.ClassVar[str | None]
 
     identity_field = 'uuid'
-
-    class ReadModel(entities.Entity.ReadModel):
-        uuid: UUID = OrmMetadataField(
-            description='The UUID of the group',
-            read_only=True,
-            examples=['123e4567-e89b-12d3-a456-426614174000'],
-        )
-        type_string: str = OrmMetadataField(
-            description='The type of the group',
-            read_only=True,
-            examples=['my_custom_group_type'],
-        )
-        user: int = OrmMetadataField(
-            description='The PK of the group owner',
-            orm_class='core.user',
-            orm_to_model=lambda group: cast(Group, group).user.pk,
-            read_only=True,
-            examples=[1],
-        )
-        time: datetime.datetime = OrmMetadataField(
-            description='The creation time of the node, defaults to now (timezone-aware)',
-            read_only=True,
-            examples=['2024-01-01T12:00:00+00:00'],
-        )
-        label: str = OrmMetadataField(
-            description='The group label',
-            examples=['my_group_label'],
-        )
-        description: str = OrmMetadataField(
-            '',
-            description='The group description',
-            examples=['This is my group description.'],
-        )
-        extras: dict[str, Any] = OrmMetadataField(
-            default_factory=dict,
-            description='The group extras',
-            orm_to_model=lambda group: cast(Group, group).base.extras.all,
-            may_be_large=True,
-            examples=[{'key': 'value'}],
-        )
 
     _CLS_COLLECTION = GroupCollection
 
@@ -166,7 +124,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
         description: str = '',
         type_string: str | None = None,
         time: datetime.datetime | None = None,
-        extras: dict[str, Any] | None = None,
+        extras: dict[str, t.Any] | None = None,
         backend: StorageBackend | None = None,
     ):
         """Create a new group. Either pass a dbgroup parameter, to reload
@@ -186,7 +144,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
             warn_deprecation('Passing the `type_string` is deprecated, it is determined automatically', version=3)
 
         backend = backend or get_manager().get_profile_storage()
-        user = cast(users.User, user or backend.default_user)
+        user = t.cast(users.User, user or backend.default_user)
         type_check(user, users.User)
 
         model = backend.groups.create(
@@ -478,7 +436,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
         'extras_keys': 'keys',
     }
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> t.Any:
         """This method is called when an extras is not found in the instance.
 
         It allows for the handling of deprecated mixin methods.

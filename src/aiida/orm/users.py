@@ -10,14 +10,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+import typing as t
 
 from aiida.common import exceptions
 from aiida.manage import get_manager
 from aiida.orm import entities
-from aiida.orm.pydantic import OrmMetadataField
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from aiida.orm.implementation import StorageBackend
     from aiida.orm.implementation.users import BackendUser
 
@@ -27,7 +26,7 @@ __all__ = ('User',)
 class UserCollection(entities.Collection['User']):
     """The collection of users stored in a backend."""
 
-    collection_type: ClassVar[str] = 'users'
+    collection_type: t.ClassVar[str] = 'users'
 
     @staticmethod
     def _entity_base_cls() -> type[User]:
@@ -55,27 +54,6 @@ class User(entities.Entity['BackendUser', UserCollection]):
     """AiiDA User"""
 
     _CLS_COLLECTION = UserCollection
-
-    class ReadModel(entities.Entity.ReadModel):
-        email: str = OrmMetadataField(
-            description='The user email',
-            examples=['verdi@opera.net'],
-        )
-        first_name: str = OrmMetadataField(
-            '',
-            description='The user first name',
-            examples=['Giuseppe'],
-        )
-        last_name: str = OrmMetadataField(
-            '',
-            description='The user last name',
-            examples=['Verdi'],
-        )
-        institution: str = OrmMetadataField(
-            '',
-            description='The user institution',
-            examples=['Opera National de Paris'],
-        )
 
     def __init__(
         self,

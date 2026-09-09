@@ -11,7 +11,6 @@
 import numpy
 
 from aiida.orm.nodes.data.base import BaseType, to_aiida_type
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('Bool',)
 
@@ -21,11 +20,11 @@ class Bool(BaseType):
 
     _type = bool
 
-    class AttributesModel(BaseType.AttributesModel):
-        value: bool = OrmMetadataField(
-            title='Boolean value',
-            description='The value of the boolean',
-        )
+    # class AttributesModel(BaseType.AttributesModel):
+    #     value: bool = OrmMetadataField(
+    #         title='Boolean value',
+    #         description='The value of the boolean',
+    #     )
 
     def __int__(self):
         return int(bool(self))

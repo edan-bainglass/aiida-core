@@ -15,7 +15,6 @@ from typing import Literal
 
 from aiida.common.utils import Capturing
 from aiida.orm.nodes.data.singlefile import SinglefileData
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('CifData', 'cif_from_ase', 'has_pycifrw', 'pycifrw_from_cif')
 
@@ -251,26 +250,26 @@ class CifData(SinglefileData):
     _values = None
     _ase = None
 
-    class AttributesModel(SinglefileData.AttributesModel):
-        formulae: list[str] | None = OrmMetadataField(
-            None,
-            description='List of formulae contained in the CIF file',
-        )
-        spacegroup_numbers: list[str] | None = OrmMetadataField(
-            None,
-            description='List of space group numbers of the structure',
-        )
-        md5: str | None = OrmMetadataField(
-            None,
-            description='MD5 checksum of the file contents',
-            read_only=True,
-        )
-        scan_type: Literal['standard', 'flex'] = OrmMetadataField(
-            description='Scan type for parsing with PyCIFRW',
-        )
-        parse_policy: Literal['eager', 'lazy'] = OrmMetadataField(
-            description='Parse policy for parsing with PyCIFRW',
-        )
+    # class AttributesModel(SinglefileData.AttributesModel):
+    #     formulae: list[str] | None = OrmMetadataField(
+    #         None,
+    #         description='List of formulae contained in the CIF file',
+    #     )
+    #     spacegroup_numbers: list[str] | None = OrmMetadataField(
+    #         None,
+    #         description='List of space group numbers of the structure',
+    #     )
+    #     md5: str | None = OrmMetadataField(
+    #         None,
+    #         description='MD5 checksum of the file contents',
+    #         read_only=True,
+    #     )
+    #     scan_type: Literal['standard', 'flex'] = OrmMetadataField(
+    #         description='Scan type for parsing with PyCIFRW',
+    #     )
+    #     parse_policy: Literal['eager', 'lazy'] = OrmMetadataField(
+    #         description='Parse policy for parsing with PyCIFRW',
+    #     )
 
     def __init__(self, ase=None, file=None, filename=None, values=None, scan_type=None, parse_policy=None, **kwargs):
         """Construct a new instance and set the contents to that of the file.

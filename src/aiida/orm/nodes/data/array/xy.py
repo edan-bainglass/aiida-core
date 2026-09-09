@@ -14,14 +14,12 @@ on them.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
-from pydantic import ConfigDict, field_validator
 
 from aiida.common.exceptions import NotExistent
 from aiida.orm.nodes.data.array.array import ArrayData
-from aiida.orm.pydantic import OrmMetadataField, OrmModel
 
 __all__ = ('XyData',)
 
@@ -71,62 +69,62 @@ class XyData(ArrayData):
         To get the user-provided names, use :meth:`get_y` and extract the names from the returned tuples.
     """
 
-    class CommonFields(OrmModel):
-        x_name: str = OrmMetadataField(
-            description='The name of the x array',
-        )
-        x_units: str = OrmMetadataField(
-            description='The units of the x array',
-        )
-        y_names: Sequence[str] = OrmMetadataField(
-            description='The names of the y arrays',
-        )
-        y_units: Sequence[str] = OrmMetadataField(
-            description='The units of the y arrays',
-        )
+    # class CommonFields(OrmModel):
+    #     x_name: str = OrmMetadataField(
+    #         description='The name of the x array',
+    #     )
+    #     x_units: str = OrmMetadataField(
+    #         description='The units of the x array',
+    #     )
+    #     y_names: Sequence[str] = OrmMetadataField(
+    #         description='The names of the y arrays',
+    #     )
+    #     y_units: Sequence[str] = OrmMetadataField(
+    #         description='The units of the y arrays',
+    #     )
 
-    class AttributesModel(CommonFields, ArrayData.AttributesModel): ...
+    # class AttributesModel(CommonFields, ArrayData.AttributesModel): ...
 
-    class ConstructorArgsModel(CommonFields):
-        model_config = ConfigDict(arbitrary_types_allowed=True)
+    # class ConstructorArgsModel(CommonFields):
+    #     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-        x_array: Sequence = OrmMetadataField(
-            description='The x array, which must be a 1D numpy array of floats.',
-            write_only=True,
-            orm_to_model=lambda node: cast(XyData, node).get_array('x_array').tolist(),
-        )
-        y_arrays: Sequence = OrmMetadataField(
-            description='The y array(s), which must be 1D numpy arrays of floats with the same shape as the x array.',
-            write_only=True,
-            orm_to_model=lambda node: [
-                cast(XyData, node).get_array(name).tolist()
-                for name in node.get_arraynames()
-                if name.startswith('y_array_')
-            ],
-        )
+    #     x_array: Sequence = OrmMetadataField(
+    #         description='The x array, which must be a 1D numpy array of floats.',
+    #         write_only=True,
+    #         orm_to_model=lambda node: cast(XyData, node).get_array('x_array').tolist(),
+    #     )
+    #     y_arrays: Sequence = OrmMetadataField(
+    #         description='The y array(s), which must be 1D numpy arrays of floats with the same shape as the x array.',
+    #         write_only=True,
+    #         orm_to_model=lambda node: [
+    #             cast(XyData, node).get_array(name).tolist()
+    #             for name in node.get_arraynames()
+    #             if name.startswith('y_array_')
+    #         ],
+    #     )
 
-        @field_validator('x_array', mode='before')
-        @classmethod
-        def normalize_x_array(cls, value: Sequence | np.ndarray) -> Sequence:
-            if isinstance(value, Sequence):
-                return value
-            if isinstance(value, np.ndarray):
-                return value.tolist()
-            raise TypeError(f'`x_array` should be an iterable but got: {value}')
+    #     @field_validator('x_array', mode='before')
+    #     @classmethod
+    #     def normalize_x_array(cls, value: Sequence | np.ndarray) -> Sequence:
+    #         if isinstance(value, Sequence):
+    #             return value
+    #         if isinstance(value, np.ndarray):
+    #             return value.tolist()
+    #         raise TypeError(f'`x_array` should be an iterable but got: {value}')
 
-        @field_validator('y_arrays', mode='before')
-        @classmethod
-        def normalize_y_arrays(
-            cls,
-            value: Sequence | np.ndarray | list[np.ndarray],
-        ) -> Sequence:
-            if isinstance(value, list) and all(isinstance(v, np.ndarray) for v in value):
-                return [v.tolist() for v in value]
-            if isinstance(value, np.ndarray):
-                return value.tolist()
-            if isinstance(value, Sequence):
-                return value
-            raise TypeError(f'`y_arrays` should be an iterable but got: {value}')
+    #     @field_validator('y_arrays', mode='before')
+    #     @classmethod
+    #     def normalize_y_arrays(
+    #         cls,
+    #         value: Sequence | np.ndarray | list[np.ndarray],
+    #     ) -> Sequence:
+    #         if isinstance(value, list) and all(isinstance(v, np.ndarray) for v in value):
+    #             return [v.tolist() for v in value]
+    #         if isinstance(value, np.ndarray):
+    #             return value.tolist()
+    #         if isinstance(value, Sequence):
+    #             return value
+    #         raise TypeError(f'`y_arrays` should be an iterable but got: {value}')
 
     def __init__(
         self,

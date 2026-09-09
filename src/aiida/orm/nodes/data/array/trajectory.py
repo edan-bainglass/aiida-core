@@ -14,7 +14,6 @@ import typing as t
 
 from aiida.common.warnings import warn_deprecation
 from aiida.orm.nodes.data.array.array import ArrayData
-from aiida.orm.pydantic import OrmMetadataField
 
 if t.TYPE_CHECKING:
     import numpy as np
@@ -29,14 +28,14 @@ class TrajectoryData(ArrayData):
     possibly with velocities).
     """
 
-    class AttributesModel(ArrayData.AttributesModel):
-        symbols: list[str] = OrmMetadataField(
-            description='List of symbols',
-        )
-        pbc: tuple[bool, bool, bool] | None = OrmMetadataField(
-            None,
-            description='Periodic boundary conditions',
-        )
+    # class AttributesModel(ArrayData.AttributesModel):
+    #     symbols: list[str] = OrmMetadataField(
+    #         description='List of symbols',
+    #     )
+    #     pbc: tuple[bool, bool, bool] | None = OrmMetadataField(
+    #         None,
+    #         description='Periodic boundary conditions',
+    #     )
 
     def __init__(self, structurelist: list[StructureData] | None = None, **kwargs: t.Any) -> None:
         super().__init__(**kwargs)

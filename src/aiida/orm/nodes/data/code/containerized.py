@@ -18,7 +18,6 @@ import pathlib
 
 from aiida.common.lang import type_check
 from aiida.orm.nodes.data.code.installed import InstalledCode
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('ContainerizedCode',)
 
@@ -29,22 +28,22 @@ class ContainerizedCode(InstalledCode):
     _KEY_ATTRIBUTE_ENGINE_COMMAND: str = 'engine_command'
     _KEY_ATTRIBUTE_IMAGE_NAME: str = 'image_name'
 
-    class CommonFields(InstalledCode.CommonFields):
-        engine_command: str = OrmMetadataField(
-            title='Engine command',
-            description='The command to run the container. It must contain the placeholder {image_name} that will be '
-            'replaced with the `image_name`',
-            short_name='-E',
-        )
-        image_name: str = OrmMetadataField(
-            title='Image name',
-            description='Name of the image container in which to the run the executable',
-            short_name='-I',
-        )
+    # class CommonFields(InstalledCode.CommonFields):
+    #     engine_command: str = OrmMetadataField(
+    #         title='Engine command',
+    #         description='The command to run the container. It must contain the placeholder {image_name} that will be '
+    #         'replaced with the `image_name`',
+    #         short_name='-E',
+    #     )
+    #     image_name: str = OrmMetadataField(
+    #         title='Image name',
+    #         description='Name of the image container in which to the run the executable',
+    #         short_name='-I',
+    #     )
 
-    class AttributesModel(CommonFields, InstalledCode.AttributesModel): ...
+    # class AttributesModel(CommonFields, InstalledCode.AttributesModel): ...
 
-    class ConstructorArgsModel(CommonFields, InstalledCode.ConstructorArgsModel): ...
+    # class ConstructorArgsModel(CommonFields, InstalledCode.ConstructorArgsModel): ...
 
     def __init__(
         self,

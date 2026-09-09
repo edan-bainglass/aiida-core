@@ -12,7 +12,6 @@ import numbers
 
 from aiida.orm.nodes.data.base import to_aiida_type
 from aiida.orm.nodes.data.numeric import NumericType
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('Float',)
 
@@ -22,11 +21,11 @@ class Float(NumericType):
 
     _type = float
 
-    class AttributesModel(NumericType.AttributesModel):
-        value: float = OrmMetadataField(
-            title='Float value',
-            description='The value of the float',
-        )
+    # class AttributesModel(NumericType.AttributesModel):
+    #     value: float = OrmMetadataField(
+    #         title='Float value',
+    #         description='The value of the float',
+    #     )
 
 
 @to_aiida_type.register(numbers.Real)

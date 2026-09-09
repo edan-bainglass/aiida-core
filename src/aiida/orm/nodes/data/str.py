@@ -9,7 +9,6 @@
 """`Data` sub class to represent a string value."""
 
 from aiida.orm.nodes.data.base import BaseType, to_aiida_type
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('Str',)
 
@@ -19,11 +18,11 @@ class Str(BaseType):
 
     _type = str
 
-    class AttributesModel(BaseType.AttributesModel):
-        value: str = OrmMetadataField(
-            title='String value',
-            description='The value of the string',
-        )
+    # class AttributesModel(BaseType.AttributesModel):
+    #     value: str = OrmMetadataField(
+    #         title='String value',
+    #         description='The value of the string',
+    #     )
 
 
 @to_aiida_type.register(str)

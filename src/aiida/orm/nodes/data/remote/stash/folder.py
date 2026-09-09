@@ -13,7 +13,6 @@ from __future__ import annotations
 from aiida.common.datastructures import StashMode
 from aiida.common.lang import type_check
 from aiida.orm.nodes.data.remote.stash.base import RemoteStashData
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('RemoteStashFolderData',)
 
@@ -26,12 +25,12 @@ class RemoteStashFolderData(RemoteStashData):
 
     _storable = True
 
-    class AttributesModel(RemoteStashData.AttributesModel):
-        target_basepath: str = OrmMetadataField(description='The the target basepath')
-        source_list: list[str] = OrmMetadataField(description='The list of source files that were stashed')
-        fail_on_missing: bool = OrmMetadataField(
-            description='Whether stashing should fail if any files are missing', default=False
-        )
+    # class AttributesModel(RemoteStashData.AttributesModel):
+    #     target_basepath: str = OrmMetadataField(description='The the target basepath')
+    #     source_list: list[str] = OrmMetadataField(description='The list of source files that were stashed')
+    #     fail_on_missing: bool = OrmMetadataField(
+    #         description='Whether stashing should fail if any files are missing', default=False
+    #     )
 
     def __init__(
         self,

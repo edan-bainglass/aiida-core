@@ -11,17 +11,15 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, ClassVar
-from uuid import UUID
+import typing as t
 
 from aiida.common import exceptions
 from aiida.common.log import AIIDA_LOGGER, AiidaLoggerType
 from aiida.manage import get_manager
 from aiida.orm import entities, users
-from aiida.orm.pydantic import OrmMetadataField
 from aiida.plugins import SchedulerFactory, TransportFactory
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from aiida.orm import AuthInfo, User
     from aiida.orm.implementation import BackendComputer, StorageBackend
     from aiida.schedulers import Scheduler
@@ -33,13 +31,13 @@ __all__ = ('Computer',)
 class ComputerCollection(entities.Collection['Computer']):
     """The collection of Computer entries."""
 
-    collection_type: ClassVar[str] = 'computers'
+    collection_type: t.ClassVar[str] = 'computers'
 
     @staticmethod
     def _entity_base_cls() -> type[Computer]:
         return Computer
 
-    def get_or_create(self, label: str, **kwargs: Any) -> tuple[bool, Computer]:
+    def get_or_create(self, label: str, **kwargs: t.Any) -> tuple[bool, Computer]:
         """Try to retrieve a Computer from the DB with the given arguments;
         create (and store) a new Computer if such a Computer was not present yet.
 
@@ -77,40 +75,6 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
     _CLS_COLLECTION = ComputerCollection
 
-    class ReadModel(entities.Entity.ReadModel):
-        uuid: UUID = OrmMetadataField(
-            description='The UUID of the computer',
-            read_only=True,
-            examples=['123e4567-e89b-12d3-a456-426614174000'],
-        )
-        label: str = OrmMetadataField(
-            description='Label for the computer',
-            examples=['localhost'],
-        )
-        description: str = OrmMetadataField(
-            '',
-            description='Description of the computer',
-            examples=['My local machine'],
-        )
-        hostname: str = OrmMetadataField(
-            description='Hostname of the computer',
-            examples=['localhost'],
-        )
-        transport_type: str = OrmMetadataField(
-            description='Transport type of the computer',
-            examples=['core.local'],
-        )
-        scheduler_type: str = OrmMetadataField(
-            description='Scheduler type of the computer',
-            examples=['core.direct'],
-        )
-        metadata: dict[str, Any] = OrmMetadataField(
-            default_factory=dict,
-            description='Metadata of the computer',
-            may_be_large=True,
-            examples=[{'key': 'value'}],
-        )
-
     def __init__(
         self,
         label: str | None = None,
@@ -119,7 +83,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
         transport_type: str = '',
         scheduler_type: str = '',
         workdir: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: dict[str, t.Any] | None = None,
         backend: StorageBackend | None = None,
     ) -> None:
         """Construct a new computer."""
@@ -384,7 +348,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
         self._backend_entity.set_transport_type(value)
 
     @property
-    def metadata(self) -> dict[str, Any]:
+    def metadata(self) -> dict[str, t.Any]:
         """Return the computer metadata.
 
         :return: the metadata.
@@ -392,7 +356,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
         return self._backend_entity.get_metadata()
 
     @metadata.setter
-    def metadata(self, value: dict[str, Any]) -> None:
+    def metadata(self, value: dict[str, t.Any]) -> None:
         """Set the computer metadata.
 
         :param value: the metadata to set.
@@ -413,7 +377,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
             if raise_exception:
                 raise AttributeError(f"'{name}' property not found")
 
-    def set_property(self, name: str, value: Any) -> None:
+    def set_property(self, name: str, value: t.Any) -> None:
         """Set a property on this computer
 
         :param name: the property name
@@ -423,7 +387,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
         metadata[name] = value
         self.metadata = metadata
 
-    def get_property(self, name: str, *args: Any) -> Any:
+    def get_property(self, name: str, *args: t.Any) -> t.Any:
         """Get a property of this computer
 
         :param name: the property name
@@ -664,7 +628,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
                 f'No scheduler found for {self.label} [type {self.scheduler_type}], message: {exception}'
             )
 
-    def configure(self, user: User | None = None, **kwargs: Any) -> AuthInfo:
+    def configure(self, user: User | None = None, **kwargs: t.Any) -> AuthInfo:
         """Configure a computer for a user with valid auth params passed via kwargs
 
         :param user: the user to configure the computer for
@@ -696,7 +660,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
         return authinfo
 
-    def get_configuration(self, user: User | None = None) -> dict[str, Any]:
+    def get_configuration(self, user: User | None = None) -> dict[str, t.Any]:
         """Get the configuration of computer for the given user as a dictionary
 
         :param user: the user to to get the configuration for, otherwise default user

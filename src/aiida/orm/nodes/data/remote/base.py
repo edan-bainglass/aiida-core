@@ -13,12 +13,9 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import cast
 
 from aiida.orm import AuthInfo
-from aiida.orm.computers import Computer
 from aiida.orm.nodes.data.data import Data
-from aiida.orm.pydantic import OrmMetadataField
 from aiida.transports import Transport
 
 _logger = logging.getLogger(__name__)
@@ -34,21 +31,21 @@ class RemoteData(Data):
 
     KEY_EXTRA_CLEANED = 'cleaned'
 
-    class AttributesModel(Data.AttributesModel):
-        remote_path: str | None = OrmMetadataField(
-            None,
-            title='Remote path',
-            description='Filepath on the remote computer',
-            orm_to_model=lambda node: node.get_remote_path(),
-        )
+    # class AttributesModel(Data.AttributesModel):
+    #     remote_path: str | None = OrmMetadataField(
+    #         None,
+    #         title='Remote path',
+    #         description='Filepath on the remote computer',
+    #         orm_to_model=lambda node: node.get_remote_path(),
+    #     )
 
-    class ReadModel(Data.ReadModel):
-        computer: int = OrmMetadataField(
-            title='Computer',
-            description='The pk of the remote computer on which the data resides',
-            orm_to_model=lambda node: cast(RemoteData, node).computer.pk,
-            orm_class=Computer,
-        )
+    # class ReadModel(Data.ReadModel):
+    #     computer: int = OrmMetadataField(
+    #         title='Computer',
+    #         description='The pk of the remote computer on which the data resides',
+    #         orm_to_model=lambda node: cast(RemoteData, node).computer.pk,
+    #         orm_class=Computer,
+    #     )
 
     def __init__(self, remote_path: str | None = None, **kwargs):
         super().__init__(**kwargs)

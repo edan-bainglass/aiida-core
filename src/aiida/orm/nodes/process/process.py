@@ -11,8 +11,8 @@
 from __future__ import annotations
 
 import enum
+import typing as t
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
 
 from aiida.common import exceptions
 from aiida.common.lang import classproperty
@@ -21,10 +21,9 @@ from aiida.common.processes import ProcessState
 from aiida.orm.nodes.caching import NodeCaching
 from aiida.orm.nodes.links import NodeLinks
 from aiida.orm.nodes.node import Node
-from aiida.orm.pydantic import OrmMetadataField
 from aiida.orm.utils.mixins import Sealable
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from aiida.engine.processes import ExitCode, Process
     from aiida.engine.processes.builder import ProcessBuilder
 
@@ -83,7 +82,7 @@ class ProcessNodeCaching(NodeCaching):
         """
         super(ProcessNodeCaching, self.__class__).is_valid_cache.fset(self, valid)
 
-    def get_objects_to_hash(self) -> list[Any]:
+    def get_objects_to_hash(self) -> list[t.Any]:
         """Return a list of objects which should be included in the hash."""
         res = super().get_objects_to_hash()
         res.update(
@@ -189,42 +188,42 @@ class ProcessNode(Sealable, Node):
             cls.PROCESS_STATUS_KEY,
         )
 
-    class AttributesModel(Node.AttributesModel, Sealable.AttributesModel):
-        process_label: str | None = OrmMetadataField(
-            None,
-            description='The process label',
-        )
-        process_state: str | None = OrmMetadataField(
-            None,
-            description='The process state enum',
-        )
-        process_status: str | None = OrmMetadataField(
-            None,
-            description='The process status is a generic status message',
-        )
-        exit_status: int | None = OrmMetadataField(
-            None,
-            description='The process exit status',
-        )
-        exit_message: str | None = OrmMetadataField(
-            None,
-            description='The process exit message',
-        )
-        exception: str | None = OrmMetadataField(
-            None,
-            description='The process exception message',
-        )
-        paused: bool | None = OrmMetadataField(
-            None,
-            description='Whether the process is paused',
-            orm_to_model=lambda node: cast(ProcessNode, node).base.attributes.get('paused', None),
-        )
+    # class AttributesModel(Node.AttributesModel, Sealable.AttributesModel):
+    #     process_label: str | None = OrmMetadataField(
+    #         None,
+    #         description='The process label',
+    #     )
+    #     process_state: str | None = OrmMetadataField(
+    #         None,
+    #         description='The process state enum',
+    #     )
+    #     process_status: str | None = OrmMetadataField(
+    #         None,
+    #         description='The process status is a generic status message',
+    #     )
+    #     exit_status: int | None = OrmMetadataField(
+    #         None,
+    #         description='The process exit status',
+    #     )
+    #     exit_message: str | None = OrmMetadataField(
+    #         None,
+    #         description='The process exit message',
+    #     )
+    #     exception: str | None = OrmMetadataField(
+    #         None,
+    #         description='The process exception message',
+    #     )
+    #     paused: bool | None = OrmMetadataField(
+    #         None,
+    #         description='Whether the process is paused',
+    #         orm_to_model=lambda node: cast(ProcessNode, node).base.attributes.get('paused', None),
+    #     )
 
-    def set_metadata_inputs(self, value: dict[str, Any]) -> None:
+    def set_metadata_inputs(self, value: dict[str, t.Any]) -> None:
         """Set the mapping of inputs corresponding to ``metadata`` ports that were passed to the process."""
         return self.base.attributes.set(self.METADATA_INPUTS_KEY, value)
 
-    def get_metadata_inputs(self) -> dict[str, Any] | None:
+    def get_metadata_inputs(self) -> dict[str, t.Any] | None:
         """Return the mapping of inputs corresponding to ``metadata`` ports that were passed to the process."""
         return self.base.attributes.get(self.METADATA_INPUTS_KEY, None)
 
@@ -248,7 +247,7 @@ class ProcessNode(Sealable, Node):
         return self._logger_adapter
 
     @classmethod
-    def recursive_merge(cls, left: dict[Any, Any], right: dict[Any, Any]) -> None:
+    def recursive_merge(cls, left: dict[t.Any, t.Any], right: dict[t.Any, t.Any]) -> None:
         """Recursively merge the ``right`` dictionary into the ``left`` dictionary.
 
         :param left: Base dictionary.

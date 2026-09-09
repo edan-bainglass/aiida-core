@@ -14,7 +14,6 @@ import numbers
 
 from aiida.orm.nodes.data.base import to_aiida_type
 from aiida.orm.nodes.data.numeric import NumericType
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('Int',)
 
@@ -24,11 +23,11 @@ class Int(NumericType):
 
     _type = int
 
-    class AttributesModel(NumericType.AttributesModel):
-        value: int = OrmMetadataField(
-            title='Integer value',
-            description='The value of the integer',
-        )
+    # class AttributesModel(NumericType.AttributesModel):
+    #     value: int = OrmMetadataField(
+    #         title='Integer value',
+    #         description='The value of the integer',
+    #     )
 
 
 @to_aiida_type.register(numbers.Integral)

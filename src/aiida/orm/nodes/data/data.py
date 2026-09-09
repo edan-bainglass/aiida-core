@@ -15,7 +15,6 @@ from aiida.common.lang import override
 from aiida.common.links import LinkType
 from aiida.orm.entities import from_backend_entity
 from aiida.orm.nodes.node import Node
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('Data',)
 
@@ -44,12 +43,6 @@ class Data(Node):
     # Data nodes are storable
     _storable = True
     _unstorable_message = 'storing for this node has been disabled'
-
-    class AttributesModel(Node.AttributesModel):
-        source: dict | None = OrmMetadataField(
-            None,
-            description='Source of the data',
-        )
 
     def __init__(self, *args, source=None, **kwargs):
         """Construct a new instance, setting the ``source`` attribute if provided as a keyword argument."""

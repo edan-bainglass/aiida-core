@@ -22,16 +22,13 @@ from __future__ import annotations
 import logging
 import pathlib
 import warnings
-from typing import cast
 
 from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
 from aiida.common.typing import FilePath
 from aiida.orm import Computer
-from aiida.orm.nodes.data.code.abstract import AbstractCode
 from aiida.orm.nodes.data.code.legacy import Code
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('PortableCode',)
 _LOGGER = logging.getLogger(__name__)
@@ -44,29 +41,29 @@ class PortableCode(Code):
     _KEY_ATTRIBUTE_FILEPATH_EXECUTABLE: str = 'filepath_executable'
     _SKIP_MODEL_INHERITANCE_CHECK: bool = True
 
-    class CommonFields(AbstractCode.CommonFields):
-        filepath_executable: str = OrmMetadataField(
-            title='Filepath executable',
-            description='Relative filepath of executable with directory of code files',
-            short_name='-X',
-            priority=1,
-            orm_to_model=lambda node: str(cast(PortableCode, node).filepath_executable),
-        )
+    # class CommonFields(AbstractCode.CommonFields):
+    #     filepath_executable: str = OrmMetadataField(
+    #         title='Filepath executable',
+    #         description='Relative filepath of executable with directory of code files',
+    #         short_name='-X',
+    #         priority=1,
+    #         orm_to_model=lambda node: str(t.cast(PortableCode, node).filepath_executable),
+    #     )
 
-    class AttributesModel(CommonFields, AbstractCode.AttributesModel): ...
+    # class AttributesModel(CommonFields, AbstractCode.AttributesModel): ...
 
-    class ConstructorArgsModel(CommonFields, AbstractCode.ConstructorArgsModel):
-        filepath_files: str = OrmMetadataField(
-            title='Code directory',
-            description='Filepath to directory containing code files',
-            short_name='-F',
-            priority=2,
-            write_only=True,
-            orm_to_model=lambda node, ctx: cast(PortableCode, node)._export_filepath_files_from_repo(
-                ctx.get('repository_dump_path'),
-                ctx.get('written', False),
-            ),
-        )
+    # class ConstructorArgsModel(CommonFields, AbstractCode.ConstructorArgsModel):
+    #     filepath_files: str = OrmMetadataField(
+    #         title='Code directory',
+    #         description='Filepath to directory containing code files',
+    #         short_name='-F',
+    #         priority=2,
+    #         write_only=True,
+    #         orm_to_model=lambda node, ctx: t.cast(PortableCode, node)._export_filepath_files_from_repo(
+    #             ctx.get('repository_dump_path'),
+    #             ctx.get('written', False),
+    #         ),
+    #     )
 
     def __init__(
         self,

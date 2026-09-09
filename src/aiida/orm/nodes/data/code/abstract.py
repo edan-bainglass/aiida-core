@@ -11,20 +11,14 @@
 from __future__ import annotations
 
 import abc
-import functools
 import pathlib
 import typing as t
-from copy import deepcopy
 
-import pydantic as pdt
-
-from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
 from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
 from aiida.orm import Computer
 from aiida.orm.nodes.data.data import Data
-from aiida.orm.pydantic import OrmMetadataField, OrmModel
 from aiida.plugins import CalculationFactory
 
 if t.TYPE_CHECKING:
@@ -44,77 +38,6 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
     _KEY_ATTRIBUTE_WITH_MPI: str = 'with_mpi'
     _KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS: str = 'wrap_cmdline_params'
     _KEY_EXTRA_IS_HIDDEN: str = 'hidden'  # Should become ``is_hidden`` once ``Code`` is dropped
-
-    class BaseNodeModel(Data.BaseNodeModel):
-        label: str = OrmMetadataField(
-            title='Label',
-            description='A unique label to identify the code by',
-            short_name='-L',
-            priority=4,
-        )
-        description: str = OrmMetadataField(
-            '',
-            title='Description',
-            description='Human-readable description, ideally including version and compilation environment',
-            short_name='-D',
-            priority=3,
-        )
-
-    class CommonFields(OrmModel):
-        default_calc_job_plugin: str | None = OrmMetadataField(
-            None,
-            alias='input_plugin',
-            title='Default `CalcJob` plugin',
-            description='Entry point name of the default plugin (as listed in `verdi plugin list aiida.calculations`)',
-            short_name='-P',
-        )
-        use_double_quotes: bool = OrmMetadataField(
-            False,
-            title='Escape using double quotes',
-            description='Whether the executable and arguments of the code in the submission script should be escaped '
-            'with single or double quotes',
-        )
-        with_mpi: bool | None = OrmMetadataField(
-            None,
-            title='Run with MPI',
-            description='Whether the executable should be run as an MPI program. This option can be left unspecified '
-            'in which case `None` will be set and it is left up to the calculation job plugin or inputs '
-            'whether to run with MPI',
-        )
-        wrap_cmdline_params: bool = OrmMetadataField(
-            False,
-            title='Wrap command line parameters',
-            description='Whether all command line parameters to be passed to the engine command should be wrapped in '
-            'a double quotes to form a single argument. This should be set to `True` for Docker',
-        )
-        prepend_text: str = OrmMetadataField(
-            '',
-            title='Prepend script',
-            description='Bash commands that should be prepended to the run line in all submit scripts for this code',
-            option_cls=functools.partial(
-                TemplateInteractiveOption,
-                extension='.bash',
-                header='PREPEND_TEXT: if there is any bash commands that should be prepended to the executable call '
-                'in all submit scripts for this code, type that between the equal signs below and save the file.',
-                footer='All lines that start with `#=`: will be ignored.',
-            ),
-        )
-        append_text: str = OrmMetadataField(
-            '',
-            title='Append script',
-            description='Bash commands that should be appended to the run line in all submit scripts for this code',
-            option_cls=functools.partial(
-                TemplateInteractiveOption,
-                extension='.bash',
-                header='APPEND_TEXT: if there is any bash commands that should be appended to the executable call '
-                'in all submit scripts for this code, type that between the equal signs below and save the file.',
-                footer='All lines that start with `#=`: will be ignored.',
-            ),
-        )
-
-    class AttributesModel(CommonFields, Data.AttributesModel): ...
-
-    class ConstructorArgsModel(CommonFields): ...
 
     def __init__(
         self,
@@ -155,77 +78,6 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
         self.with_mpi = with_mpi
         self.wrap_cmdline_params = wrap_cmdline_params
         self.is_hidden = is_hidden
-
-    def __init_subclass__(cls, **kwargs) -> None:
-        super().__init_subclass__(**kwargs)
-        cls._patch_cli_model()
-
-    def to_model(
-        self,
-        *,
-        context: dict[str, t.Any] | None = None,
-        minimal: bool = False,
-        schema: t.Literal['read', 'write', 'constructor', 'cli'] | None = None,
-    ):
-        if schema == 'cli':
-            Model = self.CliModel  # noqa: N806
-            fields = self.to_model_field_values(context=context, minimal=minimal, schema=Model)
-            return Model(**fields)
-        return super().to_model(context=context, minimal=minimal, schema=schema)
-
-    def serialize(
-        self,
-        *,
-        context: dict[str, t.Any] | None = None,
-        minimal: bool = False,
-        schema: t.Literal['read', 'write', 'constructor', 'cli'] | None = None,
-        mode: t.Literal['json', 'python'] = 'python',
-        exclude_none: bool = False,
-        repository_dump_path: pathlib.Path | None = None,
-    ):
-        if schema == 'cli':
-            return self.to_model(context=context, minimal=minimal, schema=schema).model_dump(
-                mode=mode,
-                exclude_unset=minimal,
-                exclude_none=exclude_none,
-            )
-        return super().serialize(
-            context=context,
-            minimal=minimal,
-            schema=schema,
-            mode=mode,
-            exclude_none=exclude_none,
-            repository_dump_path=repository_dump_path,
-        )
-
-    @classmethod
-    def _patch_cli_model(cls):
-        """Patch `CliModel` by synthesizing it from the base and constructor models."""
-        model_fields: dict[str, t.Any] = {
-            'label': (
-                cls.BaseNodeModel.model_fields['label'].annotation,
-                deepcopy(cls.BaseNodeModel.model_fields['label']),
-            ),
-            'description': (
-                cls.BaseNodeModel.model_fields['description'].annotation,
-                deepcopy(cls.BaseNodeModel.model_fields['description']),
-            ),
-            **{
-                key: (field_info.annotation, deepcopy(field_info))
-                for key, field_info in cls.ConstructorArgsModel.model_fields.items()
-            },
-        }
-        CliModel = t.cast(  # noqa: N806
-            type[OrmModel],
-            pdt.create_model(
-                'CliModel',
-                __base__=OrmModel,
-                __module__=cls.__module__,
-                __qualname__=f'{cls.__name__}.CliModel',
-                **model_fields,
-            ),
-        )
-        cls._CliModel = CliModel
 
     @abc.abstractmethod
     def can_run_on_computer(self, computer: Computer) -> bool:

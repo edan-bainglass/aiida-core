@@ -12,11 +12,8 @@ import typing as t
 from collections.abc import MutableSequence
 from typing import Any
 
-import pydantic as pdt
-
 from aiida.orm.nodes.data.base import to_aiida_type
 from aiida.orm.nodes.data.data import Data
-from aiida.orm.pydantic import OrmMetadataField
 
 __all__ = ('List',)
 
@@ -26,12 +23,12 @@ class List(Data, MutableSequence):
 
     _LIST_KEY = 'list'
 
-    class AttributesModel(Data.AttributesModel):
-        value: list[t.Any] = OrmMetadataField(
-            alias='list',
-            description='Content of the data',
-            validation_alias=pdt.AliasChoices('list', 'value'),
-        )
+    # class AttributesModel(Data.AttributesModel):
+    #     value: list[t.Any] = OrmMetadataField(
+    #         alias='list',
+    #         description='Content of the data',
+    #         validation_alias=pdt.AliasChoices('list', 'value'),
+    #     )
 
     def __init__(self, value=None, **kwargs):
         """Initialise a ``List`` node instance.
