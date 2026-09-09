@@ -104,6 +104,12 @@ class Node(Entity[BackendNode]):
     def __init_subclass__(cls, **kwargs: t.Any) -> None:
         super().__init_subclass__(**kwargs)
 
+        if '__init__' in cls.__dict__:
+            raise TypeError(
+                f'{cls.__name__} cannot override Node.__init__. '
+                'Define a named class method such as `from_*` for custom construction instead.'
+            )
+
     def __eq__(self, other: t.Any) -> bool:
         """Fallback equality comparison by uuid (can be overwritten by specific types)"""
         if isinstance(other, Node) and self.uuid == other.uuid:

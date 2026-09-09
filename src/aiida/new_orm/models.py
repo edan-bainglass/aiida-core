@@ -300,25 +300,25 @@ class ModelsNamespace(t.Generic[_EntityT]):
 
             entity_columns[name] = column
 
-        model_decorators = self._model_decorators(projection)
+        entity_model_decorators = self._model_decorators(projection)
 
-        model_base = _model_base(projection)
+        entity_model_base = _entity_model_base(projection)
         class_name = f'{projection.capitalize()}Model'
 
-        config: pdt.ConfigDict = {**model_base.model_config}
+        config: pdt.ConfigDict = {**entity_model_base.model_config}
 
-        if entity_config := self._entity.__dict__.get('_entity_model_config'):
-            config.update(entity_config)
+        if entity_model_config := self._entity.__dict__.get('_entity_model_config'):
+            config.update(entity_model_config)
 
         model = t.cast(
             type[EntityModel[_EntityT]],
             pdt.create_model(
                 f'{self._entity.__name__}{class_name}',
-                __base__=model_base,
+                __base__=entity_model_base,
                 __config__=config,
                 __module__=self._entity.__module__,
                 __qualname__=f'{self._entity.__qualname__}.{class_name}',
-                __validators__=model_decorators,
+                __validators__=entity_model_decorators,
                 **model_fields,
             ),
         )
@@ -351,7 +351,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
         return decorators
 
 
-def _model_base(projection: ModelProjection) -> type[EntityModel]:
+def _entity_model_base(projection: ModelProjection) -> type[EntityModel]:
     """Return the base class for a model projection."""
     if projection == 'read':
         return ReadModel
