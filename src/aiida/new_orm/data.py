@@ -4,9 +4,9 @@ import typing as t
 
 import pydantic as pdt
 
-from aiida.new_orm.attributes import attribute
 from aiida.new_orm.entity import from_backend_entity
 from aiida.new_orm.node import Node
+from aiida.orm.decorators.attributes import attribute
 
 __all__ = ('Data',)
 

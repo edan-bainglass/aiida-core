@@ -8,8 +8,8 @@ from plumpy.base import call_with_super_check, super_check
 from typing_extensions import Self
 
 from aiida.common.lang import type_check
-from aiida.new_orm.columns import column
 from aiida.new_orm.models import EntityModel, ModelsNamespace
+from aiida.orm.decorators.columns import column
 from aiida.orm.implementation import BackendEntity
 
 if t.TYPE_CHECKING:

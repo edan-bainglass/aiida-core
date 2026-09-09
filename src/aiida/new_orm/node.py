@@ -16,12 +16,12 @@ from aiida.common.links import LinkType
 from aiida.common.log import AIIDA_LOGGER
 from aiida.manage import get_manager
 from aiida.new_orm.adapters import EntityPkAdapter, StrUuidAdapter
-from aiida.new_orm.attributes import attributes_column
-from aiida.new_orm.columns import column
 from aiida.new_orm.computer import Computer
 from aiida.new_orm.entity import Entity, from_backend_entity
 from aiida.new_orm.node_models import NodeModelsNamespace
 from aiida.new_orm.user import User
+from aiida.orm.decorators.attributes import attributes_column
+from aiida.orm.decorators.columns import column
 from aiida.orm.implementation import BackendNode
 from aiida.orm.nodes.caching import NodeCaching
 from aiida.orm.nodes.links import NodeLinks

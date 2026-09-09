@@ -4,9 +4,9 @@ import typing as t
 from copy import deepcopy
 
 from aiida.common import exceptions
-from aiida.new_orm.attributes import attribute
 from aiida.new_orm.data import Data
 from aiida.new_orm.primitive import PrimitiveData
+from aiida.orm.decorators.attributes import attribute
 
 __all__ = ('Dict',)
 

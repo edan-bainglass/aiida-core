@@ -8,14 +8,14 @@ from collections.abc import Callable
 import pydantic as pdt
 from typing_extensions import Self
 
-from aiida.new_orm.fields import (
+from aiida.orm import qb_fields
+from aiida.orm.decorators.base import (
     BaseField,
     BaseFieldConfig,
     BaseFieldDecorator,
     BaseFieldSpec,
     Storable,
 )
-from aiida.orm import qb_fields
 
 if t.TYPE_CHECKING:
     from aiida.new_orm.cli import CliAdapter, CliFieldInfo

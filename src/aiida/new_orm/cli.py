@@ -11,14 +11,14 @@ from pydantic_core import PydanticUndefined
 from aiida.cmdline.spec import CliParameter
 from aiida.common.lang import classproperty
 from aiida.common.utils import is_nullable, make_nullable, make_required
-from aiida.new_orm.attributes import NodeAttribute, iter_attributes
-from aiida.new_orm.columns import iter_columns
+from aiida.orm.decorators.attributes import NodeAttribute, iter_attributes
+from aiida.orm.decorators.columns import iter_columns
 
 if t.TYPE_CHECKING:
     from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
     from aiida.new_orm.entity import Entity
-    from aiida.new_orm.fields import BaseField
     from aiida.new_orm.models import EntityModel
+    from aiida.orm.decorators.base import BaseField
 
 __all__ = (
     'CliAdapter',

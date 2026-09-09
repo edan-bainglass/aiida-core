@@ -12,10 +12,10 @@ from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
 from aiida.engine import ProcessBuilder
-from aiida.new_orm.attributes import attribute
 from aiida.new_orm.cli import CliFieldInfo
-from aiida.new_orm.columns import column
 from aiida.new_orm.data import Data
+from aiida.orm.decorators.attributes import attribute
+from aiida.orm.decorators.columns import column
 from aiida.plugins.factories import CalculationFactory
 
 if t.TYPE_CHECKING:

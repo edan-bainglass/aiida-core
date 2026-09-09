@@ -14,18 +14,18 @@ from aiida.common.utils import (
     make_nullable,
     make_required,
 )
-from aiida.new_orm.columns import iter_columns
 from aiida.new_orm.modeling import (
     iter_model_serializers,
     iter_model_validators,
     make_model_serializer,
     make_model_validator,
 )
+from aiida.orm.decorators.columns import iter_columns
 
 if t.TYPE_CHECKING:
-    from aiida.new_orm.columns import Column, ColumnSpec
-    from aiida.new_orm.fields import BaseField
     from aiida.new_orm.modeling import ModelMetadata, ModelProjection
+    from aiida.orm.decorators.base import BaseField
+    from aiida.orm.decorators.columns import Column, ColumnSpec
 
 __all__ = (
     'CreateModel',

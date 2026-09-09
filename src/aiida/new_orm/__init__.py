@@ -4,14 +4,14 @@
 
 # fmt: off
 
-from aiida.new_orm.attributes import *
+from aiida.orm.decorators.attributes import *
 from aiida.new_orm.cli import *
 from aiida.new_orm.code import *
-from aiida.new_orm.columns import *
+from aiida.orm.decorators.columns import *
 from aiida.new_orm.computer import *
 from aiida.new_orm.data import *
 from aiida.new_orm.dict import *
-from aiida.new_orm.fields import *
+from aiida.orm.decorators.base import *
 from aiida.new_orm.group import *
 from aiida.new_orm.installed import *
 from aiida.new_orm.modeling import *

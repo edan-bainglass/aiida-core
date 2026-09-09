@@ -232,7 +232,7 @@ def code_duplicate(ctx, code, non_interactive, **kwargs):
 def show(code: Code):
     """Display detailed information for a code."""
     from aiida.cmdline import is_verbose
-    from aiida.new_orm.attributes import iter_attributes
+    from aiida.orm.decorators.attributes import iter_attributes
 
     table = []
 

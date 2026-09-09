@@ -7,8 +7,8 @@ import pathlib
 import typing as t
 
 from aiida.common import exceptions
-from aiida.new_orm.attributes import attribute
 from aiida.new_orm.data import Data
+from aiida.orm.decorators.attributes import attribute
 
 if t.TYPE_CHECKING:
     from aiida.common.typing import FilePath
