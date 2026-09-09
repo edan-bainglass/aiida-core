@@ -27,24 +27,39 @@ if t.TYPE_CHECKING:
     from aiida.new_orm.modeling import ModelProjection
     from aiida.new_orm.node import Node
 
+
 __all__ = ('NodeModelsNamespace',)
+
+_OwnerT = t.TypeVar('_OwnerT')
+
+_AttributesProjection = t.Literal['read', 'create']
+
+
+class AttributesModel(OrmModel[_OwnerT]):
+    """Read projection of an ORM entity."""
+
+
+class AttributesReadModel(AttributesModel[_OwnerT]):
+    """Read projection of an ORM entity."""
+
+
+class AttributesCreateModel(AttributesModel[_OwnerT]):
+    """Create projection of an ORM entity."""
 
 
 _NodeT = t.TypeVar('_NodeT', bound='Node')
-
-_AttributesProjection = t.Literal['read', 'create']
 
 
 class NodeModelsNamespace(ModelsNamespace[_NodeT]):
     """Model namespace for Nodes with typed nested attributes."""
 
     @functools.cached_property
-    def attributes(self) -> type[OrmModel[_NodeT]]:
+    def attributes(self) -> type[AttributesReadModel[_NodeT]]:
         """Return the canonical persisted/read attributes model."""
         return self._build_attributes_model('read')
 
     @functools.cached_property
-    def _create_attributes(self) -> type[OrmModel[_NodeT]]:
+    def _create_attributes(self) -> type[AttributesCreateModel[_NodeT]]:
         """Return the attributes model used by the Node create projection."""
         return self._build_attributes_model('create')
 
@@ -58,7 +73,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
 
         return super()._model_field_annotation(column, projection)
 
-    def _attributes_model_annotation(self, projection: _AttributesProjection) -> type[OrmModel[_NodeT]]:
+    def _attributes_model_annotation(self, projection: _AttributesProjection) -> type[AttributesModel[_NodeT]]:
         """Return the attributes model for a Node projection."""
         if projection == 'read':
             return self.attributes
@@ -85,7 +100,13 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
 
         return super()._to_entity_value(column, value)
 
-    def _build_attributes_model(self, projection: _AttributesProjection) -> type[OrmModel[_NodeT]]:
+    @t.overload
+    def _build_attributes_model(self, projection: t.Literal['read']) -> type[AttributesReadModel[_NodeT]]: ...
+
+    @t.overload
+    def _build_attributes_model(self, projection: t.Literal['create']) -> type[AttributesCreateModel[_NodeT]]: ...
+
+    def _build_attributes_model(self, projection: _AttributesProjection) -> type[AttributesModel[_NodeT]]:
         """Build the typed attributes model for a Node projection."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to a Node class')
@@ -106,18 +127,20 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
                 readonly=spec.readonly,
             )
 
-        class_name = 'AttributesModel' if projection == 'read' else 'CreateAttributesModel'
-        extra = self._entity.__dict__.get('_extra_attributes', 'forbid')
+        attributes_base_model = _attributes_model_base(projection)
+        class_name = f'Attributes{projection.capitalize()}Model'
+
+        config: pdt.ConfigDict = {**attributes_base_model.model_config}
+
+        if attributes_model_config := self._entity.__dict__.get('_attributes_model_config'):
+            config.update(attributes_model_config)
 
         return t.cast(
-            type[OrmModel[_NodeT]],
+            type[AttributesModel[_NodeT]],
             pdt.create_model(
                 f'{self._entity.__name__}{class_name}',
-                __base__=OrmModel,
-                __config__={
-                    **OrmModel.model_config,
-                    'extra': extra,
-                },
+                __base__=attributes_base_model,
+                __config__=config,
                 __module__=self._entity.__module__,
                 __qualname__=f'{self._entity.__qualname__}.{class_name}',
                 **model_fields,
@@ -170,12 +193,12 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
 
         return values
 
-    def _model_to_attributes_value(self, model: OrmModel[_NodeT] | dict[str, t.Any]) -> dict[str, t.Any]:
+    def _model_to_attributes_value(self, model: AttributesModel[_NodeT] | dict[str, t.Any]) -> dict[str, t.Any]:
         """Convert model-side Node attributes to ORM representations."""
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to a Node class')
 
-        values = model.model_dump() if isinstance(model, pdt.BaseModel) else dict(model)
+        values = model.model_dump() if isinstance(model, AttributesModel) else dict(model)
 
         for name, attribute in iter_attributes(self._entity).items():
             if name not in values:
@@ -185,3 +208,14 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
                 values[name] = adapter.to_entity(values[name])
 
         return values
+
+
+def _attributes_model_base(projection: _AttributesProjection) -> type[AttributesModel]:
+    """Return the base class for a attributes model projection."""
+    if projection == 'read':
+        return AttributesReadModel
+
+    if projection == 'create':
+        return AttributesCreateModel
+
+    t.assert_never(projection)

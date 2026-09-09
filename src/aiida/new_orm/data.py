@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import typing as t
 
+import pydantic as pdt
+
 from aiida.new_orm.attributes import attribute
 from aiida.new_orm.entity import from_backend_entity
 from aiida.new_orm.node import Node
@@ -9,8 +11,10 @@ from aiida.new_orm.node import Node
 __all__ = ('Data',)
 
 
-class Data(Node, extra_attributes='allow'):
+class Data(Node):
     """A data node."""
+
+    _attributes_model_config = pdt.ConfigDict(extra='allow')
 
     _source_attributes = (
         'db_name',

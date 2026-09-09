@@ -40,12 +40,12 @@ class Node(Entity[BackendNode]):
 
     models: NodeModelsNamespace[Self] = NodeModelsNamespace()
 
+    _attributes_model_config: pdt.ConfigDict
+
     _CLS_NODE_LINKS = NodeLinks
     _CLS_NODE_CACHING = NodeCaching
 
     __plugin_type_string: t.ClassVar[str]
-
-    _extra_attributes: t.ClassVar[t.Literal['allow', 'forbid']] = 'forbid'
 
     # This will be set by the metaclass call but we set default
     _logger: AiidaLoggerType = AIIDA_LOGGER
@@ -101,17 +101,8 @@ class Node(Entity[BackendNode]):
         if extras:
             self.base.extras.set_many(extras)
 
-    def __init_subclass__(
-        cls,
-        *,
-        extra_attributes: t.Literal[
-            'allow',
-            'forbid',
-        ] = 'forbid',
-        **kwargs: t.Any,
-    ) -> None:
+    def __init_subclass__(cls, **kwargs: t.Any) -> None:
         super().__init_subclass__(**kwargs)
-        cls._extra_attributes = extra_attributes
 
     def __eq__(self, other: t.Any) -> bool:
         """Fallback equality comparison by uuid (can be overwritten by specific types)"""

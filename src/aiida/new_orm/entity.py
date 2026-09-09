@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import typing as t
 
+import pydantic as pdt
 from plumpy.base import call_with_super_check, super_check
 from typing_extensions import Self
 
@@ -27,6 +28,8 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT]):
     """Base class for all ORM entities."""
 
     models: ModelsNamespace[Self] = ModelsNamespace()
+
+    _entity_model_config: pdt.ConfigDict
 
     def __init__(self, backend_entity: _BackendEntityT):
         self._backend_entity = backend_entity
