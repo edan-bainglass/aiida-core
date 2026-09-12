@@ -8,7 +8,7 @@ from aiida import orm
 from aiida.common import exceptions
 from aiida.manage.manager import get_manager
 from aiida.new_orm.entity import Entity
-from aiida.orm.decorators.columns import column
+from aiida.orm.decorators import column
 from aiida.orm.implementation import BackendComputer
 
 if t.TYPE_CHECKING:

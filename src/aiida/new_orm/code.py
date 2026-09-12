@@ -14,8 +14,7 @@ from aiida.common.lang import type_check
 from aiida.engine import ProcessBuilder
 from aiida.new_orm.data import Data
 from aiida.orm.cli import CliFieldInfo
-from aiida.orm.decorators.attributes import attribute
-from aiida.orm.decorators.columns import column
+from aiida.orm.decorators import attribute, column
 from aiida.plugins.factories import CalculationFactory
 
 if t.TYPE_CHECKING:

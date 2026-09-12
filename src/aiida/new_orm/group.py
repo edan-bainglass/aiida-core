@@ -14,9 +14,9 @@ from aiida.manage.manager import get_manager
 from aiida.new_orm.entity import Entity, from_backend_entity
 from aiida.new_orm.user import User
 from aiida.orm import groups
-from aiida.orm.adapters import EntityPkAdapter, StrUuidAdapter
-from aiida.orm.decorators.columns import column
+from aiida.orm.decorators import column
 from aiida.orm.implementation import BackendGroup
+from aiida.orm.models.adapters import EntityPkAdapter, StrUuidAdapter
 
 if t.TYPE_CHECKING:
     from aiida.orm.implementation import StorageBackend

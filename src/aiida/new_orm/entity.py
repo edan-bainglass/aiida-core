@@ -8,7 +8,7 @@ from plumpy.base import call_with_super_check, super_check
 from typing_extensions import Self
 
 from aiida.common.lang import type_check
-from aiida.orm.decorators.columns import column
+from aiida.orm.decorators import column
 from aiida.orm.implementation import BackendEntity
 from aiida.orm.models.entity import EntityModel, ModelsNamespace
 
