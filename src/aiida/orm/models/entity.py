@@ -263,7 +263,7 @@ class ModelsNamespace(t.Generic[_EntityT]):
     def _to_entity_value(self, column: Column, value: t.Any) -> t.Any:
         """Convert a model value to its entity representation."""
         if value is not None and (adapter := column.model_adapter):
-            return adapter.to_entity(value)
+            return adapter.to_orm(value)
 
         return value
 

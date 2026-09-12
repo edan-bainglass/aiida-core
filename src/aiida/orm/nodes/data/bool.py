@@ -9,22 +9,25 @@
 """`Data` sub class to represent a boolean value."""
 
 import numpy
+import pydantic as pdt
 
-from aiida.orm.nodes.data.base import BaseType, to_aiida_type
+from aiida.orm.decorators import attribute
+from aiida.orm.nodes.data.base import PrimitiveType, to_aiida_type
 
 __all__ = ('Bool',)
 
 
-class Bool(BaseType):
+class Bool(PrimitiveType):
     """`Data` sub class to represent a boolean value."""
 
-    _type = bool
+    @attribute(model_field_info=pdt.fields.FieldInfo(title='Boolean value'))
+    def value(self) -> bool:
+        """The boolean value stored in this node."""
+        return self.base.attributes.get('value', False)
 
-    # class AttributesModel(BaseType.AttributesModel):
-    #     value: bool = OrmMetadataField(
-    #         title='Boolean value',
-    #         description='The value of the boolean',
-    #     )
+    @value.setter
+    def value(self, value: bool) -> None:
+        self.base.attributes.set('value', bool(value))
 
     def __int__(self):
         return int(bool(self))

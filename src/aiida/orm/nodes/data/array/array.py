@@ -6,28 +6,27 @@
 # For further information on the license, see the LICENSE.txt file        #
 # For further information please visit http://www.aiida.net               #
 ###########################################################################
-"""AiiDA ORM data class storing (numpy) arrays"""
+"""AiiDA ORM data class storing (numpy) arrays."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
-from typing import Any, BinaryIO
+import typing as t
+from collections.abc import Mapping, Sequence
 
 import numpy as np
+import pydantic as pdt
+from typing_extensions import Self
 
 from aiida.orm.nodes.data.base import to_aiida_type
 from aiida.orm.nodes.data.data import Data
 
 __all__ = ('ArrayData',)
 
-
-@to_aiida_type.register(np.ndarray)
-def _(value):
-    return ArrayData(value)
+_ArrayLike = Sequence[t.Any] | np.ndarray
 
 
 class ArrayData(Data):
-    """Store a set of arrays on disk (rather than on the database) in an efficient way
+    """Store a set of arrays on disk (rather than on the database) in an efficient way.
 
     Arrays are stored using numpy and therefore this class requires numpy to be installed.
 
@@ -40,50 +39,69 @@ class ArrayData(Data):
         is used thereafter.
         If too much RAM memory is used, you can clear the
         cache with the :py:meth:`.clear_internal_cache` method.
-
     """
 
     array_prefix = 'array|'
     default_array_name = 'default'
 
-    def __init__(self, arrays: Iterable | dict[str, Iterable] | None = None, **kwargs):
+    _attributes_model_config = pdt.ConfigDict(
+        extra='allow',
+        json_schema_extra={
+            'patternProperties': {
+                r'^array\|[A-Za-z0-9_]+$': {
+                    'type': 'array',
+                    'items': {'type': 'integer'},
+                    'minItems': 1,
+                    'description': 'Shape of an array stored in the repository',
+                    'readOnly': True,
+                }
+            }
+        },
+    )
+
+    @classmethod
+    def from_arrays(cls, arrays: _ArrayLike | Mapping[str, _ArrayLike], **kwargs: t.Any) -> Self:
         """Construct a new instance and set one or multiple numpy arrays.
 
-        :param arrays: An optional single numpy array, or dictionary of numpy arrays to store.
+        :param arrays: a single numpy array or sequence, or a mapping of arrays to store.
         """
-        arrays = arrays if arrays is not None else {}
-
-        super().__init__(**kwargs)
-        self._cached_arrays: dict[str, np.ndarray] = {}
+        node = cls(**kwargs)
 
         if isinstance(arrays, (Sequence, np.ndarray)):
-            arrays = {self.default_array_name: arrays}
+            arrays = {cls.default_array_name: arrays}
 
-        if not isinstance(arrays, dict) or any(not isinstance(a, (Sequence, np.ndarray)) for a in arrays.values()):
-            raise TypeError(f'`arrays` should be a single sequence or dictionary of sequences but got: {arrays}')
+        if not isinstance(arrays, Mapping):
+            raise TypeError('`arrays` should be a single sequence or mapping of sequences')
 
-        for key, value in arrays.items():
-            self.set_array(key, np.asarray(value))
+        if any(not isinstance(array, (Sequence, np.ndarray)) for array in arrays.values()):
+            raise TypeError('`arrays` should be a single sequence or mapping of sequences')
+
+        for name, array in arrays.items():
+            node.set_array(name, np.asarray(array))
+
+        return node
+
+    def initialize(self) -> None:
+        super().initialize()
+        self._cached_arrays: dict[str, np.ndarray] = {}
 
     @property
     def arrays(self) -> dict[str, np.ndarray]:
+        """Return all arrays stored in the node."""
         return {name: self.get_array(name) for name in self.get_arraynames()}
-
-    def initialize(self):
-        super().initialize()
-        self._cached_arrays = {}
 
     def delete_array(self, name: str) -> None:
         """Delete an array from the node. Can only be called before storing.
 
         :param name: The name of the array to delete from the node.
         """
-        fname = f'{name}.npy'
-        if fname not in self.base.repository.list_object_names():
-            raise KeyError(f"Array with name '{name}' not found in node pk= {self.pk}")
+        filename = f'{name}.npy'
 
-        # remove both file and attribute
-        self.base.repository.delete_object(fname)
+        if filename not in self.base.repository.list_object_names():
+            raise KeyError(f"Array with name '{name}' not found in node pk={self.pk}")
+
+        self.base.repository.delete_object(filename)
+
         try:
             self.base.attributes.delete(f'{self.array_prefix}{name}')
         except (KeyError, AttributeError):
@@ -91,21 +109,8 @@ class ArrayData(Data):
             pass
 
     def get_arraynames(self) -> list[str]:
-        """Return a list of all arrays stored in the node, listing the files (and
-        not relying on the properties)."""
-        return self._arraynames_from_properties()
-
-    def _arraynames_from_files(self) -> list[str]:
-        """Return a list of all arrays stored in the node, listing the files (and
-        not relying on the properties).
-        """
-        return [i[:-4] for i in self.base.repository.list_object_names() if i.endswith('.npy')]
-
-    def _arraynames_from_properties(self) -> list[str]:
-        """Return a list of all arrays stored in the node, listing the attributes
-        starting with the correct prefix.
-        """
-        return [i[len(self.array_prefix) :] for i in self.base.attributes.keys() if i.startswith(self.array_prefix)]
+        """Return a list of all arrays stored in the node, listing the files."""
+        return self._arraynames_from_files()
 
     def get_shape(self, name: str) -> tuple[int, ...]:
         """Return the shape of an array (read from the value cached in the
@@ -115,13 +120,13 @@ class ArrayData(Data):
         """
         return tuple(self.base.attributes.get(f'{self.array_prefix}{name}'))
 
-    def get_iterarrays(self) -> Iterator[tuple[str, np.ndarray]]:
+    def get_iterarrays(self) -> t.Iterator[tuple[str, np.ndarray]]:
         """Iterator that returns tuples (name, array) for each array stored in the node."""
         for name in self.get_arraynames():
-            yield (name, self.get_array(name))
+            yield name, self.get_array(name)
 
     def get_array(self, name: str | None = None) -> np.ndarray:
-        """Return an array stored in the node
+        """Return an array stored in the node.
 
         :param name: The name of the array to return. The name can be omitted in case the node contains only a single
             array, which will be returned in that case. If ``name`` is ``None`` and the node contains multiple arrays or
@@ -130,32 +135,33 @@ class ArrayData(Data):
         """
         if name is None:
             names = self.get_arraynames()
-            narrays = len(names)
+            num_arrays = len(names)
 
-            if narrays == 0:
+            if num_arrays == 0:
                 raise ValueError('`name` not specified but the node contains no arrays.')
-            if narrays > 1:
+
+            if num_arrays > 1:
                 raise ValueError('`name` not specified but the node contains multiple arrays.')
 
             name = names[0]
 
-        def get_array_from_file(self, name: str) -> np.ndarray:
-            """Return the array stored in a .npy file"""
+        def get_array_from_file(name: str) -> np.ndarray:
+            """Return the array stored in a .npy file."""
             filename = f'{name}.npy'
 
             if filename not in self.base.repository.list_object_names():
                 raise KeyError(f'Array with name `{name}` not found in ArrayData<{self.pk}>')
 
-            # Open a handle in binary read mode as the arrays are written as binary files as well
+            # Open a handle in binary read mode as the arrays are written as binary files as well.
             with self.base.repository.open(filename, mode='rb') as handle:
                 return np.load(handle, allow_pickle=False)
 
-        # Return with proper caching if the node is stored, otherwise always re-read from disk
+        # Return with proper caching if the node is stored, otherwise always re-read from disk.
         if not self.is_stored:
-            return get_array_from_file(self, name)
+            return get_array_from_file(name)
 
         if name not in self._cached_arrays:
-            self._cached_arrays[name] = get_array_from_file(self, name)
+            self._cached_arrays[name] = get_array_from_file(name)
 
         return self._cached_arrays[name]
 
@@ -163,6 +169,7 @@ class ArrayData(Data):
         """Clear the internal memory cache where the arrays are stored after being
         read from disk (used in order to reduce at minimum the readings from
         disk).
+
         This function is useful if you want to keep the node in memory, but you
         do not want to waste memory to cache the arrays in RAM.
         """
@@ -182,29 +189,44 @@ class ArrayData(Data):
         if not isinstance(array, np.ndarray):
             raise TypeError('ArrayData can only store numpy arrays. Convert the object to an array first')
 
-        # Check if the name is valid
         self._validate_array_name(name)
 
-        # Write the array to a temporary file, and then add it to the repository of the node
+        # Write the array to a temporary file, and then add it to the repository of the node.
         with tempfile.NamedTemporaryFile() as handle:
             np.save(handle, array, allow_pickle=False)
 
-            # Flush and rewind the handle, otherwise the command to store it in the repo will write an empty file
+            # Flush and rewind the handle, otherwise the command to store it in the repo will write an empty file.
             handle.flush()
             handle.seek(0)
 
-            # Write the numpy array to the repository, keeping the byte representation
+            # Write the numpy array to the repository, keeping the byte representation.
             self.base.repository.put_object_from_filelike(handle, f'{name}.npy')  # type: ignore[arg-type]
 
-        # Store the array name and shape for querying purposes
+        # Store the array name and shape for querying purposes.
         self.base.attributes.set(f'{self.array_prefix}{name}', list(array.shape))
 
-    def attach_file(self, name: str, fileobj: BinaryIO) -> None:
+    def attach_file(self, name: str, fileobj: t.BinaryIO) -> None:
+        """Attach an array stored in a ``.npy`` file."""
         if not name.lower().endswith('.npy'):
             raise ValueError(f'expected .npy file: {name}')
+
         base = name.removesuffix('.npy')
         array = np.load(fileobj, allow_pickle=False)
         self.set_array(base, array)
+
+    def _arraynames_from_files(self) -> list[str]:
+        """Return a list of all arrays stored in the node, listing the files (and
+        not relying on the properties).
+        """
+        return [name[:-4] for name in self.base.repository.list_object_names() if name.endswith('.npy')]
+
+    def _arraynames_from_properties(self) -> list[str]:
+        """Return a list of all arrays stored in the node, listing the attributes
+        starting with the correct prefix.
+        """
+        return [
+            name[len(self.array_prefix) :] for name in self.base.attributes.keys() if name.startswith(self.array_prefix)
+        ]
 
     def _validate_array_name(self, name: str) -> None:
         """Validate the array name.
@@ -220,36 +242,33 @@ class ArrayData(Data):
                 'It can only contain digits, letters and underscores'
             )
 
-    def _validate(self) -> bool:
-        """Check if the list of .npy files stored inside the node and the
-        list of properties match. Just a name check, no check on the size
-        since this would require to reload all arrays and this may take time
-        and memory.
-        """
+    def _validate(self) -> None:
+        """Validate the consistency of stored array files and metadata."""
         from aiida.common.exceptions import ValidationError
+
+        super()._validate()
 
         files = self._arraynames_from_files()
         properties = self._arraynames_from_properties()
 
+        if not files:
+            raise ValidationError('ArrayData must contain at least one array')
+
         if set(files) != set(properties):
             raise ValidationError(
-                f'Mismatch of files and properties for ArrayData node (pk= {self.pk}): {files} vs. {properties}'
+                f'Mismatch of files and properties for ArrayData node (pk={self.pk}): {files} vs. {properties}'
             )
-        return super()._validate()
 
-    def _get_array_entries(self) -> dict[str, Any]:
+    def _get_array_entries(self) -> dict[str, t.Any]:
         """Return a dictionary with the different array entries.
 
         The idea is that this dictionary contains the array name as a key and
         the value is the numpy array transformed into a list. This is so that
         it can be transformed into a json object.
         """
-        array_dict = {}
-        for key, val in self.get_iterarrays():
-            array_dict[key] = clean_array(val)
-        return array_dict
+        return {name: clean_array(array) for name, array in self.get_iterarrays()}
 
-    def _prepare_json(self, main_file_name='', comments=True) -> tuple[bytes, dict]:
+    def _prepare_json(self, main_file_name: str = '', comments: bool = True) -> tuple[bytes, dict]:
         """Dump the content of the arrays stored in this node into JSON format.
 
         :param comments: if True, includes comments (if it makes sense for the given format)
@@ -265,6 +284,11 @@ class ArrayData(Data):
             json_dict['comments'] = get_file_header(comment_char='')
 
         return json.dumps(json_dict).encode('utf-8'), {}
+
+
+@to_aiida_type.register(np.ndarray)
+def _(value: np.ndarray) -> ArrayData:
+    return ArrayData.from_arrays(value)
 
 
 def clean_array(array: np.ndarray) -> list:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import typing as t
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 
 import pydantic as pdt
 from typing_extensions import Self
@@ -235,6 +235,20 @@ class ColumnDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_EntityT], Sequence[_ValueT]],
+        /,
+    ) -> Column[_EntityT, Sequence[_ValueT], qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_EntityT], Sequence[_ValueT] | None],
+        /,
+    ) -> Column[_EntityT, Sequence[_ValueT] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_EntityT], dict[str, _ValueT]],
         /,
     ) -> Column[_EntityT, dict[str, _ValueT], qb_fields.QbDictField]: ...
@@ -245,6 +259,20 @@ class ColumnDecorator(
         fget: Callable[[_EntityT], dict[str, _ValueT] | None],
         /,
     ) -> Column[_EntityT, dict[str, _ValueT] | None, qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_EntityT], Mapping[str, _ValueT]],
+        /,
+    ) -> Column[_EntityT, Mapping[str, _ValueT], qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_EntityT], Mapping[str, _ValueT] | None],
+        /,
+    ) -> Column[_EntityT, Mapping[str, _ValueT] | None, qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(

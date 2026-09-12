@@ -29,7 +29,7 @@ from aiida.cmdline.utils.decorators import with_dbenv
 from aiida.common import exceptions
 
 if TYPE_CHECKING:
-    from aiida.new_orm.code import Code
+    from aiida.orm import AbstractCode
     from aiida.orm.models.entity import CreateModel
 
 
@@ -38,7 +38,7 @@ def verdi_code():
     """Setup and manage codes."""
 
 
-def create_code(ctx: click.Context, cls: type[Code], model: CreateModel) -> None:
+def create_code(ctx: click.Context, cls: type[AbstractCode], model: CreateModel) -> None:
     """Create a new `Code` instance."""
     try:
         instance = model.to_entity()
@@ -229,7 +229,7 @@ def code_duplicate(ctx, code, non_interactive, **kwargs):
 @verdi_code.command()
 @arguments.CODE()
 @with_dbenv()
-def show(code: Code):
+def show(code: AbstractCode):
     """Display detailed information for a code."""
     from aiida.cmdline import is_verbose
     from aiida.orm.decorators.attributes import iter_attributes

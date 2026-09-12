@@ -37,8 +37,7 @@ if TYPE_CHECKING:
 
     from aiida.brokers import Broker
     from aiida.engine import CalcJob, CalcJobImporter, WorkChain
-    from aiida.new_orm.data import Data
-    from aiida.orm import Group
+    from aiida.orm import Data, Group
     from aiida.orm.implementation import StorageBackend
     from aiida.parsers import Parser
     from aiida.schedulers import Scheduler
@@ -198,7 +197,7 @@ def DataFactory(entry_point_name: str, load: bool = True) -> EntryPoint | type[D
     """
     from inspect import isclass
 
-    from aiida.new_orm.data import Data
+    from aiida.orm import Data
 
     entry_point_group = 'aiida.data'
     entry_point = BaseFactory(entry_point_group, entry_point_name, load=load)

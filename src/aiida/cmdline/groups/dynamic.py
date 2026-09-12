@@ -67,7 +67,7 @@ class DynamicEntryPointCommandGroup(VerdiCommandGroup):
 
     def _get_cli_create_spec(self, cls: type[t.Any]) -> CliCreateSpec | None:
         """Return the CLI creation specification exposed by a class."""
-        factory = getattr(cls, 'get_cli_create_spec', None)
+        factory = getattr(cls, 'cli_spec', None)
 
         if factory is None:
             return None

@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import typing as t
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 
 import pydantic as pdt
 from typing_extensions import Self
@@ -205,6 +205,20 @@ class NodeAttributeDecorator(
     @t.overload
     def __call__(
         self,
+        fget: Callable[[_NodeT], Sequence[_ValueT]],
+        /,
+    ) -> NodeAttribute[_NodeT, Sequence[_ValueT], qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_NodeT], Sequence[_ValueT] | None],
+        /,
+    ) -> NodeAttribute[_NodeT, Sequence[_ValueT] | None, qb_fields.QbArrayField]: ...
+
+    @t.overload
+    def __call__(
+        self,
         fget: Callable[[_NodeT], dict[str, _ValueT]],
         /,
     ) -> NodeAttribute[_NodeT, dict[str, _ValueT], qb_fields.QbDictField]: ...
@@ -215,6 +229,20 @@ class NodeAttributeDecorator(
         fget: Callable[[_NodeT], dict[str, _ValueT] | None],
         /,
     ) -> NodeAttribute[_NodeT, dict[str, _ValueT] | None, qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_NodeT], Mapping[str, _ValueT]],
+        /,
+    ) -> NodeAttribute[_NodeT, Mapping[str, _ValueT], qb_fields.QbDictField]: ...
+
+    @t.overload
+    def __call__(
+        self,
+        fget: Callable[[_NodeT], Mapping[str, _ValueT] | None],
+        /,
+    ) -> NodeAttribute[_NodeT, Mapping[str, _ValueT] | None, qb_fields.QbDictField]: ...
 
     @t.overload
     def __call__(

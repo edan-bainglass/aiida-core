@@ -23,7 +23,7 @@ from aiida.orm.models.entity import (
 )
 
 if t.TYPE_CHECKING:
-    from aiida.new_orm.node import Node
+    from aiida.orm import Node
     from aiida.orm.decorators.columns import Column
     from aiida.orm.models.modeling import ModelProjection
 
@@ -205,7 +205,7 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
                 continue
 
             if values[name] is not None and (adapter := attribute.model_adapter):
-                values[name] = adapter.to_entity(values[name])
+                values[name] = adapter.to_orm(values[name])
 
         return values
 

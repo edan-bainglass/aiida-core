@@ -15,22 +15,26 @@ import typing as t
 from enum import Enum
 from functools import lru_cache
 
+import pydantic as pdt
 from typing_extensions import Self
 
 from aiida.common import exceptions, log
 from aiida.common.exceptions import InvalidOperation
 from aiida.common.lang import call_with_super_check, classproperty, super_check, type_check
 from aiida.manage import get_manager
+from aiida.orm.cli import EntityCliCreateSpec
+from aiida.orm.decorators import column
+from aiida.orm.models.entity import EntityModel, ModelsNamespace
 
 if t.TYPE_CHECKING:
     from aiida.orm.implementation import BackendEntity, StorageBackend
     from aiida.orm.querybuilder import FilterType, OrderByType, QueryBuilder
 
-__all__ = ('Collection', 'Entity', 'EntityTypes')
+__all__ = ('Entity', 'EntityCollection', 'EntityTypes')
 
-CollectionType = t.TypeVar('CollectionType', bound='Collection[t.Any]')
-EntityType = t.TypeVar('EntityType', bound='Entity[t.Any, t.Any]')
-BackendEntityType = t.TypeVar('BackendEntityType', bound='BackendEntity')
+_CollectionT = t.TypeVar('_CollectionT', bound='EntityCollection[t.Any]')
+_EntityT = t.TypeVar('_EntityT', bound='Entity[t.Any, t.Any]')
+_BackendEntityT = t.TypeVar('_BackendEntityT', bound='BackendEntity')
 
 
 class EntityTypes(Enum):
@@ -47,19 +51,14 @@ class EntityTypes(Enum):
     GROUP_NODE = 'group_node'
 
 
-class Collection(abc.ABC, t.Generic[EntityType]):
+class EntityCollection(abc.ABC, t.Generic[_EntityT]):
     """Container class that represents the collection of objects of a particular entity type."""
 
     collection_type: t.ClassVar[str] = 'entities'
 
-    @staticmethod
-    @abc.abstractmethod
-    def _entity_base_cls() -> type[EntityType]:
-        """The allowed entity class or subclasses thereof."""
-
     @classmethod
     @lru_cache(maxsize=100)
-    def get_cached(cls, entity_class: type[EntityType], backend: StorageBackend) -> Self:
+    def get_cached(cls, entity_class: type[_EntityT], backend: StorageBackend) -> Self:
         """Get the cached collection instance for the given entity class and backend.
 
         :param backend: the backend instance to get the collection for
@@ -69,7 +68,7 @@ class Collection(abc.ABC, t.Generic[EntityType]):
         type_check(backend, StorageBackend)
         return cls(entity_class, backend=backend)
 
-    def __init__(self, entity_class: type[EntityType], backend: StorageBackend | None = None) -> None:
+    def __init__(self, entity_class: type[_EntityT], backend: StorageBackend | None = None) -> None:
         """Construct a new entity collection.
 
         :param entity_class: the entity type e.g. User, Computer, etc
@@ -89,7 +88,7 @@ class Collection(abc.ABC, t.Generic[EntityType]):
         return self.get_cached(self.entity_type, backend=backend)
 
     @property
-    def entity_type(self) -> type[EntityType]:
+    def entity_type(self) -> type[_EntityT]:
         """The entity type for this instance."""
         return self._entity_type
 
@@ -126,7 +125,7 @@ class Collection(abc.ABC, t.Generic[EntityType]):
         query.order_by([order_by])
         return query
 
-    def get(self, **filters: t.Any) -> EntityType:
+    def get(self, **filters: t.Any) -> _EntityT:
         """Get a single collection entry that matches the filter criteria.
 
         :param filters: the filters identifying the object to get
@@ -142,7 +141,7 @@ class Collection(abc.ABC, t.Generic[EntityType]):
         order_by: OrderByType | None = None,
         limit: int | None = None,
         offset: int | None = None,
-    ) -> list[EntityType]:
+    ) -> list[_EntityT]:
         """Find collection entries matching the filter criteria.
 
         :param filters: the keyword value pair filters to match
@@ -155,7 +154,7 @@ class Collection(abc.ABC, t.Generic[EntityType]):
         query = self.query(filters=filters, order_by=order_by, limit=limit, offset=offset)
         return query.all(flat=True)
 
-    def all(self) -> list[EntityType]:
+    def all(self) -> list[_EntityT]:
         """Get all entities in this collection.
 
         :return: A list of all entities
@@ -171,65 +170,30 @@ class Collection(abc.ABC, t.Generic[EntityType]):
         """
         return self.query(filters=filters).count()
 
+    @staticmethod
+    @abc.abstractmethod
+    def _entity_base_cls() -> type[_EntityT]:
+        """The allowed entity class or subclasses thereof."""
 
-class Entity(abc.ABC, t.Generic[BackendEntityType, CollectionType]):
-    """An AiiDA entity"""
 
-    _CLS_COLLECTION: type[CollectionType] = Collection  # type: ignore[assignment]
-    _logger = log.AIIDA_LOGGER.getChild('orm.entities')
+class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
+    """Base class for all ORM entities."""
 
     identity_field = 'pk'
 
-    def __init__(self, backend_entity: BackendEntityType) -> None:
-        """:param backend_entity: the backend model supporting this entity"""
+    models: ModelsNamespace[Self] = ModelsNamespace()
+
+    _CLS_COLLECTION: type[_CollectionT] = EntityCollection  # type: ignore[assignment]
+    _logger = log.AIIDA_LOGGER.getChild('orm.entities')
+
+    _entity_model_config: pdt.ConfigDict
+
+    _cli_spec: t.ClassVar[EntityCliCreateSpec | None] = None
+
+    def __init__(self, backend_entity: _BackendEntityT) -> None:
+        """:param backend_entity: the backend model supporting this entity."""
         self._backend_entity = backend_entity
         call_with_super_check(self.initialize)
-
-    def serialize(
-        self,
-        *,
-        context: dict[str, t.Any] | None = None,
-        minimal: bool = False,
-        schema: t.Literal['read', 'write'] | None = None,
-        mode: t.Literal['json', 'python'] = 'python',
-        exclude_none: bool = False,
-    ) -> dict[str, t.Any]:
-        """Serialize the entity instance to JSON.
-
-        :param context: Optional context dictionary to pass to `orm_to_model` callables.
-        :param minimal: Whether to exclude potentially large value fields.
-        :param schema: The schema to use for serialization. Defaults to 'read' if stored, 'write' otherwise.
-        :param mode: The serialization mode, either 'json' or 'python' (default). JSON-based clients (e.g., REST APIs)
-            should use 'json' mode.
-        :param exclude_none: Whether to exclude fields with a value of `None`.
-        :return: A dictionary that can be serialized to JSON.
-        :raises UnsupportedSchemaError: if the provided schema is not supported for this entity.
-        """
-        return self.to_model(context=context, minimal=minimal, schema=schema).model_dump(
-            mode=mode,
-            exclude_unset=minimal,
-            exclude_none=exclude_none,
-        )
-
-    @classproperty
-    def collection(cls) -> CollectionType:  # noqa: N805
-        """Get a collection for objects of this type, with the default backend.
-
-        :return: an object that can be used to access entities of this type
-        """
-        return cls._CLS_COLLECTION.get_cached(cls, get_manager().get_profile_storage())
-
-    @classmethod
-    def get_collection(cls, backend: StorageBackend) -> CollectionType:
-        """Get a collection for objects of this type for a given backend.
-
-        .. note:: Use the ``collection`` class property instead if the currently loaded backend or backend of the
-            default profile should be used.
-
-        :param backend: The backend of the collection to use.
-        :return: A collection object that can be used to access entities of this type.
-        """
-        return cls._CLS_COLLECTION.get_cached(cls, backend)
 
     def __eq__(self, other: t.Any) -> bool:
         if not isinstance(other, self.__class__):
@@ -244,12 +208,17 @@ class Entity(abc.ABC, t.Generic[BackendEntityType, CollectionType]):
         """Prevent an ORM entity instance from being pickled."""
         raise InvalidOperation('pickling of AiiDA ORM instances is not supported.')
 
-    @super_check
-    def initialize(self) -> None:
-        """Initialize instance attributes.
+    @column(
+        backend_key='id',
+        readonly=True,
+        required_once_stored=True,
+    )
+    def pk(self) -> int | None:
+        """The primary key of the entity.
 
-        This will be called after the constructor is called or an entity is created from an existing backend entity.
+        This identifier is guaranteed to be unique amongst entities of the same type for a single backend instance.
         """
+        return self._backend_entity.id
 
     @property
     def logger(self) -> log.AiidaLoggerType:
@@ -258,21 +227,6 @@ class Entity(abc.ABC, t.Generic[BackendEntityType, CollectionType]):
             return self._logger
         except AttributeError:
             raise exceptions.InternalError('No self._logger configured for {}!')
-
-    @property
-    def pk(self) -> int | None:
-        """Return the primary key for this entity.
-
-        This identifier is guaranteed to be unique amongst entities of the same type for a single backend instance.
-
-        :return: the entity's principal key
-        """
-        return self._backend_entity.id
-
-    def store(self) -> Self:
-        """Store the entity."""
-        self._backend_entity.store()
-        return self
 
     @property
     def is_stored(self) -> bool:
@@ -285,12 +239,86 @@ class Entity(abc.ABC, t.Generic[BackendEntityType, CollectionType]):
         return self._backend_entity.backend
 
     @property
-    def backend_entity(self) -> BackendEntityType:
+    def backend_entity(self) -> _BackendEntityT:
         """Get the implementing class for this object"""
         return self._backend_entity
 
+    @classproperty
+    def cli_spec(cls: type[_EntityT]) -> EntityCliCreateSpec:  # noqa: N805
+        """Return the CLI specification for this entity."""
+        if cls.__dict__.get('_cli_spec') is None:
+            cls._cli_spec = EntityCliCreateSpec(cls)
 
-def from_backend_entity(cls: type[EntityType], backend_entity: BackendEntity) -> EntityType:
+        return cls._cli_spec
+
+    @classproperty
+    def collection(cls) -> _CollectionT:  # noqa: N805
+        """Get a collection for objects of this type, with the default backend.
+
+        :return: an object that can be used to access entities of this type
+        """
+        return cls._CLS_COLLECTION.get_cached(cls, get_manager().get_profile_storage())
+
+    @classmethod
+    def get_collection(cls, backend: StorageBackend) -> _CollectionT:
+        """Get a collection for objects of this type for a given backend.
+
+        .. note:: Use the ``collection`` class property instead if the currently loaded backend or backend of the
+            default profile should be used.
+
+        :param backend: The backend of the collection to use.
+        :return: A collection object that can be used to access entities of this type.
+        """
+        return cls._CLS_COLLECTION.get_cached(cls, backend)
+
+    @super_check
+    def initialize(self) -> None:
+        """Initialize instance attributes.
+
+        This will be called after the constructor is called or an entity is created from an existing backend entity.
+        """
+
+    def store(self) -> Self:
+        """Store the entity."""
+        self._backend_entity.store()
+        return self
+
+    def serialize(
+        self,
+        *,
+        context: dict[str, t.Any] | None = None,
+        minimal: bool = False,
+        mode: t.Literal['json', 'python'] = 'python',
+        exclude_none: bool = False,
+        exclude_unset: bool = False,
+    ) -> dict[str, t.Any]:
+        """Serialize the entity instance to JSON.
+
+        :param context: Optional context dictionary to pass to `orm_to_model` callables.
+        :param minimal: Whether to exclude potentially large value fields.
+        :param mode: The serialization mode, either 'json' or 'python' (default). JSON-based clients (e.g., REST APIs)
+            should use 'json' mode.
+        :param exclude_none: Whether to exclude fields with a value of `None`.
+        :param exclude_unset: Whether to exclude fields that have not been explicitly set.
+        :return: A dictionary that can be serialized to JSON.
+        :raises UnsupportedSchemaError: if the provided schema is not supported for this entity.
+        """
+        models = self.__class__.models
+        model: type[EntityModel] = models.read if self.is_stored else models.create
+        if minimal:
+            model = model.minimize()
+        return model.from_entity(
+            self,
+            context=context,
+            minimal=minimal,
+        ).model_dump(
+            mode=mode,
+            exclude_unset=exclude_unset,
+            exclude_none=exclude_none,
+        )
+
+
+def from_backend_entity(cls: type[_EntityT], backend_entity: BackendEntity) -> _EntityT:
     """Construct an entity from a backend entity instance
 
     :param backend_entity: the backend entity

@@ -31,7 +31,7 @@ _QbFieldT = t.TypeVar('_QbFieldT', bound=qb_fields.QbField)
 
 
 class ModelAdapter(abc.ABC, t.Generic[_EntityValueT, _ModelValueT, _QbFieldT]):
-    """Abstract base class for model adapters that convert between entity and model values."""
+    """Abstract base class for model adapters that convert between orm and model values."""
 
     _model_type: t.ClassVar[t.Any] = None
 
@@ -48,11 +48,11 @@ class ModelAdapter(abc.ABC, t.Generic[_EntityValueT, _ModelValueT, _QbFieldT]):
 
     @abc.abstractmethod
     def to_model(self, value: _EntityValueT, *, context: dict[str, t.Any] | None = None) -> _ModelValueT:
-        """Convert an entity value to its model representation."""
+        """Convert an orm value to its model representation."""
 
     @abc.abstractmethod
-    def to_entity(self, value: _ModelValueT) -> _EntityValueT:
-        """Convert a model value to its entity representation."""
+    def to_orm(self, value: _ModelValueT) -> _EntityValueT:
+        """Convert a model value to its orm representation."""
 
 
 ModelProjection = t.Literal['read', 'create', 'update']

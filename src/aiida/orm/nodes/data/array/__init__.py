@@ -13,20 +13,9 @@
 # fmt: off
 
 from aiida.orm.nodes.data.array.array import *
-from aiida.orm.nodes.data.array.bands import *
-from aiida.orm.nodes.data.array.kpoints import *
-from aiida.orm.nodes.data.array.projection import *
-from aiida.orm.nodes.data.array.trajectory import *
-from aiida.orm.nodes.data.array.xy import *
 
 __all__ = (
     'ArrayData',
-    'BandsData',
-    'KpointsData',
-    'ProjectionData',
-    'TrajectoryData',
-    'XyData',
-    'find_bandgap',
 )
 
 # fmt: on

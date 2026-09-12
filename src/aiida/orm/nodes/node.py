@@ -16,18 +16,21 @@ from collections.abc import Iterator
 from functools import cached_property
 from uuid import UUID
 
+import pydantic as pdt
 from typing_extensions import Self
 
 from aiida.common import exceptions
 from aiida.common.lang import classproperty, type_check
 from aiida.common.links import LinkType
 from aiida.common.log import AIIDA_LOGGER
-from aiida.common.warnings import warn_deprecation
 from aiida.manage import get_manager
 from aiida.orm.computers import Computer
-from aiida.orm.entities import Collection as EntityCollection
-from aiida.orm.entities import Entity, from_backend_entity
+from aiida.orm.decorators import column
+from aiida.orm.decorators.attributes import attributes_column
+from aiida.orm.entities import Entity, EntityCollection, from_backend_entity
 from aiida.orm.extras import EntityExtras
+from aiida.orm.models.adapters import EntityPkAdapter, StrUuidAdapter
+from aiida.orm.models.node import NodeModelsNamespace
 from aiida.orm.nodes.attributes import NodeAttributes
 from aiida.orm.nodes.caching import NodeCaching
 from aiida.orm.nodes.comments import NodeComments
@@ -156,6 +159,12 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     the 'type' field.
     """
 
+    identity_field = 'uuid'
+
+    models: NodeModelsNamespace[Self] = NodeModelsNamespace()
+
+    _attributes_model_config: pdt.ConfigDict
+
     _CLS_COLLECTION = NodeCollection['Node']
     _CLS_NODE_LINKS = NodeLinks
     _CLS_NODE_CACHING = NodeCaching
@@ -194,100 +203,63 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     _storable = False
     _unstorable_message = 'only Data, WorkflowNode, CalculationNode or their subclasses can be stored'
 
-    identity_field = 'uuid'
-
     def __init__(
         self,
-        backend: StorageBackend | None = None,
-        user: User | None = None,
+        label: str = '',
+        description: str = '',
+        extras: dict | None = None,
+        attributes: dict | None = None,
         computer: Computer | None = None,
-        extras: dict[str, t.Any] | None = None,
-        **kwargs: t.Any,
+        user: User | None = None,
+        node_type: str | None = None,
+        process_type: str | None = None,
+        repository_metadata: dict | None = None,
+        files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
+        backend: StorageBackend | None = None,
     ) -> None:
-        backend_entity = create_backend_node(self.class_node_type, backend, user, computer, **kwargs)
+        backend = backend or get_manager().get_profile_storage()
+
+        if computer is not None and not computer.is_stored:
+            raise ValueError('the computer is not stored')
+
+        backend_computer = computer.backend_entity if computer else None
+        user = user if user else backend.default_user  # type: ignore[assignment]
+
+        if user is None:
+            raise ValueError('the user cannot be None')
+
+        if node_type is not None and node_type != self.class_node_type:
+            raise ValueError(
+                f'provided node_type `{node_type}` does not match the class node type `{self.class_node_type}`'
+            )
+
+        backend_entity = backend.nodes.create(
+            label=label,
+            description=description,
+            node_type=self.class_node_type,
+            process_type=process_type,
+            user=user.backend_entity,
+            computer=backend_computer,
+        )
+
         super().__init__(backend_entity)
+
+        if attributes:
+            self.base.attributes.set_many(attributes)
+
         if extras:
             self.base.extras.set_many(extras)
 
-    @cached_property
-    def base(self) -> NodeBase:
-        """Return the node base namespace."""
-        return NodeBase(self)
+        self._validate_and_attach_files(files, repository_metadata)
 
-    # def serialize(
-    #     self,
-    #     *,
-    #     context: dict[str, Any] | None = None,
-    #     minimal: bool = False,
-    #     schema: Literal[read, write, constructor] | None = None,
-    #     mode: Literal[json, python] = 'python',
-    #     exclude_none: bool = False,
-    #     repository_dump_path: pathlib.Path | None = None,
-    # ) -> dict[str, Any]:
-    #     """Serialize the entity instance to JSON.
+    def __init_subclass__(cls, **kwargs: t.Any) -> None:
+        super().__init_subclass__(**kwargs)
 
-    #     :param context: Optional context dictionary to pass to `orm_to_model` callables.
-    #     :param minimal: Whether to exclude potentially large value fields.
-    #     :param schema: The schema to use for serialization. Defaults to 'read' if stored, 'write' otherwise.
-    #         The 'constructor' schema can be used to serialize the node for constructor-based creation, if supported.
-    #     :param mode: The serialization mode, either 'json' or 'python' (default). JSON-based clients (e.g., REST APIs)
-    #         should use 'json' mode.
-    #     :param exclude_none: Whether to exclude fields with a value of `None`.
-    #     :param repository_dump_path: The path to which to dump the repository contents.
-    #     :return: A dictionary that can be serialized to JSON.
-    #     :raises UnsupportedSchemaError: if the provided schema is not supported for this entity.
-    #     :raises ValueError: if `repository_dump_path` is invalid.
-    #     """
-    #     context = context or {}
-    #     if repository_dump_path is not None and context.get('repository_dump_path') is not None:
-    #         raise ValueError('`repository_dump_path` should be given either as an argument or in the context, not both')
-    #     repository_dump_path = repository_dump_path or context.get('repository_dump_path')
-
-    #     if repository_dump_path is not None:
-    #         if not repository_dump_path.exists():
-    #             raise ValueError(f'`{repository_dump_path}` does not exist')
-    #         if not repository_dump_path.is_dir():
-    #             raise ValueError(f'`{repository_dump_path}` is not a directory')
-
-    #         self.base.repository.copy_tree(repository_dump_path)
-    #         context = {**context, 'repository_dump_path': repository_dump_path, 'written': True}
-
-    #     serialized = self.to_model(context=context, minimal=minimal, schema=schema).model_dump(
-    #         mode=mode,
-    #         exclude_unset=minimal,
-    #         exclude_none=exclude_none,
-    #     )
-
-    #     # To support plugins that have not yet implemented a model for serialization/validation,
-    #     # we add here any attributes that are not already included in the serialized output.
-    #     # This only applies to the full (not minimal) 'read' schema (default if stored).
-    #     if not minimal and (schema == 'read' or (schema is None and self.is_stored)):
-    #         for key, value in self.base.attributes.all.items():
-    #             if key not in serialized['attributes']:
-    #                 serialized['attributes'][key] = value
-
-    #     return serialized
-
-    def attach_file(self, filepath: str, fileobj: t.BinaryIO) -> None:
-        """Attach a file to the repository of this node.
-
-        Subclasses of `Node` may override this method, providing custom file handling that includes validation
-        and/or attribute derivation, e.g., `ArrayData.set_array`, `SinglefileData.set_file`, etc.
-
-        :param filepath: the path within the repository to store the file at
-        :param fileobj: the file-like object to store
-        """
-        self.base.repository.put_object_from_filelike(fileobj, filepath)  # type: ignore[arg-type]
-
-    def _check_mutability_attributes(self, keys: list[str] | None = None) -> None:
-        """Check if the entity is mutable and raise an exception if not.
-
-        This is called from `NodeAttributes` methods that modify the attributes.
-
-        :param keys: the keys that will be mutated, or all if None
-        """
-        if self.is_stored:
-            raise exceptions.ModificationNotAllowed('the attributes of a stored entity are immutable')
+        if '__init__' in cls.__dict__:
+            raise TypeError(
+                f'{cls.__name__} cannot override Node.__init__. '
+                'Define a named class method such as `from_*` for custom construction instead.'
+            )
 
     def __eq__(self, other: t.Any) -> bool:
         """Fallback equality comparison by uuid (can be overwritten by specific types)"""
@@ -316,45 +288,139 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """Deep copying a Node is not supported in general, but only for the Data sub class."""
         raise exceptions.InvalidOperation('deep copying a base Node is not supported')
 
-    def _validate(self) -> bool:
-        """Validate information stored in Node object.
+    @column(
+        updatable=True,
+        model_field_info=pdt.fields.FieldInfo(default=''),
+    )
+    def label(self) -> str:
+        """The label of the node."""
+        return self._backend_entity.label
 
-        For the :py:class:`~aiida.orm.Node` base class, this check is always valid.
-        Subclasses can override this method to perform additional checks
-        and should usually call ``super()._validate()`` first!
+    @label.setter
+    def label(self, value: str) -> None:
+        self._backend_entity.label = value
 
-        This method is called automatically before storing the node in the DB.
-        Therefore, use :py:meth:`~aiida.orm.nodes.attributes.NodeAttributes.get()` and similar methods that
-        automatically read either from the DB or from the internal attribute cache.
-        """
-        return True
+    @column(
+        updatable=True,
+        model_field_info=pdt.fields.FieldInfo(default=''),
+    )
+    def description(self) -> str:
+        """The description of the node."""
+        return self._backend_entity.description
 
-    def _validate_storability(self) -> None:
-        """Verify that the current node is allowed to be stored.
+    @description.setter
+    def description(self, value: str) -> None:
+        self._backend_entity.description = value
 
-        :raises `aiida.common.exceptions.StoringNotAllowed`: if the node does not match all requirements for storing
-        """
-        from aiida.plugins.entry_point import is_registered_entry_point
+    @column(
+        updatable=True,
+        may_be_large=True,
+        model_field_info=pdt.fields.FieldInfo(default_factory=dict),
+    )
+    def extras(self) -> dict[str, t.Any]:
+        """The extras of the node."""
+        return self.base.extras.all
 
-        if not self._storable:
-            raise exceptions.StoringNotAllowed(self._unstorable_message)
+    @extras.setter
+    def extras(self, value: dict[str, t.Any]) -> None:
+        self.base.extras.reset(value)
 
-        if not is_registered_entry_point(self.__module__, self.__class__.__name__, groups=('aiida.node', 'aiida.data')):
-            raise exceptions.StoringNotAllowed(
-                f'class `{self.__module__}:{self.__class__.__name__}` does not have a registered entry point. '
-                'Check that the corresponding plugin is installed '
-                'and that the entry point shows up in `verdi plugin list`.'
-            )
+    @attributes_column
+    def attributes(self) -> dict[str, t.Any]:
+        """The attributes of the node."""
+        return self.base.attributes.all
 
-    @classproperty
-    def supports_constructor_model(cls) -> bool:  # noqa: N805
-        """Return whether this node class supports constructor-based creation."""
-        return hasattr(cls, 'ConstructorArgsModel')
+    @attributes.setter
+    def attributes(self, value: dict[str, t.Any]) -> None:
+        self.base.attributes.reset(value)
 
-    @classproperty
-    def supports_cli_model(cls) -> bool:  # noqa: N805
-        """Return whether this node class supports CLI-based creation."""
-        return cls._CliModel is not None
+    @column(
+        may_be_large=True,
+        model_field_info=pdt.fields.FieldInfo(default_factory=dict),
+    )
+    def repository_metadata(self) -> dict[str, t.Any]:
+        """The repository metadata of the node."""
+        return self.base.repository.metadata
+
+    @column(
+        readonly=True,
+        model_adapter=StrUuidAdapter(),
+    )
+    def uuid(self) -> str:
+        """The UUID of the node."""
+        return self._backend_entity.uuid
+
+    @column(
+        required_once_stored=True,
+    )
+    def node_type(self) -> str | None:
+        """The type of the node."""
+        return self._backend_entity.node_type
+
+    @node_type.setter
+    def node_type(self, value: str | None) -> None:
+        self._backend_entity.node_type = value
+
+    @column
+    def process_type(self) -> str | None:
+        """The process type of the node."""
+        return self._backend_entity.process_type
+
+    @process_type.setter
+    def process_type(self, value: str) -> None:
+        """Set the node process type."""
+        self._backend_entity.process_type = value
+
+    @column(readonly=True)
+    def ctime(self) -> datetime.datetime:
+        """The creation time of the node."""
+        return self._backend_entity.ctime
+
+    @column(readonly=True)
+    def mtime(self) -> datetime.datetime:
+        """The last modification time of the node."""
+        return self._backend_entity.mtime
+
+    @column(
+        model_field_info=pdt.fields.FieldInfo(
+            default=None,
+            description='The PK of the associated computer.',
+        ),
+        model_adapter=EntityPkAdapter(Computer),
+    )
+    def computer(self) -> Computer | None:
+        """The computer associated with the node."""
+        if self.backend_entity.computer:
+            return from_backend_entity(Computer, self.backend_entity.computer)
+
+        return None
+
+    @computer.setter
+    def computer(self, computer: Computer | None) -> None:
+        if self.is_stored:
+            raise exceptions.ModificationNotAllowed('cannot set the computer on a stored node')
+
+        type_check(computer, Computer, allow_none=True)
+        self.backend_entity.computer = None if computer is None else computer.backend_entity
+
+    @column(
+        readonly=True,
+        model_field_info=pdt.fields.FieldInfo(description='The PK of the associated user.'),
+        model_adapter=EntityPkAdapter(User),
+    )
+    def user(self) -> User:
+        """The user associated with the node."""
+        return from_backend_entity(User, self._backend_entity.user)
+
+    @cached_property
+    def base(self) -> NodeBase:
+        """Return the node base namespace."""
+        return NodeBase(self)
+
+    @property
+    def logger(self) -> AiidaLoggerType:
+        """Return the logger configured for this Node."""
+        return self._logger
 
     @classproperty
     def class_node_type(cls) -> str:  # noqa: N805
@@ -363,157 +429,10 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @classproperty
     def entry_point(cls) -> EntryPoint | None:  # noqa: N805
-        """Return the entry point associated this node class.
-
-        :return: the associated entry point or ``None`` if it isn't known.
-        """
+        """Return the entry point associated this node class."""
         from aiida.plugins.entry_point import get_entry_point_from_class
 
         return get_entry_point_from_class(cls.__module__, cls.__name__)[1]
-
-    @property
-    def logger(self) -> AiidaLoggerType:
-        """Return the logger configured for this Node.
-
-        :return: Logger object
-        """
-        return self._logger
-
-    @property
-    def uuid(self) -> str:
-        """Return the node UUID.
-
-        :return: the string representation of the UUID
-        """
-        return self.backend_entity.uuid
-
-    @property
-    def node_type(self) -> str:
-        """Return the node type.
-
-        :return: the node type
-        """
-        return self.backend_entity.node_type
-
-    @property
-    def process_type(self) -> str | None:
-        """Return the node process type.
-
-        :return: the process type
-        """
-        return self.backend_entity.process_type
-
-    @process_type.setter
-    def process_type(self, value: str) -> None:
-        """Set the node process type.
-
-        :param value: the new value to set
-        """
-        self.backend_entity.process_type = value
-
-    @property
-    def label(self) -> str:
-        """Return the node label.
-
-        :return: the label
-        """
-        return self.backend_entity.label
-
-    @label.setter
-    def label(self, value: str) -> None:
-        """Set the label.
-
-        :param value: the new value to set
-        """
-        self.backend_entity.label = value
-
-    @property
-    def description(self) -> str:
-        """Return the node description.
-
-        :return: the description
-        """
-        return self.backend_entity.description
-
-    @description.setter
-    def description(self, value: str) -> None:
-        """Set the description.
-
-        :param value: the new value to set
-        """
-        self.backend_entity.description = value
-
-    @property
-    def computer(self) -> Computer | None:
-        """Return the computer of this node."""
-        if self.backend_entity.computer:
-            return from_backend_entity(Computer, self.backend_entity.computer)
-
-        return None
-
-    @computer.setter
-    def computer(self, computer: Computer | None) -> None:
-        """Set the computer of this node.
-
-        :param computer: a `Computer`
-        """
-        if self.is_stored:
-            raise exceptions.ModificationNotAllowed('cannot set the computer on a stored node')
-
-        type_check(computer, Computer, allow_none=True)
-
-        self.backend_entity.computer = None if computer is None else computer.backend_entity
-
-    @property
-    def user(self) -> User:
-        """Return the user of this node."""
-        return from_backend_entity(User, self._backend_entity.user)
-
-    @user.setter
-    def user(self, user: User) -> None:
-        """Set the user of this node.
-
-        :param user: a `User`
-        """
-        if self.is_stored:
-            raise exceptions.ModificationNotAllowed('cannot set the user on a stored node')
-
-        type_check(user, User)
-        self.backend_entity.user = user.backend_entity
-
-    @property
-    def ctime(self) -> datetime.datetime:
-        """Return the node ctime.
-
-        :return: the ctime
-        """
-        return self.backend_entity.ctime
-
-    @property
-    def mtime(self) -> datetime.datetime:
-        """Return the node mtime.
-
-        :return: the mtime
-        """
-        return self.backend_entity.mtime
-
-    def store_all(self) -> Self:
-        """Store the node, together with all input links.
-
-        Unstored nodes from cached incoming linkswill also be stored.
-        """
-        if self.is_stored:
-            raise exceptions.ModificationNotAllowed(f'Node<{self.pk}> is already stored')
-
-        # For each node of a cached incoming link, check that all its incoming links are stored
-        for link_triple in self.base.links.incoming_cache:
-            link_triple.node._verify_are_parents_stored()
-
-        for link_triple in self.base.links.incoming_cache:
-            if not link_triple.node.is_stored:
-                link_triple.node.store()
-
-        return self.store()
 
     def store(self) -> Self:
         """Store the node in the database while saving its attributes and repository directory.
@@ -549,6 +468,109 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 group.add_nodes(self)
 
         return self
+
+    def store_all(self) -> Self:
+        """Store the node, together with all input links.
+
+        Unstored nodes from cached incoming linkswill also be stored.
+        """
+        if self.is_stored:
+            raise exceptions.ModificationNotAllowed(f'Node<{self.pk}> is already stored')
+
+        # For each node of a cached incoming link, check that all its incoming links are stored
+        for link_triple in self.base.links.incoming_cache:
+            link_triple.node._verify_are_parents_stored()
+
+        for link_triple in self.base.links.incoming_cache:
+            if not link_triple.node.is_stored:
+                link_triple.node.store()
+
+        return self.store()
+
+    def attach_file(self, filepath: str, fileobj: t.BinaryIO) -> None:
+        """Attach a file to the repository of this node.
+
+        Subclasses of `Node` may override this method, providing custom file handling that includes validation
+        and/or attribute derivation, e.g., `ArrayData.set_array`, `SinglefileData.set_file`, etc.
+
+        :param filepath: the path within the repository to store the file at
+        :param fileobj: the file-like object to store
+        """
+        self.base.repository.put_object_from_filelike(fileobj, filepath)  # type: ignore[arg-type]
+
+    def _validate_and_attach_files(
+        self,
+        files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
+        repository_metadata: dict | None = None,
+    ) -> None:
+        """Attach repository files, optionally validated against expected repository metadata."""
+        if repository_metadata:
+            import hashlib
+
+            from aiida.common.hashing import chunked_file_hash
+            from aiida.repository import Repository
+
+            if not files:
+                raise exceptions.ValidationError('got `repository_metadata` but no files provided')
+
+            flattened_repo = Repository.flatten(repository_metadata)
+
+        for filepath, fileobj_callable in (files or {}).items():
+            fileobj = fileobj_callable()
+            if fileobj is None:
+                self.base.repository._repository.create_directory(filepath)  # empty directory
+            else:
+                if repository_metadata:
+                    expected_hash = flattened_repo.get(filepath)
+                    if expected_hash:
+                        actual_hash = chunked_file_hash(fileobj, hashlib.sha256)
+                        fileobj.seek(0)
+                        if expected_hash != actual_hash:
+                            raise exceptions.ValidationError(
+                                f'file hash mismatch for `{filepath}`; expected {expected_hash}, computed {actual_hash}'
+                            )
+                self.attach_file(filepath, fileobj)
+                fileobj.close()
+
+    def _check_mutability_attributes(self, keys: list[str] | None = None) -> None:
+        """Check if the entity is mutable and raise an exception if not.
+
+        This is called from `NodeAttributes` methods that modify the attributes.
+
+        :param keys: the keys that will be mutated, or all if None
+        """
+        if self.is_stored:
+            raise exceptions.ModificationNotAllowed('the attributes of a stored entity are immutable')
+
+    def _validate(self) -> bool:
+        """Validate information stored in Node object.
+
+        For the :py:class:`~aiida.orm.Node` base class, this check is always valid.
+        Subclasses can override this method to perform additional checks
+        and should usually call ``super()._validate()`` first!
+
+        This method is called automatically before storing the node in the DB.
+        Therefore, use :py:meth:`~aiida.orm.nodes.attributes.NodeAttributes.get()` and similar methods that
+        automatically read either from the DB or from the internal attribute cache.
+        """
+        return True
+
+    def _validate_storability(self) -> None:
+        """Verify that the current node is allowed to be stored.
+
+        :raises `aiida.common.exceptions.StoringNotAllowed`: if the node does not match all requirements for storing
+        """
+        from aiida.plugins.entry_point import is_registered_entry_point
+
+        if not self._storable:
+            raise exceptions.StoringNotAllowed(self._unstorable_message)
+
+        if not is_registered_entry_point(self.__module__, self.__class__.__name__, groups=('aiida.node', 'aiida.data')):
+            raise exceptions.StoringNotAllowed(
+                f'class `{self.__module__}:{self.__class__.__name__}` does not have a registered entry point. '
+                'Check that the corresponding plugin is installed '
+                'and that the entry point shows up in `verdi plugin list`.'
+            )
 
     def _store(self, clean: bool = True) -> Self:
         """Store the node in the database while saving its attributes and repository directory.
@@ -615,145 +637,3 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             new_node = entry.node.clone()
             new_node.base.links.add_incoming(self, link_type=LinkType.CREATE, link_label=entry.link_label)
             new_node.store()
-
-    def get_description(self) -> str:
-        """Return a string with a description of the node.
-
-        :return: a description string
-        """
-        return ''
-
-    def get_computer_pk(self) -> int | None:
-        """Get the pk of the computer of this node.
-
-        :return: The computer pk or None if no computer is set.
-        """
-        return self.computer.pk if self.computer else None
-
-    @property
-    def is_valid_cache(self) -> bool:
-        """Hook to exclude certain ``Node`` classes from being considered a valid cache.
-
-        The base class assumes that all node instances are valid to cache from, unless the ``_VALID_CACHE_KEY`` extra
-        has been set to ``False`` explicitly. Subclasses can override this property with more specific logic, but should
-        probably also consider the value returned by this base class.
-        """
-        kls = self.__class__.__name__
-        warn_deprecation(
-            f'`{kls}.is_valid_cache` is deprecated, use `{kls}.base.caching.is_valid_cache` instead.',
-            version=3,
-            stacklevel=2,
-        )
-        return self.base.caching.is_valid_cache
-
-    @is_valid_cache.setter
-    def is_valid_cache(self, valid: bool) -> None:
-        """Set whether this node instance is considered valid for caching or not.
-
-        If a node instance has this property set to ``False``, it will never be used in the caching mechanism, unless
-        the subclass overrides the ``is_valid_cache`` property and ignores it implementation completely.
-
-        :param valid: whether the node is valid or invalid for use in caching.
-        """
-        kls = self.__class__.__name__
-        warn_deprecation(
-            f'`{kls}.is_valid_cache` is deprecated, use `{kls}.base.caching.is_valid_cache` instead.',
-            version=3,
-            stacklevel=2,
-        )
-        self.base.caching.is_valid_cache = valid
-
-    # @classmethod
-    # def _from_write_model(
-    #     cls,
-    #     model: WriteModel,
-    #     files: dict[str, Callable[[], BinaryIO | None]] | None = None,
-    # ) -> Self:
-    #     """Construct a node instance from the attributes-based creation model.
-
-    #     :param model: the model instance to construct from
-    #     :param files: A mapping of target repository paths to file-like object callables (for efficient streaming).
-    #     :return: the constructed node instance
-    #     """
-
-    #     if not isinstance(model, cls.WriteModel):
-    #         raise ValueError(f'expected `{cls.WriteModel.__name__}` model, got `{type(model).__name__}`')
-
-    #     fields = model._to_orm_field_values()
-
-    #     extras = fields.pop('extras', None)
-
-    #     attributes = fields.pop('attributes', None)
-    #     if attributes is None:
-    #         raise ValueError('missing required `attributes` field')
-
-    #     repository_metadata = fields.pop('repository_metadata', {})
-    #     if repository_metadata:
-    #         import hashlib
-
-    #         from aiida.common.hashing import chunked_file_hash
-    #         from aiida.repository import Repository
-
-    #         if not files:
-    #             raise exceptions.ValidationError('got `repository_metadata` but no files provided')
-
-    #         flattened_repo = Repository.flatten(repository_metadata)
-
-    #     backend_node = create_backend_node(**fields)
-    #     instance = from_backend_entity(cls, backend_node)
-    #     instance.base.attributes.set_many(attributes)
-    #     if extras:
-    #         instance.base.extras.set_many(extras)
-
-    #     seen: set[str] = set()
-    #     for filepath, fileobj_callable in (files or {}).items():
-    #         if filepath in seen:
-    #             raise exceptions.ValidationError(f'duplicate file: {filepath}')
-
-    #         fileobj = fileobj_callable()
-    #         if fileobj is None:
-    #             instance.base.repository._repository.create_directory(filepath)  # empty directory
-    #         else:
-    #             if repository_metadata:
-    #                 expected_hash = flattened_repo.get(filepath)
-    #                 if expected_hash:
-    #                     actual_hash = chunked_file_hash(fileobj, hashlib.sha256)
-    #                     fileobj.seek(0)
-    #                     if expected_hash != actual_hash:
-    #                         raise exceptions.ValidationError(
-    #                             f'file hash mismatch for `{filepath}`; expected {expected_hash}, computed {actual_hash}'
-    #                         )
-    #             instance.attach_file(filepath, fileobj)
-    #             fileobj.close()
-
-    #         seen.add(filepath)
-
-    #     return instance
-
-
-def create_backend_node(
-    node_type: str,
-    backend: StorageBackend | None = None,
-    user: User | None = None,
-    computer: Computer | None = None,
-    **kwargs: t.Any,
-) -> BackendNode:
-    backend = backend or get_manager().get_profile_storage()
-
-    if computer and not computer.is_stored:
-        raise ValueError('the computer is not stored')
-
-    backend_computer = computer.backend_entity if computer else None
-    user = user if user else backend.default_user
-
-    if user is None:
-        raise ValueError('the user cannot be None')
-
-    backend_entity = backend.nodes.create(
-        node_type=node_type,
-        user=user.backend_entity,
-        computer=backend_computer,
-        **kwargs,
-    )
-
-    return backend_entity

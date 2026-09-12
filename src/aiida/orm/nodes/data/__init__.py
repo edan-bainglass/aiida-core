@@ -19,7 +19,6 @@ from aiida.orm.nodes.data.cif import *
 from aiida.orm.nodes.data.code import *
 from aiida.orm.nodes.data.data import *
 from aiida.orm.nodes.data.dict import *
-from aiida.orm.nodes.data.entry_point import *
 from aiida.orm.nodes.data.enum import *
 from aiida.orm.nodes.data.float import *
 from aiida.orm.nodes.data.folder import *
@@ -38,15 +37,11 @@ from aiida.orm.nodes.data.upf import *
 __all__ = (
     'AbstractCode',
     'ArrayData',
-    'BandsData',
-    'BaseType',
     'Bool',
     'CifData',
-    'Code',
     'ContainerizedCode',
     'Data',
     'Dict',
-    'EntryPointData',
     'EnumData',
     'Float',
     'FolderData',
@@ -54,28 +49,23 @@ __all__ = (
     'Int',
     'JsonableData',
     'Kind',
-    'KpointsData',
     'List',
     'NumericType',
     'OrbitalData',
     'PickledData',
     'PortableCode',
-    'ProjectionData',
+    'PrimitiveType',
     'RemoteData',
     'RemoteStashCompressedData',
     'RemoteStashCustomData',
     'RemoteStashData',
     'RemoteStashFolderData',
-    'ShellCode',
     'SinglefileData',
     'Site',
     'Str',
     'StructureData',
-    'TrajectoryData',
     'UpfData',
-    'XyData',
     'cif_from_ase',
-    'find_bandgap',
     'has_pycifrw',
     'pycifrw_from_cif',
     'to_aiida_type',

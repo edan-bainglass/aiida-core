@@ -246,10 +246,13 @@ class BaseField(
                 "as 'Any' is too permissive for reliable ORM field typing."
             )
 
+        # We only take the first line of the docstring as the description,
+        description = (self.__doc__ or '').strip().split('\n')[0].strip()
+
         return {
             'name': self._name,
             'value_type': value_type,
-            'description': (self.__doc__ or '').strip(),
+            'description': description,
         }
 
     def _build_qb_field(self, key: str, *, is_attribute: bool) -> _QbFieldT:

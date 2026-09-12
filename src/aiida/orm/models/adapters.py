@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import pathlib
 import typing as t
 from uuid import UUID
@@ -7,9 +8,9 @@ from uuid import UUID
 from typing_extensions import Self
 
 from aiida.common import exceptions
-from aiida.new_orm.entity import Entity
-from aiida.orm import qb_fields
+from aiida.orm import Entity, qb_fields
 from aiida.orm.cli import CliAdapter
+from aiida.orm.implementation import BackendEntity
 from aiida.orm.models.modeling import ModelAdapter
 
 
@@ -24,7 +25,7 @@ class EntityPkAdapter(ModelAdapter[Entity, int, qb_fields.QbNumericField]):
             raise ValueError('entity must be stored to be represented by PK')
         return value.pk
 
-    def to_entity(self, value: int) -> Entity:
+    def to_orm(self, value: int) -> Entity:
         try:
             entity = self._entity_type.get_one(value)
         except exceptions.NotExistent:
@@ -36,13 +37,37 @@ class EntityPkAdapter(ModelAdapter[Entity, int, qb_fields.QbNumericField]):
         return entity
 
 
+class BackendEntityPkAdapter(ModelAdapter[BackendEntity, int, qb_fields.QbNumericField]):
+    """Represent an ORM backend entity by its primary key in models."""
+
+    def __init__(self, backend_entity_type: type[BackendEntity], entity_type: type[Entity]) -> None:
+        self._backend_entity_type = backend_entity_type
+        self._entity_type = entity_type
+
+    def to_model(self, value: BackendEntity, *, context: dict[str, t.Any] | None = None) -> int:
+        if value.pk is None:
+            raise ValueError('backend entity must be stored to be represented by PK')
+        return value.pk
+
+    def to_orm(self, value: int) -> BackendEntity:
+        try:
+            entity = self._entity_type.get_one(value)
+        except exceptions.NotExistent:
+            raise ValueError(f'entity with PK {value} does not exist') from None
+
+        if entity is None:
+            raise ValueError(f'entity with PK {value} does not exist')
+
+        return entity.backend_entity
+
+
 class StrUuidAdapter(ModelAdapter[str, UUID, qb_fields.QbStrField]):
     """Represent a UUID string in models."""
 
     def to_model(self, value: str, *, context: dict[str, t.Any] | None = None) -> UUID:
         return UUID(value)
 
-    def to_entity(self, value: UUID) -> str:
+    def to_orm(self, value: UUID) -> str:
         return str(value)
 
 
@@ -52,8 +77,21 @@ class PathStrAdapter(ModelAdapter[pathlib.PurePath, str, qb_fields.QbStrField]):
     def to_model(self, value: pathlib.PurePath, *, context: dict[str, t.Any] | None = None) -> str:
         return str(value)
 
-    def to_entity(self, value: str) -> pathlib.PurePath:
+    def to_orm(self, value: str) -> pathlib.PurePath:
         return pathlib.PurePath(value)
+
+
+class EnumStrAdapter(ModelAdapter[enum.Enum, str, qb_fields.QbStrField]):
+    """Represent an Enum as a string in models."""
+
+    def __init__(self, enum_type: type[enum.Enum]) -> None:
+        self._enum_type = enum_type
+
+    def to_model(self, value: enum.Enum, *, context: dict[str, t.Any] | None = None) -> str:
+        return value.value
+
+    def to_orm(self, value: str) -> enum.Enum:
+        return self._enum_type(value)
 
 
 class LabeledEntity(t.Protocol):

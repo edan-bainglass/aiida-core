@@ -16,7 +16,7 @@ from aiida.orm.decorators.columns import iter_columns
 
 if t.TYPE_CHECKING:
     from aiida.cmdline.params.options.interactive import TemplateInteractiveOption
-    from aiida.new_orm.entity import Entity
+    from aiida.orm import Entity
     from aiida.orm.decorators.base import BaseField
     from aiida.orm.models.entity import EntityModel
 
