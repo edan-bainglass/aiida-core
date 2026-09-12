@@ -27,8 +27,8 @@ from aiida.orm import (
     Computer,
     Data,
     Dict,
+    InstalledCode,
     ProcessNode,
-    ShellCode,
     load_code,
     load_computer,
 )
@@ -211,7 +211,7 @@ def prepare_code(command: str, computer: Computer | None = None, resolve_command
         else:
             executable = command
 
-        code = ShellCode(
+        code = InstalledCode(
             label=command, computer=computer, filepath_executable=executable, default_calc_job_plugin='core.shell'
         ).store()
 

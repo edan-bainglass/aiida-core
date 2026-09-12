@@ -26,11 +26,12 @@ from aiida.manage import get_manager
 from aiida.orm import convert, entities, extras, users
 from aiida.orm.decorators import column
 from aiida.orm.models.adapters import EntityPkAdapter, StrUuidAdapter
+from aiida.orm.users import User
 
 if t.TYPE_CHECKING:
     from importlib_metadata import EntryPoint
 
-    from aiida.orm import Node, User
+    from aiida.orm import Node
     from aiida.orm.implementation import StorageBackend
     from aiida.orm.implementation.groups import BackendGroup
 

@@ -19,6 +19,7 @@ from aiida.orm.nodes.data.cif import *
 from aiida.orm.nodes.data.code import *
 from aiida.orm.nodes.data.data import *
 from aiida.orm.nodes.data.dict import *
+from aiida.orm.nodes.data.entry_point import *
 from aiida.orm.nodes.data.enum import *
 from aiida.orm.nodes.data.float import *
 from aiida.orm.nodes.data.folder import *
@@ -42,6 +43,7 @@ __all__ = (
     'ContainerizedCode',
     'Data',
     'Dict',
+    'EntryPointData',
     'EnumData',
     'Float',
     'FolderData',

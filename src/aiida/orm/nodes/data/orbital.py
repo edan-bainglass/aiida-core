@@ -52,7 +52,7 @@ def _orbital_from_dict(orbital_dict: dict[str, t.Any]) -> Orbital:
     return orbital_cls(**orbital_dict)
 
 
-class OrbitalsAdapter(ModelAdapter[list[Orbital], list[dict[str, t.Any]], qb_fields.QbArrayField]):
+class OrbitalsAdapter(ModelAdapter[list['Orbital'], list[dict[str, t.Any]], qb_fields.QbArrayField]):
     """Adapt orbitals between the ORM and model representations."""
 
     @classmethod

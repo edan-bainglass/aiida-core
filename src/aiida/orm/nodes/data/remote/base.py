@@ -19,12 +19,15 @@ import pydantic as pdt
 
 from aiida.common import exceptions
 from aiida.common.lang import type_check
-from aiida.orm import AuthInfo, Computer
+from aiida.orm.computers import Computer
 from aiida.orm.decorators import attribute, column
 from aiida.orm.entities import from_backend_entity
 from aiida.orm.models.adapters import EntityPkAdapter
 from aiida.orm.nodes.data.data import Data
 from aiida.transports import Transport
+
+if t.TYPE_CHECKING:
+    from aiida.orm.authinfos import AuthInfo
 
 _logger = logging.getLogger(__name__)
 
@@ -171,6 +174,8 @@ class RemoteData(Data):
                 raise
 
     def get_authinfo(self) -> AuthInfo:
+        from aiida.orm.authinfos import AuthInfo
+
         return AuthInfo.get_collection(self.backend).get(dbcomputer=self.computer, aiidauser=self.user)
 
     @t.overload

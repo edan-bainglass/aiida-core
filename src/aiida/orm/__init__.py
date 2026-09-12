@@ -53,6 +53,7 @@ __all__ = (
     'EntityCollection',
     'EntityExtras',
     'EntityTypes',
+    'EntryPointData',
     'EnumData',
     'Float',
     'FolderData',

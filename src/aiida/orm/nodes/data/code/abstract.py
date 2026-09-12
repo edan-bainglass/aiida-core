@@ -19,13 +19,13 @@ import pydantic as pdt
 from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
-from aiida.orm import Computer
 from aiida.orm.decorators import attribute, column
 from aiida.orm.nodes.data.data import Data
 from aiida.plugins import CalculationFactory
 
 if t.TYPE_CHECKING:
     from aiida.engine import ProcessBuilder
+    from aiida.orm.computers import Computer
 
 __all__ = ('AbstractCode',)
 

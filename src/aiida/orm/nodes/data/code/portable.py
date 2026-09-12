@@ -29,11 +29,13 @@ from aiida.common import exceptions
 from aiida.common.folders import Folder
 from aiida.common.lang import type_check
 from aiida.common.typing import FilePath
-from aiida.orm import Computer
 from aiida.orm.cli import CliFieldInfo
 from aiida.orm.decorators.attributes import attribute
 from aiida.orm.models.adapters import PathStrAdapter
 from aiida.orm.nodes.data.code.abstract import AbstractCode
+
+if t.TYPE_CHECKING:
+    from aiida.orm.computers import Computer
 
 __all__ = ('PortableCode',)
 

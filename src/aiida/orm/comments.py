@@ -18,11 +18,11 @@ from aiida.orm import entities, nodes
 from aiida.orm.decorators import column
 from aiida.orm.implementation import BackendNode
 from aiida.orm.models.adapters import BackendEntityPkAdapter, EntityPkAdapter
+from aiida.orm.users import User
 
 if t.TYPE_CHECKING:
     from aiida.orm.implementation import BackendComment, StorageBackend
     from aiida.orm.nodes.node import Node
-    from aiida.orm.users import User
 
 __all__ = ('Comment',)
 

@@ -65,6 +65,11 @@ class Dict(Data):
     def __setitem__(self, key: str, value: t.Any) -> None:
         self.base.attributes.set(key, value)
 
+    def __delitem__(self, key):
+        if key not in self.base.attributes:
+            raise KeyError(key)
+        self.base.attributes.delete(key)
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Dict):
             return self.value == other.value

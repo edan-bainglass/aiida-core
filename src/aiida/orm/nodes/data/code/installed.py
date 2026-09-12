@@ -24,8 +24,8 @@ from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_level
 from aiida.common.typing import FilePath
-from aiida.orm import Computer
 from aiida.orm.cli import CliFieldInfo
+from aiida.orm.computers import Computer
 from aiida.orm.decorators import attribute, column
 from aiida.orm.entities import from_backend_entity
 from aiida.orm.models.adapters import EntityPkAdapter, LabelPkAdapter, PathStrAdapter

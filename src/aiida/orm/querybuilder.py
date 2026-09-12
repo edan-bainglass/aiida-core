@@ -36,7 +36,7 @@ from typing import (
 from aiida.common.log import AIIDA_LOGGER
 from aiida.common.warnings import warn_deprecation
 from aiida.manage import get_manager
-from aiida.orm import authinfos, comments, computers, convert, entities, groups, logs, nodes, qb_fields, users
+from aiida.orm import convert, entities, qb_fields
 from aiida.orm.entities import EntityTypes
 from aiida.orm.implementation.querybuilder import (
     GROUP_ENTITY_TYPE_PREFIX,
@@ -1244,6 +1244,7 @@ def _get_ormclass_from_cls(cls: EntityClsType) -> tuple[EntityTypes, Classifier]
     """
     # Note: Unable to move this import to the top of the module for some reason
     from aiida.engine import Process
+    from aiida.orm import authinfos, comments, computers, groups, logs, nodes, users
     from aiida.orm.utils.node import is_valid_node_type_string
 
     classifiers: Classifier

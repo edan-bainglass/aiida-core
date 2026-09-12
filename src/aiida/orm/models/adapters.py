@@ -8,8 +8,9 @@ from uuid import UUID
 from typing_extensions import Self
 
 from aiida.common import exceptions
-from aiida.orm import Entity, qb_fields
+from aiida.orm import qb_fields
 from aiida.orm.cli import CliAdapter
+from aiida.orm.entities import Entity
 from aiida.orm.implementation import BackendEntity
 from aiida.orm.models.modeling import ModelAdapter
 
