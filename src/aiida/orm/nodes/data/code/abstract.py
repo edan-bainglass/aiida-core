@@ -33,13 +33,13 @@ __all__ = ('AbstractCode',)
 class AbstractCode(Data, metaclass=abc.ABCMeta):
     """Abstract data plugin representing an executable code."""
 
-    _KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN: str = 'default_calc_job_plugin'
-    _KEY_ATTRIBUTE_APPEND_TEXT: str = 'append_text'
-    _KEY_ATTRIBUTE_PREPEND_TEXT: str = 'prepend_text'
-    _KEY_ATTRIBUTE_USE_DOUBLE_QUOTES: str = 'use_double_quotes'
-    _KEY_ATTRIBUTE_WITH_MPI: str = 'with_mpi'
-    _KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS: str = 'wrap_cmdline_params'
-    _KEY_EXTRA_IS_HIDDEN: str = 'is_hidden'
+    KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN: str = 'default_calc_job_plugin'
+    KEY_ATTRIBUTE_APPEND_TEXT: str = 'append_text'
+    KEY_ATTRIBUTE_PREPEND_TEXT: str = 'prepend_text'
+    KEY_ATTRIBUTE_USE_DOUBLE_QUOTES: str = 'use_double_quotes'
+    KEY_ATTRIBUTE_WITH_MPI: str = 'with_mpi'
+    KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS: str = 'wrap_cmdline_params'
+    KEY_EXTRA_IS_HIDDEN: str = 'is_hidden'
 
     @column
     def label(self) -> str:
@@ -58,12 +58,12 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
     @attribute
     def default_calc_job_plugin(self) -> str | None:
         """The entry point name of the default ``CalcJob`` plugin."""
-        return self.base.attributes.get(self._KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, None)
+        return self.base.attributes.get(self.KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, None)
 
     @default_calc_job_plugin.setter
     def default_calc_job_plugin(self, value: str | None) -> None:
         type_check(value, str, allow_none=True)
-        self.base.attributes.set(self._KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, value)
+        self.base.attributes.set(self.KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, value)
 
     @attribute(model_field_info=pdt.fields.FieldInfo(default=''))
     def append_text(self) -> str:
@@ -72,12 +72,12 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
         This can include ``bash`` commands or other shell instructions to run after the main command,
         e.g., cleaning up temporary files, logging, etc.
         """
-        return self.base.attributes.get(self._KEY_ATTRIBUTE_APPEND_TEXT, '')
+        return self.base.attributes.get(self.KEY_ATTRIBUTE_APPEND_TEXT, '')
 
     @append_text.setter
     def append_text(self, value: str) -> None:
         type_check(value, str)
-        self.base.attributes.set(self._KEY_ATTRIBUTE_APPEND_TEXT, value)
+        self.base.attributes.set(self.KEY_ATTRIBUTE_APPEND_TEXT, value)
 
     @attribute(model_field_info=pdt.fields.FieldInfo(default=''))
     def prepend_text(self) -> str:
@@ -86,42 +86,42 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
         This can include ``bash`` commands or other shell instructions to run before the main command,
         e.g., setting environment variables, loading modules, etc.
         """
-        return self.base.attributes.get(self._KEY_ATTRIBUTE_PREPEND_TEXT, '')
+        return self.base.attributes.get(self.KEY_ATTRIBUTE_PREPEND_TEXT, '')
 
     @prepend_text.setter
     def prepend_text(self, value: str) -> None:
         type_check(value, str)
-        self.base.attributes.set(self._KEY_ATTRIBUTE_PREPEND_TEXT, value)
+        self.base.attributes.set(self.KEY_ATTRIBUTE_PREPEND_TEXT, value)
 
     @attribute(model_field_info=pdt.fields.FieldInfo(default=False))
     def use_double_quotes(self) -> bool:
         """Whether the command line invocation of this code should be escaped with double quotes."""
-        return self.base.attributes.get(self._KEY_ATTRIBUTE_USE_DOUBLE_QUOTES, False)
+        return self.base.attributes.get(self.KEY_ATTRIBUTE_USE_DOUBLE_QUOTES, False)
 
     @use_double_quotes.setter
     def use_double_quotes(self, value: bool) -> None:
         type_check(value, bool)
-        self.base.attributes.set(self._KEY_ATTRIBUTE_USE_DOUBLE_QUOTES, value)
+        self.base.attributes.set(self.KEY_ATTRIBUTE_USE_DOUBLE_QUOTES, value)
 
     @attribute
     def with_mpi(self) -> bool | None:
         """Whether the command should be run as an MPI program."""
-        return self.base.attributes.get(self._KEY_ATTRIBUTE_WITH_MPI, None)
+        return self.base.attributes.get(self.KEY_ATTRIBUTE_WITH_MPI, None)
 
     @with_mpi.setter
     def with_mpi(self, value: bool | None) -> None:
         type_check(value, bool, allow_none=True)
-        self.base.attributes.set(self._KEY_ATTRIBUTE_WITH_MPI, value)
+        self.base.attributes.set(self.KEY_ATTRIBUTE_WITH_MPI, value)
 
     @attribute(model_field_info=pdt.fields.FieldInfo(default=False))
     def wrap_cmdline_params(self) -> bool:
         """Whether all command line parameters should be wrapped with double quotes to form a single argument."""
-        return self.base.attributes.get(self._KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS, False)
+        return self.base.attributes.get(self.KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS, False)
 
     @wrap_cmdline_params.setter
     def wrap_cmdline_params(self, value: bool) -> None:
         type_check(value, bool)
-        self.base.attributes.set(self._KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS, value)
+        self.base.attributes.set(self.KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS, value)
 
     @property
     @abc.abstractmethod
@@ -140,7 +140,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
 
         :return: ``True`` if the code is hidden, ``False`` otherwise, which is also the default.
         """
-        return self.base.extras.get(self._KEY_EXTRA_IS_HIDDEN, False)
+        return self.base.extras.get(self.KEY_EXTRA_IS_HIDDEN, False)
 
     @is_hidden.setter
     def is_hidden(self, value: bool) -> None:
@@ -149,7 +149,7 @@ class AbstractCode(Data, metaclass=abc.ABCMeta):
         :param value: ``True`` if the code should be hidden, ``False`` otherwise.
         """
         type_check(value, bool)
-        self.base.extras.set(self._KEY_EXTRA_IS_HIDDEN, value)
+        self.base.extras.set(self.KEY_EXTRA_IS_HIDDEN, value)
 
     @abc.abstractmethod
     def can_run_on_computer(self, computer: Computer) -> bool:
