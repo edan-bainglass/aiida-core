@@ -437,6 +437,7 @@ module = [
 
 [[tool.mypy.overrides]]
 disable_error_code = [
+  'method-assign',
   'no-redef',
   'overload-cannot-match',
   'overload-overlap'

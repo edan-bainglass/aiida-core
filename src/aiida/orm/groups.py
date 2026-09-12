@@ -239,7 +239,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
         return GroupBase(self)
 
     @classproperty
-    def entry_point(cls) -> EntryPoint | None:  # noqa: N805
+    def entry_point(cls: type[Group]) -> EntryPoint | None:  # noqa: N805
         """Return the entry point associated this group type.
 
         :return: the associated entry point or ``None`` if it isn't known.
@@ -409,7 +409,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
         return target_path
 
     @classproperty
-    def _type_string(cls) -> str | None:  # noqa: N805
+    def _type_string(cls: type[Group]) -> str | None:  # noqa: N805
         from aiida.plugins.entry_point import get_entry_point_from_class
 
         if hasattr(cls, '__type_string'):
@@ -419,12 +419,12 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
         entry_point_group, entry_point = get_entry_point_from_class(mod, name)
 
         if entry_point_group is None or entry_point_group != 'aiida.groups':
-            cls.__type_string = None  # type: ignore[misc]
+            cls.__type_string = None
             message = f'no registered entry point for `{mod}:{name}` so its instances will not be storable.'
             warnings.warn(message)
         else:
             assert entry_point is not None
-            cls.__type_string = entry_point.name  # type: ignore[misc]
+            cls.__type_string = entry_point.name
         return cls.__type_string
 
 

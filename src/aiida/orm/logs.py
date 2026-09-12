@@ -10,9 +10,9 @@
 
 from __future__ import annotations
 
-import datetime
 import logging
 import typing as t
+from datetime import datetime
 
 import pydantic as pdt
 
@@ -192,7 +192,7 @@ class Log(entities.Entity['BackendLog', LogCollection]):
         return self._backend_entity.uuid
 
     @column(readonly=True)
-    def time(self) -> datetime.datetime:
+    def time(self) -> datetime:
         """The creation time of the log entry."""
         return self._backend_entity.time
 

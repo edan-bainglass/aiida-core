@@ -246,10 +246,13 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
     @classproperty
     def cli_spec(cls: type[_EntityT]) -> EntityCliCreateSpec:  # noqa: N805
         """Return the CLI specification for this entity."""
-        if cls.__dict__.get('_cli_spec') is None:
-            cls._cli_spec = EntityCliCreateSpec(cls)
+        cli_spec = t.cast(EntityCliCreateSpec | None, cls.__dict__.get('_cli_spec'))
 
-        return cls._cli_spec
+        if cli_spec is None:
+            cli_spec = EntityCliCreateSpec(cls)
+            cls._cli_spec = cli_spec
+
+        return cli_spec
 
     @classproperty
     def collection(cls) -> _CollectionT:  # noqa: N805

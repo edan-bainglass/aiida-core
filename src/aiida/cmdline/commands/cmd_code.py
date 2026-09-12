@@ -411,7 +411,7 @@ def code_list(computer, default_calc_job_plugin, all_entries, all_users, raw, sh
                 projections[entity].append(projection)
 
     if not all_entries:
-        filters['code'][f'extras.{orm.Code.HIDDEN_KEY}'] = {'!==': True}
+        filters['code'][f'extras.{orm.AbstractCode.HIDDEN_KEY}'] = {'!==': True}
 
     if not all_users:
         if default_user := orm.User.collection.get_default():
@@ -426,7 +426,7 @@ def code_list(computer, default_calc_job_plugin, all_entries, all_users, raw, sh
         filters['code']['attributes.input_plugin'] = default_calc_job_plugin.name
 
     query = orm.QueryBuilder()
-    query.append(orm.Code, tag='code', project=projections.get('code', None), filters=filters.get('code', None))
+    query.append(orm.AbstractCode, tag='code', project=projections.get('code', None), filters=filters.get('code', None))
     # Above, a join on the computer is appended to project its label. However, this implicitly requires a computer
     # to be set. If no computer is set for a code node (i.e. for PortableCode), the code would be excluded from the
     # results. Therefore, later a second query will be run to get all codes without a computer.
@@ -449,7 +449,7 @@ def code_list(computer, default_calc_job_plugin, all_entries, all_users, raw, sh
         query_nocomp = orm.QueryBuilder()
         code_filters = {'dbcomputer_id': {'==': None}}  # Filter all those without a computer
         code_filters.update(filters.get('code', {}))
-        query_nocomp.append(orm.Code, tag='code', project=projections.get('code', None), filters=code_filters)
+        query_nocomp.append(orm.AbstractCode, tag='code', project=projections.get('code', None), filters=code_filters)
         query_nocomp.append(
             orm.User,
             tag='user',
