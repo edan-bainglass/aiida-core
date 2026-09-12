@@ -335,6 +335,9 @@ class NodeAttributesColumn(
             name: attribute._get_attribute_qb_field() for name, attribute in iter_attributes(owner).items()
         }
 
+        attributes_config = t.cast(dict, owner.__dict__.get('_attributes_model_config') or {})
+        qb_field._allow_extra = attributes_config.get('extra') == 'allow'
+
         self._qb_fields[owner] = qb_field
 
         return qb_field

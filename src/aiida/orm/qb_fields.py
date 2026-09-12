@@ -301,6 +301,7 @@ class QbAttributesField(QbDictField):
     """
 
     _typed_children: dict[str, QbField]
+    _allow_extra: bool = False
 
     def __getattr__(self, key: str) -> QbField:
         """Return a typed child field if known; otherwise raise AttributeError.
@@ -317,6 +318,9 @@ class QbAttributesField(QbDictField):
         if key in children:
             return children[key]
 
+        if self._allow_extra:
+            return QbDictField.__getattr__(self, key)
+
         raise AttributeError(key)
 
     def __getitem__(self, key: str) -> QbField:
@@ -324,7 +328,11 @@ class QbAttributesField(QbDictField):
         children = getattr(self, '_typed_children', None) or {}
         if key in children:
             return children[key]
-        return super().__getitem__(key)
+
+        if self._allow_extra:
+            return QbDictField.__getattr__(self, key)
+
+        raise KeyError(key)
 
     def __dir__(self) -> list[str]:
         """Expose typed children for autocompletion."""
