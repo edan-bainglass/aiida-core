@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import abc
 import typing as t
 from functools import singledispatch
 
@@ -20,10 +21,15 @@ from aiida.orm.nodes.data.data import Data
 __all__ = ('PrimitiveType', 'to_aiida_type')
 
 
-class PrimitiveType(Data):
+class PrimitiveType(Data, abc.ABC):
     """Base class for AiiDA data types wrapping Python primitives."""
 
     _type: type[t.Any]
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> object:
+        """Return the wrapped Python value."""
 
     def __str__(self) -> str:
         return f'{super().__str__()} value: {self.value}'
@@ -34,7 +40,7 @@ class PrimitiveType(Data):
         return self.value == other
 
     def new(self, value: t.Any | None = None) -> Self:
-        return self.__class__(value)
+        return type(self)(attributes={'value': self.value if value is None else value})
 
 
 @singledispatch

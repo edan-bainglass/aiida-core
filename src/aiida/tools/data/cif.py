@@ -178,7 +178,7 @@ def refine_inline(node):
 
     refined_atoms, symmetry = ase_refine_cell(original_atoms)
 
-    cif = CifData(ase=refined_atoms)
+    cif = CifData.from_ase(ase=refined_atoms)
     if name != str(0):
         cif.values.rename(str(0), name)
 

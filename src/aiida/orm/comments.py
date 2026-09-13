@@ -154,3 +154,11 @@ class Comment(entities.Entity['BackendComment', CommentCollection]):
     @content.setter
     def content(self, value: str) -> None:
         return self._backend_entity.set_content(value)
+
+    # TODO the following methods are handled above via property operations - consider removing
+
+    def set_user(self, value: User) -> None:
+        self.user = value
+
+    def set_content(self, value: str) -> None:
+        self.content = value

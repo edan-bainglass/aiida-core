@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-import pathlib
 import re
 import typing as t
 from collections.abc import Sequence
@@ -274,7 +273,7 @@ class CifData(SinglefileData):
     def from_path(
         cls,
         filepath: FilePath,
-        filename: str | pathlib.Path | None = None,
+        filename: FilePath | None = None,
         scan_type: Literal['standard', 'flex'] = _SCAN_TYPE_DEFAULT,
         parse_policy: Literal['eager', 'lazy'] = _PARSE_POLICY_DEFAULT,
         **kwargs: t.Any,
@@ -596,15 +595,15 @@ class CifData(SinglefileData):
 
     @t.overload
     @staticmethod
-    def read_cif(fileobj: str | t.BinaryIO, index: None, **kwargs: t.Any) -> list[Atoms]: ...
+    def read_cif(fileobj: str | t.IO[t.Any], index: None, **kwargs: t.Any) -> list[Atoms]: ...
 
     @t.overload
     @staticmethod
-    def read_cif(fileobj: str | t.BinaryIO, index: int = -1, **kwargs: t.Any) -> Atoms: ...
+    def read_cif(fileobj: str | t.IO[t.Any], index: int = -1, **kwargs: t.Any) -> Atoms: ...
 
     @staticmethod
     def read_cif(
-        fileobj: str | t.BinaryIO,
+        fileobj: str | t.IO[t.Any],
         index: int | None = -1,
         **kwargs: t.Any,
     ) -> Atoms | list[Atoms]:
@@ -703,11 +702,7 @@ class CifData(SinglefileData):
 
         return super().store(*args, **kwargs)
 
-    def set_file(
-        self,
-        file: str | pathlib.Path | t.BinaryIO,
-        filename: str | pathlib.Path | None = None,
-    ) -> None:
+    def set_file(self, file: FilePath | t.BinaryIO, filename: FilePath | None = None) -> None:
         """Set the file.
 
         If the source is set and the MD5 checksum of new file

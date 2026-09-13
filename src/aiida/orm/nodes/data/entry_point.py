@@ -93,37 +93,37 @@ class EntryPointData(Data):
     @attribute(readonly=True)
     def name(self) -> str:
         """The name of the wrapped entry point."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_NAME)
+        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_NAME))
 
     @attribute(readonly=True)
     def group(self) -> str:
         """The group of the wrapped entry point."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_GROUP)
+        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_GROUP))
 
     @attribute(readonly=True)
     def value(self) -> str:
         """The value of the wrapped entry point."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_VALUE)
+        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_VALUE))
 
     @attribute(readonly=True)
     def module(self) -> str:
         """The module of the wrapped entry point."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_MODULE)
+        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_MODULE))
 
     @attribute(readonly=True)
     def attr(self) -> str | None:
         """The attribute of the wrapped entry point."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_ATTR)
+        return t.cast(str | None, self.base.attributes.get(self.KEY_ATTRIBUTES_ATTR, None))
 
     @attribute(readonly=True)
     def extras(self) -> list[str]:
         """The extras of the wrapped entry point."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_EXTRAS)
+        return t.cast(list[str], self.base.attributes.get(self.KEY_ATTRIBUTES_EXTRAS))
 
     @attribute(readonly=True)
     def version(self) -> str | None:
         """The version of the package that provided the entry point, if available."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_VERSION)
+        return t.cast(str | None, self.base.attributes.get(self.KEY_ATTRIBUTES_VERSION, None))
 
     def load(self) -> t.Any:
         """Load and return the wrapped entry point.
@@ -138,18 +138,28 @@ class EntryPointData(Data):
         )
         return entry_point.load()  # type: ignore[no-untyped-call]
 
+    def _set_entry_point(self, entry_point: EntryPoint, loaded: t.Any) -> None:
+        """Set the attributes describing an entry point."""
+        attributes = {
+            self.KEY_ATTRIBUTES_NAME: entry_point.name,
+            self.KEY_ATTRIBUTES_GROUP: entry_point.group,
+            self.KEY_ATTRIBUTES_VALUE: entry_point.value,
+            self.KEY_ATTRIBUTES_MODULE: entry_point.module,
+            self.KEY_ATTRIBUTES_ATTR: entry_point.attr,
+            self.KEY_ATTRIBUTES_EXTRAS: entry_point.extras,
+            self.KEY_ATTRIBUTES_VERSION: VERSION_PROVIDER.get_version_info(loaded)['version'].get('plugin'),
+        }
+        self.base.attributes.set_many(attributes)
+
     def _validate(self) -> None:
         """Validate the entry point reference."""
         super()._validate()
 
-        try:
-            entry_point = EntryPoint(
-                name=self.name,
-                group=self.group,
-                value=self.value,
-            )
-        except (AttributeError, TypeError, KeyError) as exception:
-            raise exceptions.ValidationError('The entry point reference is incomplete.') from exception
+        entry_point = EntryPoint(
+            name=self.name,
+            group=self.group,
+            value=self.value,
+        )
 
         try:
             self._validate_entry_point(entry_point)
@@ -170,19 +180,6 @@ class EntryPointData(Data):
             raise exceptions.ValidationError(
                 f'Stored entry point extras `{self.extras}` do not match `{entry_point.extras}`.'
             )
-
-    def _set_entry_point(self, entry_point: EntryPoint, loaded: t.Any) -> None:
-        """Set the attributes describing an entry point."""
-        attributes = {
-            self.KEY_ATTRIBUTES_NAME: entry_point.name,
-            self.KEY_ATTRIBUTES_GROUP: entry_point.group,
-            self.KEY_ATTRIBUTES_VALUE: entry_point.value,
-            self.KEY_ATTRIBUTES_MODULE: entry_point.module,
-            self.KEY_ATTRIBUTES_ATTR: entry_point.attr,
-            self.KEY_ATTRIBUTES_EXTRAS: entry_point.extras,
-            self.KEY_ATTRIBUTES_VERSION: VERSION_PROVIDER.get_version_info(loaded)['version'].get('plugin'),
-        }
-        self.base.attributes.set_many(attributes)
 
     @staticmethod
     def _validate_entry_point(entry_point: EntryPoint) -> t.Any:

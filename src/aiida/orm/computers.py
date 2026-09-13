@@ -54,7 +54,7 @@ class ComputerCollection(entities.EntityCollection['Computer']):
         except exceptions.NotExistent:
             return True, Computer(backend=self.backend, label=label, **kwargs)
 
-    def get_one_by_id(self, identifier: int | str) -> Computer:
+    def get_one_by_id(self, identifier: object) -> Computer:
         """Get a single computer by its identifier.
 
         :param identifier: the primary key or label of the computer to get

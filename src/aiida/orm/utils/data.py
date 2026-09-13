@@ -48,7 +48,6 @@ def convert_nodes_single_file_data(nodes: t.Mapping[str, str | pathlib.Path | Da
             msg = f'the path `{filepath}` specified in `nodes` does not exist.'
             raise FileNotFoundError(msg)
 
-        with filepath.open('rb') as handle:
-            processed_nodes[key] = SinglefileData(handle, filename=str(filepath.name))
+        processed_nodes[key] = SinglefileData.from_path(filepath, filename=filepath.name)
 
     return processed_nodes

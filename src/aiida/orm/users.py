@@ -48,7 +48,7 @@ class UserCollection(entities.EntityCollection['User']):
         """Get the current default user"""
         return self.backend.default_user
 
-    def get_one_by_id(self, identifier: int | str) -> User:
+    def get_one_by_id(self, identifier: object) -> User:
         """Get a single user by its identifier.
 
         :param identifier: the primary key or email of the user to get

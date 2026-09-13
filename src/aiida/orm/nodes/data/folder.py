@@ -31,7 +31,7 @@ class FolderData(Data):
     """`Data` sub class to represent a folder on a file system."""
 
     @classmethod
-    def from_tree(cls, tree: str | pathlib.Path, **kwargs: t.Any) -> Self:
+    def from_tree(cls, tree: FilePath, **kwargs: t.Any) -> Self:
         """Construct a new `FolderData` from a directory tree.
 
         :param tree: absolute path to a folder to wrap

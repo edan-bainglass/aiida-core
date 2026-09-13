@@ -86,7 +86,7 @@ class GroupCollection(entities.EntityCollection['Group']):
 
         return res[0], False
 
-    def get_one_by_id(self, identifier: int | str) -> Group:
+    def get_one_by_id(self, identifier: object) -> Group:
         """Get a single group by its identifier.
 
         :param identifier: the primary key or label of the group to get

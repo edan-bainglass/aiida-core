@@ -504,7 +504,7 @@ class Repository:
             target = pathlib.Path(target)
 
         if not isinstance(target, pathlib.Path):
-            raise TypeError(f'path `{path}` is not of type `str` nor `pathlib.Path`.')
+            raise TypeError(f'target `{target}` is not of type `str` nor `pathlib.Path`.')
 
         if not target.is_absolute():
             raise TypeError(f'provided target `{target}` is not an absolute path.')

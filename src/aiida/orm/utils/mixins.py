@@ -68,39 +68,39 @@ class FunctionCalculationMixin:
     @attribute
     def function_name(self) -> str | None:
         """The function name of the wrapped function."""
-        return self.base.attributes.get(self.FUNCTION_NAME_KEY, None)  # type: ignore[attr-defined]
+        return self.base.attributes.get(self.FUNCTION_NAME_KEY, None)
 
     @function_name.setter
     def function_name(self, function_name: str) -> None:
-        self.base.attributes.set(self.FUNCTION_NAME_KEY, function_name)  # type: ignore[attr-defined]
+        self.base.attributes.set(self.FUNCTION_NAME_KEY, function_name)
 
     @attribute
     def function_namespace(self) -> str | None:
         """The function namespace of the wrapped function."""
-        return self.base.attributes.get(self.FUNCTION_NAMESPACE_KEY, None)  # type: ignore[attr-defined]
+        return self.base.attributes.get(self.FUNCTION_NAMESPACE_KEY, None)
 
     @function_namespace.setter
     def function_namespace(self, function_namespace: str) -> None:
-        self.base.attributes.set(self.FUNCTION_NAMESPACE_KEY, function_namespace)  # type: ignore[attr-defined]
+        self.base.attributes.set(self.FUNCTION_NAMESPACE_KEY, function_namespace)
 
     @attribute
     def function_starting_line_number(self) -> int | None:
         """The starting line number of the wrapped function in its source file."""
-        return self.base.attributes.get(self.FUNCTION_STARTING_LINE_KEY, None)  # type: ignore[attr-defined]
+        return self.base.attributes.get(self.FUNCTION_STARTING_LINE_KEY, None)
 
     @function_starting_line_number.setter
     def function_starting_line_number(self, function_starting_line_number: int) -> None:
-        self.base.attributes.set(self.FUNCTION_STARTING_LINE_KEY, function_starting_line_number)  # type: ignore[attr-defined]
+        self.base.attributes.set(self.FUNCTION_STARTING_LINE_KEY, function_starting_line_number)
 
     @attribute
     def function_number_of_lines(self) -> int | None:
         """The number of lines of the wrapped function in its source file."""
-        return self.base.attributes.get(self.FUNCTION_NUMBER_OF_LINES_KEY, None)  # type: ignore[attr-defined]
+        return self.base.attributes.get(self.FUNCTION_NUMBER_OF_LINES_KEY, None)
 
     @function_number_of_lines.setter
     def function_number_of_lines(self, function_number_of_lines: int) -> None:
         type_check(function_number_of_lines, int)
-        self.base.attributes.set(self.FUNCTION_NUMBER_OF_LINES_KEY, function_number_of_lines)  # type: ignore[attr-defined]
+        self.base.attributes.set(self.FUNCTION_NUMBER_OF_LINES_KEY, function_number_of_lines)
 
     def get_source_code_file(self) -> str | None:
         """Return the source code of the file in which the process function was defined.
@@ -172,11 +172,11 @@ class Sealable:
     @attribute
     def sealed(self) -> bool:
         """Whether the node is sealed."""
-        return self.base.attributes.get(self.SEALED_KEY, False)  # type: ignore[attr-defined]
+        return self.base.attributes.get(self.SEALED_KEY, False)
 
     @sealed.setter
     def sealed(self, value: bool) -> None:
-        self.base.attributes.set(self.SEALED_KEY, value)  # type: ignore[attr-defined]
+        self.base.attributes.set(self.SEALED_KEY, value)
 
     @property
     def is_sealed(self) -> bool:

@@ -8,6 +8,8 @@
 ###########################################################################
 """Module for defintion of base `Data` sub class for numeric based data types."""
 
+import abc
+
 from aiida.orm.nodes.data.base import PrimitiveType, to_aiida_type
 
 __all__ = ('NumericType',)
@@ -39,8 +41,14 @@ def _right_operator(func):
     return inner
 
 
-class NumericType(PrimitiveType):
+class NumericType(PrimitiveType, abc.ABC):
     """Sub class of Data to store numbers, overloading common operators (``+``, ``*``, ...)."""
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> int | float:
+        """Return the numeric value stored in this node."""
+        raise NotImplementedError()
 
     @_left_operator
     def __add__(self, other):

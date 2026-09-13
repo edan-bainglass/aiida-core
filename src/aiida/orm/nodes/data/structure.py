@@ -1348,7 +1348,7 @@ class StructureData(Data):
         self.clear_kinds()
         for kind in value:
             if isinstance(kind, dict):
-                kind = Kind(**kind)
+                kind = Kind(**kind)  # noqa: PLW2901
             elif not isinstance(kind, Kind):
                 raise TypeError('Each kind must be either a Kind instance or a dictionary.')
             self.append_kind(kind)
@@ -1371,7 +1371,7 @@ class StructureData(Data):
         self.clear_sites()
         for site in value:
             if isinstance(site, dict):
-                site = Site(**site)
+                site = Site(**site)  # noqa: PLW2901
             elif not isinstance(site, Site):
                 raise TypeError('Each site must be either a Site instance or a dictionary.')
             self.append_site(site)

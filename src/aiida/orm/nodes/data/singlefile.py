@@ -32,12 +32,7 @@ class SinglefileData(Data):
     DEFAULT_FILENAME = 'file.txt'
 
     @classmethod
-    def from_path(
-        cls,
-        filepath: FilePath,
-        filename: str | pathlib.Path | None = None,
-        **kwargs: t.Any,
-    ) -> Self:
+    def from_path(cls, filepath: FilePath, filename: FilePath | None = None, **kwargs: t.Any) -> Self:
         """Construct a new instance and set the contents to that of the file.
 
         :param filepath: an absolute filepath whose contents to copy.
@@ -48,12 +43,7 @@ class SinglefileData(Data):
         return instance
 
     @classmethod
-    def from_string(
-        cls,
-        content: str,
-        filename: str | pathlib.Path | None = None,
-        **kwargs: t.Any,
-    ) -> Self:
+    def from_string(cls, content: str, filename: FilePath | None = None, **kwargs: t.Any) -> Self:
         """Construct a new instance and set ``content`` as its contents.
 
         :param content: The content as a string.
@@ -64,12 +54,7 @@ class SinglefileData(Data):
         return instance
 
     @classmethod
-    def from_bytes(
-        cls,
-        content: bytes,
-        filename: str | pathlib.Path | None = None,
-        **kwargs: t.Any,
-    ) -> Self:
+    def from_bytes(cls, content: bytes, filename: FilePath | None = None, **kwargs: t.Any) -> Self:
         """Construct a new instance and set ``content`` as its contents.
 
         :param content: The content as bytes.
@@ -154,7 +139,7 @@ class SinglefileData(Data):
         with self.open(mode=mode) as handle:  # type: ignore[call-overload]
             return handle.read()
 
-    def set_file(self, file: str | pathlib.Path | t.IO, filename: str | pathlib.Path | None = None) -> None:
+    def set_file(self, file: FilePath | t.IO, filename: FilePath | None = None) -> None:
         """Store the content of the file in the node's repository, deleting any other existing objects.
 
         :param file: an absolute filepath or filelike object whose contents to copy

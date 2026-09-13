@@ -5,8 +5,6 @@ import pathlib
 import typing as t
 from uuid import UUID
 
-from typing_extensions import Self
-
 from aiida.common import exceptions
 from aiida.orm import qb_fields
 from aiida.orm.cli import CliAdapter
@@ -14,36 +12,51 @@ from aiida.orm.entities import Entity
 from aiida.orm.implementation import BackendEntity
 from aiida.orm.models.modeling import ModelAdapter
 
+_EntityT_co = t.TypeVar('_EntityT_co', covariant=True)
 
-class EntityPkAdapter(ModelAdapter[Entity, int, qb_fields.QbNumericField]):
+
+class EntityFetcher(t.Protocol[_EntityT_co]):
+    def get_one_by_id(self, identifier: object) -> _EntityT_co: ...
+
+
+_EntityT = t.TypeVar('_EntityT', bound=Entity[t.Any, t.Any])
+
+
+class EntityPkAdapter(ModelAdapter[_EntityT, int, qb_fields.QbNumericField]):
     """Represent an ORM entity by its primary key in models."""
 
-    def __init__(self, entity_type: type[Entity]) -> None:
+    def __init__(self, entity_type: type[_EntityT]) -> None:
         self._entity_type = entity_type
 
-    def to_model(self, value: Entity, *, context: dict[str, t.Any] | None = None) -> int:
+    @property
+    def collection(self) -> EntityFetcher[_EntityT]:
+        return self._entity_type.collection
+
+    def to_model(self, value: _EntityT, *, context: dict[str, t.Any] | None = None) -> int:
         if value.pk is None:
             raise ValueError('entity must be stored to be represented by PK')
         return value.pk
 
-    def to_orm(self, value: int) -> Entity:
+    def to_orm(self, value: int) -> _EntityT:
         try:
-            entity = self._entity_type.get_one(value)
+            return self.collection.get_one_by_id(value)
         except exceptions.NotExistent:
             raise ValueError(f'entity with PK {value} does not exist') from None
 
-        if entity is None:
-            raise ValueError(f'entity with PK {value} does not exist')
 
-        return entity
-
-
-class BackendEntityPkAdapter(ModelAdapter[BackendEntity, int, qb_fields.QbNumericField]):
+class BackendEntityPkAdapter(
+    ModelAdapter[BackendEntity, int, qb_fields.QbNumericField],
+    t.Generic[_EntityT],
+):
     """Represent an ORM backend entity by its primary key in models."""
 
-    def __init__(self, backend_entity_type: type[BackendEntity], entity_type: type[Entity]) -> None:
+    def __init__(self, backend_entity_type: type[BackendEntity], entity_type: type[_EntityT]) -> None:
         self._backend_entity_type = backend_entity_type
         self._entity_type = entity_type
+
+    @property
+    def collection(self) -> EntityFetcher[_EntityT]:
+        return self._entity_type.collection
 
     def to_model(self, value: BackendEntity, *, context: dict[str, t.Any] | None = None) -> int:
         if value.pk is None:
@@ -52,12 +65,17 @@ class BackendEntityPkAdapter(ModelAdapter[BackendEntity, int, qb_fields.QbNumeri
 
     def to_orm(self, value: int) -> BackendEntity:
         try:
-            entity = self._entity_type.get_one(value)
+            entity = self.collection.get_one_by_id(value)
         except exceptions.NotExistent:
             raise ValueError(f'entity with PK {value} does not exist') from None
 
-        if entity is None:
-            raise ValueError(f'entity with PK {value} does not exist')
+        backend_entity = entity.backend_entity
+
+        if not isinstance(backend_entity, self._backend_entity_type):
+            raise TypeError(
+                f'expected backend entity of type {self._backend_entity_type.__name__}, '
+                f'got {type(backend_entity).__name__}'
+            )
 
         return entity.backend_entity
 
@@ -95,25 +113,24 @@ class EnumStrAdapter(ModelAdapter[enum.Enum, str, qb_fields.QbStrField]):
         return self._enum_type(value)
 
 
-class LabeledEntity(t.Protocol):
-    pk: int | None
-    label: str
-
-    @classmethod
-    def get_one(cls, identifier: int | str) -> Self: ...
-
-
-_EntityWithLabelT = t.TypeVar('_EntityWithLabelT', bound=LabeledEntity)
+@t.runtime_checkable
+class HasLabel(t.Protocol):
+    @property
+    def label(self) -> str: ...
 
 
 class LabelPkAdapter(CliAdapter[str, int]):
     """Represent a label as a primary key in CLI values."""
 
-    def __init__(self, entity_type: type[_EntityWithLabelT]) -> None:
+    def __init__(self, entity_type: type[Entity[t.Any, t.Any]]) -> None:
         self._entity_type = entity_type
 
+    @property
+    def collection(self) -> EntityFetcher[Entity[t.Any, t.Any]]:
+        return self._entity_type.collection
+
     def to_model(self, value: str) -> int:
-        entity = self._entity_type.get_one(value)
+        entity = self.collection.get_one_by_id(value)
 
         if entity.pk is None:
             raise ValueError(f'{self._entity_type.__name__} with label {value!r} is not stored')
@@ -121,9 +138,9 @@ class LabelPkAdapter(CliAdapter[str, int]):
         return entity.pk
 
     def to_cli(self, value: int) -> str:
-        entity = self._entity_type.get_one(value)
+        entity = self.collection.get_one_by_id(value)
 
-        if not hasattr(entity, 'label'):
+        if not isinstance(entity, HasLabel):
             raise ValueError(f'{self._entity_type.__name__} with PK {value} does not have a label')
 
         return entity.label

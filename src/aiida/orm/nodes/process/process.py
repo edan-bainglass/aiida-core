@@ -107,6 +107,8 @@ class ProcessNodeCaching(NodeCaching):
 class ProcessNodeLinks(NodeLinks):
     """Interface for links of a node instance."""
 
+    _node: ProcessNode
+
     def validate_incoming(self, source: Node, link_type: LinkType, link_label: str) -> None:
         """Validate adding a link of the given type from a given node to ourself.
 

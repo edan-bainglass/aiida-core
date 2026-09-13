@@ -53,17 +53,25 @@ if t.TYPE_CHECKING:
 
 __all__ = ('Node',)
 
-NodeType = t.TypeVar('NodeType', bound='Node')
+_NodeT = t.TypeVar('_NodeT', bound='Node')
 
 
-class NodeCollection(EntityCollection[NodeType], t.Generic[NodeType]):
+class NodeCollection(EntityCollection[_NodeT], t.Generic[_NodeT]):
     """The collection of nodes."""
 
     collection_type: t.ClassVar[str] = 'nodes'
 
-    @staticmethod
-    def _entity_base_cls() -> type[Node]:  # type: ignore[override]
-        return Node
+    def get_one_by_id(self, identifier: object) -> _NodeT:
+        """Get a single node by its identifier.
+
+        :param identifier: the primary key or label of the node to get
+        :return: the node instance
+        """
+        if isinstance(identifier, int):
+            return self.get(pk=identifier)
+        if isinstance(identifier, str):
+            return self.get(label=identifier)
+        raise TypeError('Identifier must be an int or str')
 
     def delete(self, pk: int) -> None:
         """Delete a `Node` from the collection with the given id
@@ -102,6 +110,10 @@ class NodeCollection(EntityCollection[NodeType], t.Generic[NodeType]):
             for key in Repository.flatten(metadata).values():
                 if key is not None:
                     yield key
+
+    @staticmethod
+    def _entity_base_cls() -> type[Node]:  # type: ignore[override]
+        return Node
 
 
 class NodeBase:
@@ -172,20 +184,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     __plugin_type_string: t.ClassVar[str]
     __query_type_string: t.ClassVar[str]
 
-    @classproperty
-    def _plugin_type_string(cls) -> str:  # noqa: N805
-        """Return the plugin type string of this node class."""
-        if not hasattr(cls, '__plugin_type_string'):
-            cls.__plugin_type_string = get_type_string_from_class(cls.__module__, cls.__name__)  # type: ignore[misc]
-        return cls.__plugin_type_string
-
-    @classproperty
-    def _query_type_string(cls) -> str:  # noqa: N805
-        """Return the query type string of this node class."""
-        if not hasattr(cls, '__query_type_string'):
-            cls.__query_type_string = get_query_type_from_type_string(cls._plugin_type_string)  # type: ignore[misc]
-        return cls.__query_type_string
-
     # This will be set by the metaclass call but we set default
     _logger: AiidaLoggerType = AIIDA_LOGGER
 
@@ -223,7 +221,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             raise ValueError('the computer is not stored')
 
         backend_computer = computer.backend_entity if computer else None
-        user = user if user else backend.default_user  # type: ignore[assignment]
+        user = user if user else backend.default_user
 
         if user is None:
             raise ValueError('the user cannot be None')
@@ -423,12 +421,12 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return self._logger
 
     @classproperty
-    def class_node_type(cls) -> str:  # noqa: N805
+    def class_node_type(cls: type[Node]) -> str:  # noqa: N805
         """Returns the node type of this node (sub) class."""
         return cls._plugin_type_string
 
     @classproperty
-    def entry_point(cls) -> EntryPoint | None:  # noqa: N805
+    def entry_point(cls: type[Node]) -> EntryPoint | None:  # noqa: N805
         """Return the entry point associated this node class."""
         from aiida.plugins.entry_point import get_entry_point_from_class
 
@@ -498,6 +496,20 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """
         self.base.repository.put_object_from_filelike(fileobj, filepath)  # type: ignore[arg-type]
 
+    @classproperty
+    def _plugin_type_string(cls: type[Node]) -> str:  # noqa: N805
+        """Return the plugin type string of this node class."""
+        if not hasattr(cls, '__plugin_type_string'):
+            cls.__plugin_type_string = get_type_string_from_class(cls.__module__, cls.__name__)
+        return cls.__plugin_type_string
+
+    @classproperty
+    def _query_type_string(cls: type[Node]) -> str:  # noqa: N805
+        """Return the query type string of this node class."""
+        if not hasattr(cls, '__query_type_string'):
+            cls.__query_type_string = get_query_type_from_type_string(cls._plugin_type_string)
+        return cls.__query_type_string
+
     def _validate_and_attach_files(
         self,
         files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
@@ -542,7 +554,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         if self.is_stored:
             raise exceptions.ModificationNotAllowed('the attributes of a stored entity are immutable')
 
-    def _validate(self) -> bool:
+    def _validate(self) -> None:
         """Validate information stored in Node object.
 
         For the :py:class:`~aiida.orm.Node` base class, this check is always valid.
@@ -553,7 +565,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         Therefore, use :py:meth:`~aiida.orm.nodes.attributes.NodeAttributes.get()` and similar methods that
         automatically read either from the DB or from the internal attribute cache.
         """
-        return True
+        return None
 
     def _validate_storability(self) -> None:
         """Verify that the current node is allowed to be stored.

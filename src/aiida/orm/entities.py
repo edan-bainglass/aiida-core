@@ -135,6 +135,16 @@ class EntityCollection(abc.ABC, t.Generic[_EntityT]):
         res = self.query(filters=filters)
         return res.one()[0]
 
+    def get_one_by_id(self, identifier: object) -> _EntityT:
+        """Get a single collection entry by its primary key.
+
+        :param identifier: the identifier of the object to get
+        :return: the entry
+        """
+        if isinstance(identifier, int):
+            return self.get(pk=identifier)
+        raise TypeError(f'Invalid identifier type: {type(identifier)}')
+
     def find(
         self,
         filters: FilterType | None = None,
