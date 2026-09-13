@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import builtins
 import typing as t
 
 import pydantic as pdt
@@ -71,12 +72,12 @@ class Dict(Data):
         return key in self.base.attributes
 
     @property
-    def value(self) -> dict[str, t.Any]:
+    def value(self) -> builtins.dict[str, t.Any]:
         """The dictionary content."""
         return dict(self.base.attributes.all)
 
     @value.setter
-    def value(self, value: dict[str, t.Any]) -> None:
+    def value(self, value: builtins.dict[str, t.Any]) -> None:
         if not isinstance(value, dict):
             raise TypeError('Must supply dict type')
         self.set_dict(value)
@@ -93,7 +94,7 @@ class Dict(Data):
 
         return AttributeManager(self)
 
-    def get(self, key: str, default: t.Any | None = None, /) -> t.Any:  # type: ignore[override]
+    def get(self, key: str, default: t.Any | None = None, /) -> t.Any:
         """Return the value for key if key is in the dictionary, else default.
 
         :param key: The key whose value to return.
@@ -102,7 +103,7 @@ class Dict(Data):
         """
         return self.base.attributes.get(key, default)
 
-    def update(self, dictionary: dict[str, t.Any]) -> None:
+    def update(self, dictionary: builtins.dict[str, t.Any]) -> None:
         """Update the current dictionary with the keys provided in the dictionary.
 
         .. note:: works exactly as `dict.update()` where new keys are simply added and existing keys are overwritten.
@@ -123,14 +124,14 @@ class Dict(Data):
         """Iterator of all items stored in the Dict node."""
         yield from self.base.attributes.items()
 
-    def get_dict(self) -> dict[str, t.Any]:
+    def get_dict(self) -> builtins.dict[str, t.Any]:
         """Return a dictionary with the parameters currently set.
 
         :return: dictionary
         """
         return self.value
 
-    def set_dict(self, dictionary: dict[str, t.Any]) -> None:
+    def set_dict(self, dictionary: builtins.dict[str, t.Any]) -> None:
         """Replace the current dictionary with another one.
 
         :param dictionary: dictionary to set

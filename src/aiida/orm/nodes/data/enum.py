@@ -107,7 +107,7 @@ class EnumData(Data, t.Generic[_EnumT]):
         except ValueError as exc:
             raise ImportError(f'Could not reconstruct enum class because `{identifier}` could not be loaded.') from exc
 
-    def get_member(self) -> _EnumT:  # type: ignore[type-var]
+    def get_member(self) -> _EnumT:
         """Return the enum member reconstructed from the serialized data stored in the database.
 
         For the enum member to be successfully reconstructed, the class of course has to still be importable and its

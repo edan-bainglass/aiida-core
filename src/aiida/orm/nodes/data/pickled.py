@@ -59,22 +59,22 @@ class PickledData(SinglefileData):
     @attribute(readonly=True)
     def unpickler_module(self) -> str:
         """The module of the function that can unpickle this object."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_MODULE)
+        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_MODULE))
 
     @attribute(readonly=True)
     def unpickler_name(self) -> str:
         """The name of the function that can unpickle this object."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_NAME)
+        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_NAME))
 
     @attribute(readonly=True)
     def pickler_version(self) -> str | None:
         """The version of the package whose function can unpickle this object."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_VERSION, None)
+        return t.cast(str | None, self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_VERSION, None))
 
     @attribute
     def pickler_kwargs(self) -> dict[str, t.Any]:
         """The keyword arguments forwarded to the pickler."""
-        return self.base.attributes.get(self.KEY_ATTRIBUTES_PICKLER_KWARGS, {})
+        return t.cast(dict[str, t.Any], self.base.attributes.get(self.KEY_ATTRIBUTES_PICKLER_KWARGS, {}))
 
     @pickler_kwargs.setter
     def pickler_kwargs(self, value: dict[str, t.Any]) -> None:
