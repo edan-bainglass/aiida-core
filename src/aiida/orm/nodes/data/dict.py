@@ -13,7 +13,6 @@ from __future__ import annotations
 import typing as t
 
 import pydantic as pdt
-from typing_extensions import Self
 
 from aiida.orm.nodes.data.base import to_aiida_type
 from aiida.orm.nodes.data.data import Data
@@ -25,8 +24,12 @@ class Dict(Data):
     """ORM representation of a dictionary node.
 
     The dictionary contents of a `Dict` node are stored directly as node attributes. The dictionary
-    can be initialized through the `from_dict` class method. After construction, values can be retrieved
-    and updated through the item getters and setters, respectively:
+    can be initialized with keyword arguments directly:
+
+        d = Dict(key='value')
+
+    After construction, values can be retrieved and updated through the item getters and setters,
+    respectively:
 
         node['key'] = 'value'
 
@@ -43,18 +46,6 @@ class Dict(Data):
     """
 
     _attributes_model_config = pdt.ConfigDict(extra='allow')
-
-    @classmethod
-    def from_dict(cls, value: dict[str, t.Any], **kwargs: t.Any) -> Self:
-        """Initialise a ``Dict`` node from a Python dictionary.
-
-        Initial values can be changed, deleted or added as long as the node is not stored.
-
-        :param value: dictionary to initialise the ``Dict`` node from
-        """
-        node = cls(**kwargs)
-        node.value = value
-        return node
 
     def __getitem__(self, key: str) -> t.Any:
         try:
@@ -153,4 +144,4 @@ class Dict(Data):
 
 @to_aiida_type.register(dict)
 def _(value: dict[str, t.Any]) -> Dict:
-    return Dict.from_dict(value)
+    return Dict(**value)

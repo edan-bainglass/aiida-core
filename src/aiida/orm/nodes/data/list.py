@@ -4,7 +4,6 @@ import typing as t
 from collections.abc import MutableSequence
 
 import pydantic as pdt
-from typing_extensions import Self
 
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.data.base import to_aiida_type
@@ -15,16 +14,6 @@ __all__ = ('List',)
 
 class List(Data, MutableSequence[t.Any]):
     """ORM representation of a list node."""
-
-    @classmethod
-    def from_list(cls, value: list[t.Any], **kwargs: t.Any) -> Self:
-        """Initialise a ``List`` node from a Python list.
-
-        :param value: list to initialise the ``List`` node from
-        """
-        node = cls(**kwargs)
-        node.value(value)
-        return node
 
     def __getitem__(self, item: t.Any) -> t.Any:
         return self.value[item]
@@ -156,4 +145,4 @@ class List(Data, MutableSequence[t.Any]):
 
 @to_aiida_type.register(list)
 def _(value: list[t.Any]) -> List:
-    return List.from_list(value)
+    return List(value=value)

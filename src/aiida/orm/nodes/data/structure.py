@@ -1933,7 +1933,7 @@ class StructureData(Data):
         from aiida.orm.nodes.data.dict import Dict
         from aiida.tools.data import structure as structure_tools
 
-        param = Dict.from_dict(kwargs)
+        param = Dict(**kwargs)
         try:
             conv_f = getattr(structure_tools, f'_get_cif_{converter}_inline')
         except AttributeError:

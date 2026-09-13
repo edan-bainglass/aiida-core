@@ -214,6 +214,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         repository_metadata: dict | None = None,
         files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
         backend: StorageBackend | None = None,
+        **attribute_kwargs,
     ) -> None:
         backend = backend or get_manager().get_profile_storage()
 
@@ -242,8 +243,14 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         super().__init__(backend_entity)
 
-        if attributes:
-            self.base.attributes.set_many(attributes)
+        attributes = attributes or {}
+
+        overlap = attributes.keys() & attribute_kwargs.keys()
+        if overlap:
+            raise TypeError(f'attributes specified multiple times: {sorted(overlap)}')
+
+        attributes.update(attribute_kwargs)
+        self.base.attributes.set_many(attributes)
 
         if extras:
             self.base.extras.set_many(extras)

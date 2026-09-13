@@ -806,7 +806,7 @@ class CifData(SinglefileData):
         from aiida.orm import Dict
         from aiida.tools.data import cif as cif_tools
 
-        parameters = Dict.from_dict(kwargs)
+        parameters = Dict(**kwargs)
 
         try:
             convert_function = getattr(cif_tools, f'_get_aiida_structure_{converter}_inline')

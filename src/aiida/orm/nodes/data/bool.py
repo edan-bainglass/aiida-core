@@ -39,7 +39,7 @@ class Bool(PrimitiveType):
 @to_aiida_type.register(bool)
 @to_aiida_type.register(numpy.bool_)
 def _(value):
-    return Bool(value)
+    return Bool(value=bool(value))
 
 
 def get_true_node():
@@ -50,7 +50,7 @@ def get_true_node():
 
     :return: a `Bool` instance with the value `True`
     """
-    return Bool(True)
+    return Bool(value=True)
 
 
 def get_false_node():
@@ -61,4 +61,4 @@ def get_false_node():
 
     :return: a `Bool` instance with the value `False`
     """
-    return Bool(False)
+    return Bool(value=False)
