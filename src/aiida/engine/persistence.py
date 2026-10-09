@@ -125,7 +125,7 @@ class AiidaCheckpointPersister(process_persistence.CheckpointPersister):
             raise PersistenceError(msg)
 
         try:
-            superseded: str | None = process.node.checkpoint
+            superseded: str | None = process.node.checkpoints
             stored_payload: process_persistence.CheckpointPayload = process_persistence.CheckpointPayload(payload)
             stored_payload[process_persistence.META] = dict(payload.get(process_persistence.META, {}))
             carried: ProcessClassBytes | None = _detach_carried_class(payload=stored_payload)
