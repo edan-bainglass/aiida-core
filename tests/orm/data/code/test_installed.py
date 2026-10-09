@@ -19,8 +19,11 @@ from aiida.orm.nodes.data.code.installed import InstalledCode
 
 def test_constructor_raises(aiida_localhost, bash_path):
     """Test the constructor when it is supposed to raise."""
-    with pytest.raises(TypeError, match=r'missing .* required positional arguments'):
+    with pytest.raises(ValidationError, match=r'The `computer` is not set.'):
         InstalledCode()
+
+    with pytest.raises(ValidationError, match=r'The `filepath_executable` is not set.'):
+        InstalledCode(computer=aiida_localhost)
 
     with pytest.raises(TypeError, match=r'Got object of type .*'):
         InstalledCode(computer=aiida_localhost, filepath_executable=bash_path)
@@ -40,7 +43,7 @@ def test_validate(aiida_localhost, bash_path):
     code = InstalledCode(computer=aiida_localhost, filepath_executable=filepath_executable)
 
     code.computer = aiida_localhost
-    code.base.attributes.set(code._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, None)
+    code.base.attributes.delete(code._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE)
 
     with pytest.raises(ValidationError, match='The `filepath_executable` is not set'):
         code.store()

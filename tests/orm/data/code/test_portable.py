@@ -14,34 +14,37 @@ import pathlib
 import pytest
 
 from aiida.common.exceptions import ModificationNotAllowed, ValidationError
-from aiida.common.warnings import AiidaDeprecationWarning
 from aiida.orm.nodes.data.code.portable import PortableCode
 
 
 def test_constructor_raises(tmp_path, bash_path):
     """Test the constructor when it is supposed to raise."""
-    with pytest.raises(TypeError, match=r'missing .* required positional argument'):
+    with pytest.raises(ValidationError, match=r'.*PortableCode.from_directory.*'):
         PortableCode()
 
-    with pytest.raises(ValueError, match=r'The `filepath_executable` should not be absolute.'):
-        PortableCode.from_directory(filepath_executable=bash_path, directory=tmp_path)
+    with pytest.raises(TypeError, match=r'Got object of type .*'):
+        PortableCode.from_directory(directory=5, filepath_executable=tmp_path)
+
+    with pytest.raises(ValueError, match=r'The `directory` parameter must not be empty.'):
+        PortableCode.from_directory(directory='', filepath_executable=tmp_path)
 
     with pytest.raises(TypeError, match=r'Got object of type .*'):
-        PortableCode.from_directory(filepath_executable=5, directory=tmp_path)
+        PortableCode.from_directory(directory=tmp_path, filepath_executable=5)
 
-    with pytest.raises(ValueError, match=r'The filepath `string` does not exist.'):
-        PortableCode.from_directory(filepath_executable='bash', directory='string')
+    with pytest.raises(ValueError, match=r'The `filepath_executable` parameter must not be empty.'):
+        PortableCode.from_directory(directory=tmp_path, filepath_executable='')
+
+    with pytest.raises(ValueError, match=r'The filepath `.*` does not exist.'):
+        PortableCode.from_directory(directory='/non/existent/path', filepath_executable=bash_path)
 
     file = tmp_path / 'string'
     file.touch()
-    with pytest.raises(ValueError, match=r'The filepath .* is not a directory.'):
-        PortableCode.from_directory(filepath_executable='bash', directory=file)
 
+    with pytest.raises(ValueError, match=r'The filepath `.*` is not a directory.'):
+        PortableCode.from_directory(directory=file, filepath_executable=bash_path)
 
-def test_constructor_warns():
-    """Test the constructor when it is supposed to warn."""
-    with pytest.warns(UserWarning, match=r'No `directory` provided.*'):
-        PortableCode.from_directory(filepath_executable='bash', directory=None)
+    with pytest.raises(ValueError, match=r'The `filepath_executable` should not be absolute.'):
+        PortableCode.from_directory(directory=tmp_path, filepath_executable=bash_path)
 
 
 def test_constructor(tmp_path):
@@ -49,7 +52,7 @@ def test_constructor(tmp_path):
     (tmp_path / 'bash').touch()
     (tmp_path / 'alternate').touch()
     filepath_executable = 'bash'
-    code = PortableCode.from_directory(filepath_executable=filepath_executable, directory=tmp_path)
+    code = PortableCode.from_directory(directory=tmp_path, filepath_executable=filepath_executable)
     assert code.filepath_executable == pathlib.PurePath(filepath_executable)
     assert sorted(code.base.repository.list_object_names()) == ['alternate', 'bash']
 
@@ -61,7 +64,7 @@ def test_validate(tmp_path):
 
     code.base.attributes.set(code._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, None)
 
-    with pytest.raises(ValidationError, match='The `filepath_executable` is not set'):
+    with pytest.raises(ValidationError, match=r'`filepath_executable` is not set.*'):
         code.store()
 
     code.filepath_executable = filepath_executable
@@ -135,13 +138,6 @@ def test_full_label(tmp_path):
     label = 'some-label'
     code = PortableCode.from_directory(label=label, filepath_executable='bash', directory=tmp_path)
     assert code.full_label == label
-
-
-def test_get_execname(tmp_path):
-    """Test the deprecated :meth:`aiida.orm.nodes.data.code.portable.PortableCode.get_execname` method."""
-    code = PortableCode.from_directory(label='some-label', filepath_executable='bash', directory=tmp_path)
-    with pytest.warns(AiidaDeprecationWarning):
-        assert code.get_execname() == 'bash'
 
 
 def test_portablecode_extra_files(tmp_path, chdir_tmp_path):

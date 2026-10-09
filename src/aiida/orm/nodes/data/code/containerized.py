@@ -14,6 +14,7 @@ be executed when a calculation job is run with this code.
 
 from __future__ import annotations
 
+from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.orm.cli import CliFieldInfo
 from aiida.orm.decorators import attribute
@@ -44,7 +45,7 @@ class ContainerizedCode(InstalledCode):
         type_check(value, str)
 
         if '{image_name}' not in value:
-            raise ValueError("the '{image_name}' template field should be in engine command.")
+            raise exceptions.ValidationError("`engine_command` must contain the '{image_name}' template field.")
 
         self.base.attributes.set(self._KEY_ATTRIBUTE_ENGINE_COMMAND, value)
 
@@ -77,21 +78,22 @@ class ContainerizedCode(InstalledCode):
 
         return (mpi_args or []) + (extra_mpirun_params or []) + engine_cmdline_params
 
+    def _initialize(self):
+        super()._initialize()
+        self._validate()
+
     def _validate(self) -> None:
         """Validate the containerized code configuration."""
-        from aiida.common import exceptions
-
         super()._validate()
-
         try:
             engine_command = self.engine_command
-        except (AttributeError, TypeError) as exc:
-            raise exceptions.ValidationError('The `engine_command` is not set.') from exc
+        except AttributeError as exc:
+            raise exceptions.ValidationError('`engine_command` is not set.') from exc
 
         try:
             self.image_name
-        except (AttributeError, TypeError) as exc:
-            raise exceptions.ValidationError('The `image_name` is not set.') from exc
+        except AttributeError as exc:
+            raise exceptions.ValidationError('`image_name` is not set.') from exc
 
         if '{image_name}' not in engine_command:
-            raise exceptions.ValidationError("The `engine_command` must contain the '{image_name}' template field.")
+            raise exceptions.ValidationError("`engine_command` must contain the '{image_name}' template field.")

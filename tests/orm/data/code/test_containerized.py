@@ -12,23 +12,36 @@ import pathlib
 
 import pytest
 
+from aiida.common import exceptions
 from aiida.orm.nodes.data.code.containerized import ContainerizedCode
 
 
 def test_constructor_raises(aiida_localhost):
     """Test the constructor when it is supposed to raise."""
-    with pytest.raises(ValueError, match=r'Both `engine_command` and `image_name` must be provided.'):
-        ContainerizedCode(engine_command='bash')
+    with pytest.raises(exceptions.ValidationError, match=r'`engine_command` is not set.'):
+        ContainerizedCode(
+            computer=aiida_localhost,
+            filepath_executable='ls',
+            image_name='img',
+        )
 
-    with pytest.raises(ValueError, match=r'Both `engine_command` and `image_name` must be provided.'):
-        ContainerizedCode(image_name='img')
+    with pytest.raises(exceptions.ValidationError, match=r'`image_name` is not set.'):
+        ContainerizedCode(
+            computer=aiida_localhost,
+            filepath_executable='ls',
+            engine_command='docker {image_name}',
+        )
 
-    with pytest.raises(TypeError, match=r'Got object of type .*'):
-        path = pathlib.Path('bash')
-        ContainerizedCode(computer=aiida_localhost, filepath_executable=path, engine_command='docker', image_name='img')
-
-    with pytest.raises(ValueError, match="the '\\{image_name\\}' template field should be in engine command"):
-        ContainerizedCode(computer=aiida_localhost, filepath_executable='ls', engine_command='docker', image_name='img')
+    with pytest.raises(
+        exceptions.ValidationError,
+        match=r"`engine_command` must contain the '{image_name}' template field.",
+    ):
+        ContainerizedCode(
+            computer=aiida_localhost,
+            filepath_executable='ls',
+            engine_command='docker',
+            image_name='img',
+        )
 
 
 def test_constructor(aiida_localhost):

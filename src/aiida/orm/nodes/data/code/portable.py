@@ -52,8 +52,8 @@ class PortableCode(Code):
     @classmethod
     def from_directory(
         cls,
-        filepath_executable: FilePath,
         directory: FilePath,
+        filepath_executable: FilePath,
         **kwargs: t.Any,
     ) -> Self:
         """Construct a portable code from a directory containing the code files.
@@ -67,6 +67,12 @@ class PortableCode(Code):
         :param directory: The filepath to the directory containing all the files of the code.
         """
         type_check(directory, (pathlib.PurePath, str))
+        if not directory:
+            raise ValueError('The `directory` parameter must not be empty.')
+
+        type_check(filepath_executable, (str, pathlib.PurePath))
+        if not filepath_executable:
+            raise ValueError('The `filepath_executable` parameter must not be empty.')
 
         directory_path = pathlib.Path(directory)
 
@@ -78,12 +84,9 @@ class PortableCode(Code):
             msg = f'The filepath `{directory}` is not a directory.'
             raise ValueError(msg)
 
-        node = cls(
-            attributes={
-                cls._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE: str(filepath_executable),
-            },
-            **kwargs,
-        )
+        attributes = kwargs.pop('attributes', {})
+        attributes[cls._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE] = str(filepath_executable)
+        node = cls(attributes=attributes, **kwargs)
         node.base.repository.put_object_from_tree(str(directory_path))
 
         return node
@@ -190,6 +193,10 @@ class PortableCode(Code):
 
         return [str_executable] + (cmdline_params or [])
 
+    def _initialize(self):
+        super()._initialize()
+        self._validate()
+
     def _validate(self) -> None:
         """Validate the instance by checking that an executable is defined and it is part of the repository files.
 
@@ -198,19 +205,23 @@ class PortableCode(Code):
         super()._validate()
 
         try:
-            filepath_executable = self.filepath_executable
+            self.filepath_executable
         except (AttributeError, TypeError) as exc:
-            raise exceptions.ValidationError('The `filepath_executable` is not set.') from exc
+            raise exceptions.ValidationError(
+                '`filepath_executable` is not set. If you are using PortableCode(), '
+                'please use `PortableCode.from_directory()` instead.'
+            ) from exc
 
-        try:
-            with self.base.repository.open(filepath_executable, 'r'):
-                # Try opening the file to see if it's in the repository.
-                # Note: we don't just check `self.base.repository.list_object_names()`
-                # since the file could be in a subdirectory.
-                pass
-        except FileNotFoundError as exc:
-            msg = f'The executable `{filepath_executable}` is not one of the uploaded files in the node repository.'
-            raise exceptions.ValidationError(msg) from exc
+        if self._storing:
+            try:
+                with self.base.repository.open(self.filepath_executable, 'r'):
+                    # Try opening the file to see if it's in the repository.
+                    # Note: we don't just check `self.base.repository.list_object_names()`
+                    # since the file could be in a subdirectory.
+                    pass
+            except FileNotFoundError as exc:
+                msg = f'The executable `{self.filepath_executable}` is not one of the uploaded files.'
+                raise exceptions.ValidationError(msg) from exc
 
     def _export_filepath_files_from_repo(
         self,
@@ -250,7 +261,7 @@ class PortableCode(Code):
             'written': False,
         }
 
-        code_data = type(self).cli_spec.serialize(self, context=context)
+        code_data = type(self).cli_spec.serialize(self, context=context, exclude_none=True)
         code_data['directory'] = self._export_filepath_files_from_repo(target)
 
         _LOGGER.info(f'Repository files for PortableCode <{self.pk}> dumped to folder `{target}`.')

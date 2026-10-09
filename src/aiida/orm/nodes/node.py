@@ -211,6 +211,9 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     _storable = False
     _unstorable_message = 'only Data, WorkflowNode, CalculationNode or their subclasses can be stored'
 
+    # Flag that determines whether the node is currently being stored.
+    _storing: bool = False
+
     def __init__(
         self,
         *,
@@ -467,7 +470,10 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :note: After successful storage, those links that are in the cache, and for which also the parent node is
             already stored, will be automatically stored. The others will remain unstored.
         """
+
         if not self.is_stored:
+            self._storing = True
+
             # Call `_validate_storability` directly and not in `_validate` in case sub class forgets to call the super.
             self._validate_storability()
             self._validate()
@@ -490,6 +496,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             if self.backend.autogroup.is_to_be_grouped(self):
                 group = self.backend.autogroup.get_or_create_group()
                 group.add_nodes(self)
+
+            self._storing = False
 
         return self
 

@@ -23,7 +23,6 @@ import pydantic as pdt
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_level
-from aiida.common.typing import FilePath
 from aiida.orm.cli import CliFieldInfo
 from aiida.orm.computers import Computer
 from aiida.orm.decorators import attribute, column
@@ -72,12 +71,13 @@ class InstalledCode(Code):
     )
     def filepath_executable(self) -> pathlib.PurePath:
         """The absolute filepath of the executable that this code represents."""
-        return pathlib.PurePath(self.base.attributes.get(self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE))
+        filepath = self.base.attributes.get(self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE)
+        return pathlib.PurePath(filepath)
 
     @filepath_executable.setter
-    def filepath_executable(self, value: FilePath) -> None:
-        type_check(value, (str, pathlib.PurePath))
-        self.base.attributes.set(self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, str(value))
+    def filepath_executable(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, value)
 
     @property
     def full_label(self) -> str:
@@ -145,6 +145,10 @@ class InstalledCode(Code):
         """
         return self.filepath_executable
 
+    def _initialize(self):
+        super()._initialize()
+        self._validate()
+
     def _validate(self) -> None:
         """Validate the instance by checking that the required code configuration is defined.
 
@@ -155,7 +159,7 @@ class InstalledCode(Code):
         try:
             self.computer
         except AttributeError as exc:
-            raise exceptions.ValidationError('The `computer` is undefined.') from exc
+            raise exceptions.ValidationError('The `computer` is not set.') from exc
 
         try:
             self.filepath_executable
