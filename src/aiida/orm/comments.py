@@ -79,7 +79,7 @@ class Comment(entities.Entity['BackendComment', CommentCollection]):
         user: User,
         content: str | None = None,
         backend: StorageBackend | None = None,
-    ):
+    ) -> None:
         """Create a Comment for a given node and user
 
         :param node: a Node instance
@@ -95,7 +95,7 @@ class Comment(entities.Entity['BackendComment', CommentCollection]):
             user=user.backend_entity,
             content=content,
         )
-        self._finalize()
+        self._initialize()
 
     def __str__(self) -> str:
         arguments = [self.uuid, self.node.pk, self.user.email, self.content]

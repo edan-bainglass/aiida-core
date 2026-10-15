@@ -30,7 +30,11 @@ VERSION_PROVIDER = PluginVersionProvider()  # type: ignore[no-untyped-call]
 
 
 class EntryPointData(Data):
-    """Data plugin to store a reference to an entry point."""
+    """Data plugin to store a reference to an entry point.
+
+    To construct an EntryPointData instance, use the class methods :meth:`from_entry_point_object`
+    or :meth:`from_entry_point_parameters`.
+    """
 
     KEY_ATTRIBUTES_NAME: str = 'name'
     """Attribute key that stores the ``name`` attribute of the wrapped entry point."""
@@ -54,7 +58,7 @@ class EntryPointData(Data):
     """Attribute key that stores the version of the package that provided the entry point, if available."""
 
     @classmethod
-    def from_entry_point(cls, entry_point: EntryPoint, **kwargs: t.Any) -> Self:
+    def from_entry_point_object(cls, entry_point: EntryPoint, **kwargs: t.Any) -> Self:
         """Construct a new instance from an entry point.
 
         :param entry_point: The entry point to wrap.
@@ -75,7 +79,7 @@ class EntryPointData(Data):
         return node
 
     @classmethod
-    def from_name(cls, group: str, name: str, **kwargs: t.Any) -> Self:
+    def from_entry_point_parameters(cls, group: str, name: str, **kwargs: t.Any) -> Self:
         """Construct a new instance from the group and name of a registered entry point.
 
         :param group: The group of the entry point.
@@ -89,7 +93,7 @@ class EntryPointData(Data):
             msg = f'entry point with group `{group}` and name `{name}` does not exist.'
             raise ValueError(msg) from exception
 
-        return cls.from_entry_point(entry_point, **kwargs)
+        return cls.from_entry_point_object(entry_point, **kwargs)
 
     @attribute(readonly=True)
     def name(self) -> str:
@@ -152,9 +156,19 @@ class EntryPointData(Data):
         }
         self.base.attributes.set_many(attributes)
 
-    def _validate(self) -> None:
-        """Validate the entry point reference."""
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
+
+        if not storing:
+            return
+
+        try:
+            self.name
+            self.group
+            self.value
+        except AttributeError as exc:
+            msg = f'missing `name`, `group`, or `value` attribute;\n\n{self.__doc__}'
+            raise exceptions.ValidationError(msg) from exc
 
         entry_point = EntryPoint(
             name=self.name,

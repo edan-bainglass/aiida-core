@@ -17,6 +17,7 @@ from collections.abc import Sequence
 import pydantic as pdt
 from typing_extensions import Self
 
+from aiida.common import exceptions
 from aiida.common.typing import FilePath
 from aiida.common.utils import Capturing
 from aiida.orm.decorators import attribute
@@ -266,6 +267,9 @@ class CifData(SinglefileData):
     _SCAN_TYPE_DEFAULT = 'standard'
     _PARSE_POLICIES = ('eager', 'lazy')
     _PARSE_POLICY_DEFAULT = 'eager'
+
+    _values: CifFile | None = None
+    _ase: Atoms | None = None
 
     @classmethod
     def from_path(
@@ -688,16 +692,6 @@ class CifData(SinglefileData):
         self.base.attributes.set('formulae', self.get_formulae())
         self.base.attributes.set('spacegroup_numbers', self.get_spacegroup_numbers())
 
-    def store(self, *args: t.Any, **kwargs: t.Any) -> Self:
-        """Store the node."""
-        if not self.is_stored:
-            # We need to first run validation on the parent `SinglefileData` to ensure the `filename` is set,
-            # in case the file was added after the node was created (but clearly not yet stored)
-            super()._validate()
-            self.base.attributes.set('md5', self.generate_md5())
-
-        return super().store(*args, **kwargs)
-
     def set_file(self, file: FilePath | t.BinaryIO, filename: FilePath | None = None) -> None:
         """Set the file.
 
@@ -818,11 +812,6 @@ class CifData(SinglefileData):
 
         return result['structure']
 
-    def _initialize(self) -> None:
-        super()._initialize()
-        self._values: CifFile | None = None
-        self._ase: Atoms | None = None
-
     def _prepare_cif(self, **kwargs: t.Any) -> tuple[bytes, dict[str, t.Any]]:
         """Return CIF string of CifData object.
 
@@ -846,19 +835,19 @@ class CifData(SinglefileData):
         """
         return self.values
 
-    def _validate(self) -> None:
-        """Validates MD5 hash of CIF file."""
-        from aiida.common.exceptions import ValidationError
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-        super()._validate()
+        if not storing:
+            return
 
         if self.md5 is None:
-            raise ValidationError("attribute 'md5' not set.")
+            raise exceptions.ValidationError("attribute 'md5' not set.")
 
         md5 = self.generate_md5()
         if self.md5 != md5:
             msg = f"Attribute 'md5' says '{self.md5}' but '{md5}' was parsed instead."
-            raise ValidationError(msg)
+            raise exceptions.ValidationError(msg)
 
     # TODO the following methods are handled above via property operations - consider removing
 

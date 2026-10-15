@@ -629,7 +629,13 @@ class TestCalcJob:
         """Test launching a `CalcJob` with an unstored computer which should raise."""
         inputs = deepcopy(self.inputs)
         inputs['code'] = self.remote_code
-        inputs['metadata']['computer'] = orm.Computer('different', 'localhost', 'desc', 'core.local', 'core.direct')
+        inputs['metadata']['computer'] = orm.Computer(
+            label='different',
+            hostname='localhost',
+            description='desc',
+            transport_type='core.local',
+            scheduler_type='core.direct',
+        )
 
         with pytest.raises(ValueError):
             ArithmeticAddCalculation(inputs=inputs)
@@ -646,7 +652,11 @@ class TestCalcJob:
         # Setting explicitly a computer that is not the same as that of the `code` should raise
         with pytest.raises(ValueError):
             inputs['metadata']['computer'] = orm.Computer(
-                'different', 'localhost', 'desc', 'core.local', 'core.direct'
+                label='different',
+                hostname='localhost',
+                description='desc',
+                transport_type='core.local',
+                scheduler_type='core.direct',
             ).store()
             process = ArithmeticAddCalculation(inputs=inputs)
 
@@ -699,7 +709,13 @@ class TestCalcJob:
         scheduler that is defined does not actually support it, for example SGE or LSF.
         """
         inputs = deepcopy(self.inputs)
-        computer = orm.Computer('sge_computer', 'localhost', 'desc', 'core.local', 'core.sge').store()
+        computer = orm.Computer(
+            label='sge_computer',
+            hostname='localhost',
+            description='desc',
+            transport_type='core.local',
+            scheduler_type='core.sge',
+        ).store()
         computer.set_default_mpiprocs_per_machine(1)
 
         inputs['code'] = orm.InstalledCode(computer=computer, filepath_executable='/bin/bash').store()

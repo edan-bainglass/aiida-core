@@ -239,7 +239,10 @@ class BaseField(
 
         if func is None:
             func_name = 'setter' if func is self.fset else 'deleter'
-            msg = f'{self._owner.__name__}.{self._name} has no {func_name}'
+            msg = (
+                f'{self._owner.__name__}.{self._name} has no {func_name}; '
+                f'see class documentation\n\n{self._owner.__doc__}'
+            )
             raise AttributeError(msg)
 
         if self.spec.readonly:

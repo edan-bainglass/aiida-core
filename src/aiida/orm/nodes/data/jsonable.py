@@ -9,6 +9,7 @@ import typing as t
 import pydantic as pdt
 from typing_extensions import Self
 
+from aiida.common import exceptions
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.data.data import Data
 
@@ -31,6 +32,8 @@ class JsonableData(Data):
         arbitrary_types_allowed=True,
         extra='allow',
     )
+
+    _obj: JsonSerializableProtocol | None = None
 
     @classmethod
     def from_object(cls, obj: JsonSerializableProtocol, **kwargs: t.Any) -> Self:
@@ -98,10 +101,6 @@ class JsonableData(Data):
         """
         return self._get_object()
 
-    def _initialize(self) -> None:
-        super()._initialize()
-        self._obj: JsonSerializableProtocol | None = None
-
     @classmethod
     def _deserialize_float_constants(cls, data: t.Any) -> t.Any:
         """Deserialize the contents of a dictionary ``data`` deserializing infinity and NaN string constants."""
@@ -143,34 +142,34 @@ class JsonableData(Data):
 
         return self._obj
 
-    def _validate(self) -> None:
-        """Validate that the wrapped object can be reconstructed."""
-        from aiida.common.exceptions import ValidationError
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-        super()._validate()
+        if not storing:
+            return
 
         try:
             module_name = self.the_module
         except AttributeError as exc:
-            raise ValidationError("attribute '@module' not set.") from exc
+            raise exceptions.ValidationError("attribute '@module' not set.") from exc
 
         try:
             class_name = self.the_class
         except AttributeError as exc:
-            raise ValidationError("attribute '@class' not set.") from exc
+            raise exceptions.ValidationError("attribute '@class' not set.") from exc
 
         try:
             module = importlib.import_module(module_name)
         except ImportError as exc:
             msg = f"module '{module_name}' could not be imported."
-            raise ValidationError(msg) from exc
+            raise exceptions.ValidationError(msg) from exc
 
         try:
             cls = getattr(module, class_name)
         except AttributeError as exc:
             msg = f"module '{module_name}' does not contain class '{class_name}'."
-            raise ValidationError(msg) from exc
+            raise exceptions.ValidationError(msg) from exc
 
         if not callable(getattr(cls, 'from_dict', None)):
             msg = f"class '{module_name}.{class_name}' does not define a callable 'from_dict' method."
-            raise ValidationError(msg)
+            raise exceptions.ValidationError(msg)

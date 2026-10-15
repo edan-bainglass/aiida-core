@@ -303,6 +303,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
 
     def store(self) -> Self:
         """Store the entity."""
+        self._finalize()
         self._backend_entity.store()
         return self
 
@@ -353,23 +354,23 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
         type_check(backend_entity, BackendEntity)
         entity = cls.__new__(cls)
         entity._backend_entity = backend_entity
-        entity._finalize()
+        entity._initialize()
         return entity
 
     @super_check
-    def _initialize(self) -> None:
-        """Initialize instance attributes.
+    def _validate(self, storing: bool = False) -> None:
+        """Validate the entity instance.
 
-        This will be called after the constructor is called or an entity is created from an existing backend entity.
+        :param storing: Whether the entity is being stored (default: False)
         """
+
+    def _initialize(self) -> None:
+        """Validate the entity instance upon initialization."""
+        call_with_super_check(self._validate, storing=False)
 
     def _finalize(self) -> None:
-        """Finalize the entity after initialization.
-
-        This calls the internal :py:meth:`_initialize` hook, which subclasses can implement to perform
-        post-construction logic (e.g., instance register initialization, validation, etc.).
-        """
-        call_with_super_check(self._initialize)
+        """Validate the entity instance before storing."""
+        call_with_super_check(self._validate, storing=True)
 
     @classmethod
     def _get_qb_field_factories(cls: type[_EntityT]) -> dict[str, t.Callable[[], QbField]]:

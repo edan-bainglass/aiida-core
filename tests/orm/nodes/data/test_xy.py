@@ -53,7 +53,7 @@ def test_constructor():
             'x_array': x_array,
             'y_array': y_array,
         },
-        x_name='x_name',
+        x_name='x_array',
         x_units='x_unit',
         y_units='y_units',
     )

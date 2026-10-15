@@ -17,6 +17,7 @@ import typing as t
 from typing_extensions import Self
 from upf_to_json import upf_to_json
 
+from aiida.common import exceptions
 from aiida.common.warnings import warn_deprecation
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.data.singlefile import SinglefileData
@@ -415,21 +416,6 @@ class UpfData(SinglefileData):
 
         return builder.all(flat=True)
 
-    def store(self, *args: t.Any, **kwargs: t.Any) -> Self:
-        """Store the node, reparsing the file so that the md5 and the element are correctly reset."""
-        if self.is_stored:
-            return self
-
-        # Ensure that SinglefileData has first resolved and validated the filename in case the repository was populated
-        # directly instead of through `set_file`.
-        super()._validate()
-
-        element, md5 = self._parse_repository_file()
-        self.base.attributes.set('element', element)
-        self.base.attributes.set('md5', md5)
-
-        return super().store(*args, **kwargs)
-
     def set_file(self, file: FilePath | t.BinaryIO, filename: str | None = None) -> None:
         """Store the file in the repository and parse it to set the `element` and `md5` attributes.
 
@@ -467,34 +453,34 @@ class UpfData(SinglefileData):
         query.append(UpfData, filters={'id': {'==': self.pk}}, with_group='group')
         return query.all(flat=True)
 
-    def _initialize(self) -> None:
-        super()._initialize()
-        emit_deprecation()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-    def _validate(self) -> None:
-        """Validate the UPF potential file stored for this node."""
-        from aiida.common.exceptions import ParsingError, ValidationError
-
-        super()._validate()
+        if not storing:
+            emit_deprecation()
+            return
 
         try:
             element, md5 = self._parse_repository_file()
-        except ParsingError as exception:
-            raise ValidationError(str(exception)) from exception
+        except exceptions.ParsingError as exception:
+            raise exceptions.ValidationError(str(exception)) from exception
+
+        self.base.attributes.set('element', element)
+        self.base.attributes.set('md5', md5)
 
         if self.element is None:
-            raise ValidationError("attribute 'element' not set.")
+            raise exceptions.ValidationError("attribute 'element' not set.")
 
         if self.md5 is None:
-            raise ValidationError("attribute 'md5' not set.")
+            raise exceptions.ValidationError("attribute 'md5' not set.")
 
         if self.element != element:
             msg = f"Attribute 'element' says '{self.element}' but '{element}' was parsed instead."
-            raise ValidationError(msg)
+            raise exceptions.ValidationError(msg)
 
         if self.md5 != md5:
             msg_0 = f"Attribute 'md5' says '{self.md5}' but '{md5}' was parsed instead."
-            raise ValidationError(msg_0)
+            raise exceptions.ValidationError(msg_0)
 
     def _parse_repository_file(self) -> tuple[str, str]:
         """Parse the repository file and return its element and MD5 checksum."""

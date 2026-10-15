@@ -19,7 +19,7 @@ from aiida.orm.nodes.data.code.portable import PortableCode
 
 def test_constructor_raises(tmp_path, bash_path):
     """Test the constructor when it is supposed to raise."""
-    with pytest.raises(ValidationError, match=r'.*PortableCode.from_directory.*'):
+    with pytest.raises(ValidationError, match=r'.*from_directory.*'):
         PortableCode()
 
     with pytest.raises(TypeError, match=r'Got object of type .*'):

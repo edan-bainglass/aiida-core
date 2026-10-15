@@ -45,7 +45,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PortableCode(Code):
-    """Data plugin representing an executable code stored in AiiDA's storage."""
+    """Data plugin representing an executable code stored in AiiDA's storage.
+
+    To construct a ``PortableCode`` instance, use the class method :meth:`from_directory`.
+    """
 
     _KEY_ATTRIBUTE_FILEPATH_EXECUTABLE: str = 'filepath_executable'
 
@@ -63,8 +66,8 @@ class PortableCode(Code):
             :class:`aiida.orm.nodes.repository.NodeRepository` class. This can be accessed through the
             ``base.repository`` attribute of the instance.
 
-        :param filepath_executable: The relative filepath of the executable within the directory of uploaded files.
         :param directory: The filepath to the directory containing all the files of the code.
+        :param filepath_executable: The relative filepath of the executable within the directory of uploaded files.
         """
         type_check(directory, (pathlib.PurePath, str))
         if not directory:
@@ -193,26 +196,16 @@ class PortableCode(Code):
 
         return [str_executable] + (cmdline_params or [])
 
-    def _initialize(self):
-        super()._initialize()
-        self._validate()
-
-    def _validate(self) -> None:
-        """Validate the instance by checking that an executable is defined and it is part of the repository files.
-
-        :raises :class:`aiida.common.exceptions.ValidationError`: If the state of the node is invalid.
-        """
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
         try:
             self.filepath_executable
         except (AttributeError, TypeError) as exc:
-            raise exceptions.ValidationError(
-                '`filepath_executable` is not set. If you are using PortableCode(), '
-                'please use `PortableCode.from_directory()` instead.'
-            ) from exc
+            msg = f'`filepath_executable` is not set;\n\n{self.__doc__}'
+            raise exceptions.ValidationError(msg) from exc
 
-        if self._storing:
+        if storing:
             try:
                 with self.base.repository.open(self.filepath_executable, 'r'):
                     # Try opening the file to see if it's in the repository.

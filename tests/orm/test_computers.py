@@ -69,7 +69,7 @@ class TestComputer:
 
     def test_get_minimum_job_poll_interval(self):
         """Test the :meth:`aiida.orm.Computer.get_minimum_job_poll_interval` method."""
-        computer = Computer()
+        computer = Computer('dummy')
 
         # No transport class defined: fall back on class default.
         assert computer.get_minimum_job_poll_interval() == Computer.PROPERTY_MINIMUM_SCHEDULER_POLL_INTERVAL__DEFAULT

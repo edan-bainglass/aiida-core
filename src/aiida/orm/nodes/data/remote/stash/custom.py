@@ -50,14 +50,16 @@ class RemoteStashCustomData(RemoteStashData):
 
         self.base.attributes.set('source_list', list(value))
 
-    def _validate(self) -> None:
-        """Validate the custom stash configuration."""
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
         if self.stash_mode != StashMode.SUBMIT_CUSTOM_CODE:
             raise exceptions.ValidationError(
                 '`RemoteStashCustomData` can only be used with `stash_mode == StashMode.SUBMIT_CUSTOM_CODE`.'
             )
+
+        if not storing:
+            return
 
         try:
             self.target_basepath

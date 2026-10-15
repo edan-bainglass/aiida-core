@@ -5,6 +5,7 @@ import enum
 import pytest
 
 from aiida.common import links
+from aiida.common.exceptions import ValidationError
 from aiida.orm import load_node
 from aiida.orm.nodes.data.enum import EnumData
 
@@ -100,12 +101,9 @@ def test_get_member_module_not_importable():
     member = DummyEnum.OPTION_A
     node = EnumData.from_member(member)
     node.base.attributes.set(EnumData.KEY_IDENTIFIER, 'aiida.common.links:NonExistingEnum')
-    node.store()
 
-    loaded = load_node(node.pk)
-
-    with pytest.raises(ImportError):
-        loaded.get_member()
+    with pytest.raises(ValidationError):
+        node.store()
 
 
 def test_get_member_invalid_value(monkeypatch):

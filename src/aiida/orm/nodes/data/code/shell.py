@@ -45,6 +45,6 @@ class ShellCode(InstalledCode):
             msg = f'`default_calc_job_plugin` has to be `core.shell`, but got: {default_calc_job_plugin}'
             raise ValueError(msg)
 
-    def _initialize(self) -> None:
-        super()._initialize()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
         self.validate_default_calc_job_plugin(self.default_calc_job_plugin)

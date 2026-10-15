@@ -22,6 +22,7 @@ from enum import Enum
 
 from typing_extensions import Self
 
+from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.loaders import get_object_loader
 from aiida.orm.decorators import attribute
@@ -130,41 +131,41 @@ class EnumData(Data, t.Generic[_EnumT]):
             )
             raise ValueError(msg) from exc
 
-    def _validate(self) -> None:
-        """Validate the stored enum metadata."""
-        from aiida.common.exceptions import ValidationError
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-        super()._validate()
+        if not storing:
+            return
 
         try:
             name = self.name
         except AttributeError as exc:
-            raise ValidationError("attribute 'name' not set.") from exc
+            raise exceptions.ValidationError("'name' not set.") from exc
 
         try:
             value = self.value
         except AttributeError as exc:
-            raise ValidationError("attribute 'value' not set.") from exc
+            raise exceptions.ValidationError("'value' not set.") from exc
 
         try:
             self.identifier
         except AttributeError as exc:
-            raise ValidationError("attribute 'identifier' not set.") from exc
+            raise exceptions.ValidationError("'identifier' not set.") from exc
 
         try:
             enum = self.get_enum()
         except ImportError as exc:
-            raise ValidationError(str(exc)) from exc
+            raise exceptions.ValidationError(str(exc)) from exc
 
         try:
             member = enum(value)
         except ValueError as exc:
             msg = f"The stored value '{value}' is not a valid value for the enum '{enum}'."
-            raise ValidationError(msg) from exc
+            raise exceptions.ValidationError(msg) from exc
 
         if member.name != name:
             msg = f"Attribute 'name' says '{name}' but '{member.name}' was reconstructed from the stored value."
-            raise ValidationError(msg)
+            raise exceptions.ValidationError(msg)
 
 
 @to_aiida_type.register(Enum)

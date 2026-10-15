@@ -298,21 +298,21 @@ class RemoteData(Data):
 
         self.base.extras.set(self.KEY_EXTRA_CLEANED, True)
 
-    def _validate(self) -> None:
-        """Validate that the remote location is fully defined."""
-        from aiida.common.exceptions import ValidationError
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-        super()._validate()
+        if not storing:
+            return
 
         try:
             self.computer
         except AttributeError as exc:
-            raise ValidationError('Remote computer not set.') from exc
+            raise exceptions.ValidationError('Remote computer not set.') from exc
 
         try:
             self.remote_path
         except AttributeError as exc:
-            raise ValidationError("attribute 'remote_path' not set.") from exc
+            raise exceptions.ValidationError("attribute 'remote_path' not set.") from exc
 
     def _get_size_on_disk_du(self, full_path: Path, transport: Transport) -> int:
         """Returns the total size of a file/directory at the given ``full_path`` on the remote Computer in bytes using

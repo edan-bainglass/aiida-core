@@ -1233,6 +1233,8 @@ class StructureData(Data):
 
     _dimensionality_label = {0: '', 1: 'length', 2: 'surface', 3: 'volume'}
 
+    _internal_kind_tags: dict[int, t.Any] | None = None
+
     @classmethod
     @reject_attributes
     def from_ase(cls, aseatoms: t.Any, **kwargs: t.Any) -> Self:
@@ -1913,26 +1915,22 @@ class StructureData(Data):
         ret_dict = conv_f(struct=self, parameters=param, metadata={'store_provenance': store})
         return ret_dict['cif']
 
-    def _initialize(self) -> None:
-        super()._initialize()
-
-        self._internal_kind_tags: dict[int, t.Any] | None = None
-
-        if 'cell' not in self.attributes:
-            self.cell = _DEFAULT_CELL
-
-        pbc_keys = ('pbc1', 'pbc2', 'pbc3')
-
-        if not any(key in self.attributes for key in pbc_keys):
-            self.set_pbc(True)
-        elif not all(key in self.attributes for key in pbc_keys):
-            self.set_pbc(tuple(self.attributes.get(key, False) for key in pbc_keys))
-
-    def _validate(self) -> None:
-        """Performs some standard validation tests."""
+    def _validate(self, storing: bool = False) -> None:
         from collections import Counter
 
-        super()._validate()
+        super()._validate(storing=storing)
+
+        if not storing:
+            if 'cell' not in self.attributes:
+                self.cell = _DEFAULT_CELL
+
+            pbc_keys = ('pbc1', 'pbc2', 'pbc3')
+
+            if not any(key in self.attributes for key in pbc_keys):
+                self.set_pbc(True)
+            elif not all(key in self.attributes for key in pbc_keys):
+                self.set_pbc(tuple(self.attributes.get(key, False) for key in pbc_keys))
+            return
 
         try:
             _get_valid_cell(self.cell)

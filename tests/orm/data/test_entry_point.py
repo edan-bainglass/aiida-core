@@ -27,16 +27,16 @@ def entry_point():
 
 def test_constructor(entry_point):
     """Test the constructor of :class:`~aiida.orm.nodes.data.entry_point.EntryPointData`."""
-    node = EntryPointData.from_entry_point(entry_point)
+    node = EntryPointData.from_entry_point_object(entry_point)
     assert isinstance(node, EntryPointData)
 
-    node = EntryPointData.from_name(group=entry_point.group, name=entry_point.name)
+    node = EntryPointData.from_entry_point_parameters(group=entry_point.group, name=entry_point.name)
     assert isinstance(node, EntryPointData)
 
 
 def test_load():
     """Test :meth:`~aiida.orm.nodes.data.entry_point.EntryPointData.load`."""
-    node = EntryPointData.from_name(group='aiida.data', name='core.entry_point')
+    node = EntryPointData.from_entry_point_parameters(group='aiida.data', name='core.entry_point')
     assert node.load() == EntryPointData
     print(node.base.attributes.all)
 
@@ -51,5 +51,5 @@ def test_version():
     """Test that the package version of the wrapped entry point is stored in the attributes."""
     from aiida import __version__
 
-    node = EntryPointData.from_name(group='aiida.data', name='core.entry_point')
+    node = EntryPointData.from_entry_point_parameters(group='aiida.data', name='core.entry_point')
     assert node.base.attributes.get(EntryPointData.KEY_ATTRIBUTES_VERSION) == __version__

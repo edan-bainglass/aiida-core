@@ -188,9 +188,11 @@ class PickledData(SinglefileData):
         self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_NAME, unpickler.__name__)
         self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_VERSION, version)
 
-    def _validate(self) -> None:
-        """Validate the node before storing."""
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
+
+        if not storing:
+            return
 
         try:
             self.unpickler_module

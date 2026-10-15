@@ -140,7 +140,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
         time: datetime.datetime | None = None,
         extras: dict[str, t.Any] | None = None,
         backend: StorageBackend | None = None,
-    ):
+    ) -> None:
         """Create a new group. Either pass a dbgroup parameter, to reload
         a group from the DB (and then, no further parameters are allowed),
         or pass the parameters for the Group creation.
@@ -167,7 +167,7 @@ class Group(entities.Entity['BackendGroup', GroupCollection]):
         if extras is not None:
             self.base.extras.set_many(extras)
 
-        self._finalize()
+        self._initialize()
 
     def __repr__(self) -> str:
         return (

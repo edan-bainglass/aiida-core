@@ -20,6 +20,7 @@ import numpy as np
 import pydantic as pdt
 from typing_extensions import Self
 
+from aiida.common import exceptions
 from aiida.orm.cli import CliAdapter, CliFieldInfo
 from aiida.orm.decorators.repo import RepoFiles, RepoSourceCliInput, repo_source
 from aiida.orm.nodes.data.base import to_aiida_type
@@ -363,10 +364,6 @@ class ArrayData(Data):
         array = np.load(fileobj, allow_pickle=False)
         self.set_array(array=array, name=base)
 
-    def _initialize(self) -> None:
-        super()._initialize()
-        self._cached_arrays: dict[str, np.ndarray] = {}
-
     def _arraynames_from_files(self) -> list[str]:
         """Return a list of all arrays stored in the node, listing the files (and
         not relying on the properties).
@@ -397,21 +394,22 @@ class ArrayData(Data):
             )
             raise ValueError(msg)
 
-    def _validate(self) -> None:
-        """Validate the consistency of stored array files and metadata."""
-        from aiida.common.exceptions import ValidationError
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-        super()._validate()
+        if not storing:
+            self._cached_arrays: dict[str, np.ndarray] = {}
+            return
 
         files = self._arraynames_from_files()
         properties = self._arraynames_from_properties()
 
         if self._requires_array and not files:
-            raise ValidationError('ArrayData must contain at least one array')
+            raise exceptions.ValidationError('ArrayData must contain at least one array')
 
         if set(files) != set(properties):
             msg = f'Mismatch of files and properties for ArrayData node (pk={self.pk}): {files} vs. {properties}'
-            raise ValidationError(msg)
+            raise exceptions.ValidationError(msg)
 
     def _get_array_entries(self) -> dict[str, t.Any]:
         """Return a dictionary with the different array entries.

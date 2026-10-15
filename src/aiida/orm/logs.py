@@ -147,7 +147,7 @@ class Log(entities.Entity['BackendLog', LogCollection]):
         metadata: dict[str, t.Any] | None = None,
         backend: StorageBackend | None = None,
         node: Node | None = None,
-    ):
+    ) -> None:
         """Construct a new log
 
         :param time: time
@@ -180,7 +180,7 @@ class Log(entities.Entity['BackendLog', LogCollection]):
             metadata=metadata,
         )
 
-        self._finalize()
+        self._initialize()
 
         self.store()  # Logs are immutable and automatically stored
 

@@ -733,11 +733,11 @@ class TrajectoryData(ArrayData):
             if cells is None and any(pbc):
                 raise ValueError('Periodic boundary conditions are only possible when a cell is defined.')
 
-    def _validate(self) -> None:
-        """Verify that the required arrays are present and that their type and
-        dimension are correct.
-        """
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
+
+        if not storing:
+            return
 
         try:
             self._internal_validate(

@@ -77,7 +77,7 @@ class User(entities.Entity['BackendUser', UserCollection]):
         last_name: str = '',
         institution: str = '',
         backend: StorageBackend | None = None,
-    ):
+    ) -> None:
         """Create a new `User`."""
         backend = backend or get_manager().get_profile_storage()
         email = self.normalize_email(email)
@@ -87,7 +87,7 @@ class User(entities.Entity['BackendUser', UserCollection]):
             last_name=last_name,
             institution=institution,
         )
-        self._finalize()
+        self._initialize()
 
     def __str__(self) -> str:
         return self.email

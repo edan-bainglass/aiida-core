@@ -21,7 +21,7 @@ from pydantic_core import PydanticUndefined
 from typing_extensions import Self
 
 from aiida.common import exceptions
-from aiida.common.lang import classproperty
+from aiida.common.lang import classproperty, super_check
 from aiida.common.links import LinkType
 from aiida.common.log import AIIDA_LOGGER
 from aiida.manage import get_manager
@@ -211,9 +211,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     _storable = False
     _unstorable_message = 'only Data, WorkflowNode, CalculationNode or their subclasses can be stored'
 
-    # Flag that determines whether the node is currently being stored.
-    _storing: bool = False
-
     def __init__(
         self,
         *,
@@ -227,7 +224,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         repository_metadata: dict | None = None,
         files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
         backend: StorageBackend | None = None,
-        **attribute_kwargs,
+        **attribute_kwargs: t.Any,
     ) -> None:
         backend = backend or get_manager().get_profile_storage()
 
@@ -268,7 +265,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         self._validate_and_attach_files(files, repository_metadata)
 
-        self._finalize()
+        self._initialize()
 
         self._set_attribute_defaults()
 
@@ -472,13 +469,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         """
 
         if not self.is_stored:
-            self._storing = True
-
-            # Call `_validate_storability` directly and not in `_validate` in case sub class forgets to call the super.
             self._validate_storability()
-            self._validate()
-
-            # Verify that parents are already stored. Raises if this is not the case.
+            self._finalize()
             self._verify_are_parents_stored()
 
             # Clean the values on the backend node *before* computing the hash in `_get_same_node`. This will allow
@@ -496,8 +488,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             if self.backend.autogroup.is_to_be_grouped(self):
                 group = self.backend.autogroup.get_or_create_group()
                 group.add_nodes(self)
-
-            self._storing = False
 
         return self
 
@@ -549,10 +539,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     def _allows_extra_attributes(cls: type[_NodeT]) -> bool:  # noqa: N805
         config = cls.__dict__.get('_attributes_model_config')
         return config is not None and config.get('extra') == 'allow'
-
-    def _finalize(self) -> None:
-        """Finalize initialization."""
-        super()._finalize()
 
     def _set_attribute_defaults(self) -> None:
         """Persist defaults for declared attributes that remain unset after initialization."""
@@ -659,7 +645,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         if self.is_stored:
             raise exceptions.ModificationNotAllowed('the attributes of a stored entity are immutable')
 
-    def _validate(self) -> None:
+    @super_check
+    def _validate(self, storing: bool = False) -> None:
         """Validate information stored in Node object.
 
         For the :py:class:`~aiida.orm.Node` base class, this check is always valid.
@@ -669,6 +656,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         This method is called automatically before storing the node in the DB.
         Therefore, use :py:meth:`~aiida.orm.nodes.attributes.NodeAttributes.get()` and similar methods that
         automatically read either from the DB or from the internal attribute cache.
+
+        :param storing: Whether the entity is being stored (default: False)
         """
         return None
 

@@ -145,16 +145,8 @@ class InstalledCode(Code):
         """
         return self.filepath_executable
 
-    def _initialize(self):
-        super()._initialize()
-        self._validate()
-
-    def _validate(self) -> None:
-        """Validate the instance by checking that the required code configuration is defined.
-
-        :raises :class:`aiida.common.exceptions.ValidationError`: If the state of the node is invalid.
-        """
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
         try:
             self.computer

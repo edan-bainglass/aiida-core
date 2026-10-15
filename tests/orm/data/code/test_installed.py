@@ -56,7 +56,7 @@ def test_validate(aiida_localhost, bash_path):
 def test_can_run_on_computer(aiida_localhost, bash_path):
     """Test the :meth:`aiida.orm.nodes.data.code.installed.InstalledCode.can_run_on_computer` method."""
     code = InstalledCode(computer=aiida_localhost, filepath_executable=str(bash_path.absolute()))
-    computer = Computer()
+    computer = Computer('dummy')
 
     assert code.can_run_on_computer(aiida_localhost)
     assert not code.can_run_on_computer(computer)

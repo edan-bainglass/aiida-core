@@ -77,9 +77,8 @@ class RemoteStashCompressedData(RemoteStashData):
         type_check(value, bool)
         self.base.attributes.set('fail_on_missing', value)
 
-    def _validate(self) -> None:
-        """Validate the compressed stash configuration."""
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
         if self.stash_mode not in {
             StashMode.COMPRESS_TAR,
@@ -92,6 +91,9 @@ class RemoteStashCompressedData(RemoteStashData):
                 '`StashMode.COMPRESS_TAR`, `StashMode.COMPRESS_TARGZ`, '
                 '`StashMode.COMPRESS_TARBZ2` or `StashMode.COMPRESS_TARXZ`.'
             )
+
+        if not storing:
+            return
 
         try:
             self.target_basepath

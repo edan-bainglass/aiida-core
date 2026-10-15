@@ -311,16 +311,11 @@ class SinglefileData(Data):
     def attach_file(self, filepath: str, fileobj: t.BinaryIO) -> None:
         self.set_file(fileobj, filepath)
 
-    def _validate(self) -> None:
-        """Validate the node before storing.
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-        This check ensures that there is exactly one file object stored in the repository,
-        and that the filename attribute is set to the name of that object (forced).
-
-        :return: True if the node is valid
-        :raises ValidationError: if the node is not valid
-        """
-        super()._validate()
+        if not storing:
+            return
 
         objects = self.base.repository.list_object_names()
 

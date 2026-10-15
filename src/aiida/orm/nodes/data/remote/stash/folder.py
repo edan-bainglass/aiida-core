@@ -64,11 +64,10 @@ class RemoteStashFolderData(RemoteStashData):
         type_check(value, bool)
         self.base.attributes.set('fail_on_missing', value)
 
-    def _validate(self) -> None:
-        """Validate the stashed folder configuration."""
+    def _validate(self, storing: bool = False) -> None:
         from aiida.common.exceptions import ValidationError
 
-        super()._validate()
+        super()._validate(storing=storing)
 
         if self.stash_mode != StashMode.COPY:
             raise ValidationError('`RemoteStashFolderData` can only be used with `stash_mode == StashMode.COPY`.')

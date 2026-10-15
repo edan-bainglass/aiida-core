@@ -48,8 +48,13 @@ class BaseType(Data, abc.ABC, t.Generic[_ValueT]):
     def new(self, value: t.Any | None = None) -> Self:
         return type(self)(value=self.value if value is None else value)
 
-    def _initialize(self) -> None:
-        super()._initialize()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
+
+        if storing:
+            return
+
+        # If not already set, set the type-specific default
         if 'value' not in self.attributes:
             self.value = self._type()
 

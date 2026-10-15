@@ -75,7 +75,7 @@ class AuthInfo(entities.Entity['BackendAuthInfo', AuthInfoCollection]):
             auth_params=auth_params or {},
             metadata=metadata or {},
         )
-        self._finalize()
+        self._initialize()
 
     def __str__(self) -> str:
         if self.enabled:

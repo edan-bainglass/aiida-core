@@ -527,9 +527,11 @@ class KpointsData(ArrayData):
 
         return kpoints, weights
 
-    def _validate(self) -> None:
-        """Validate the kpoints representation."""
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing)
+
+        if not storing:
+            return
 
         has_kpoints = 'kpoints' in self.get_arraynames()
         has_mesh = self.mesh is not None

@@ -91,9 +91,11 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
     _CLS_COLLECTION = ComputerCollection
 
+    # TODO some logic in AiiDA suggests that only label is required - check this!
     def __init__(
         self,
         label: str | None = None,
+        *,
         hostname: str = '',
         description: str = '',
         transport_type: str = '',
@@ -111,7 +113,7 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
             scheduler_type=scheduler_type,
             metadata=metadata,
         )
-        self._finalize()
+        self._initialize()
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__}: {self!s}>'
@@ -209,7 +211,6 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
         Differently from Nodes, a computer can be re-stored if its properties
         are to be changed (e.g. a new mpirun command, etc.)
         """
-        self._validate()
         return super().store()
 
     def delete_property(self, name: str, raise_exception: bool = True) -> None:
@@ -518,22 +519,14 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
         return authinfo.get_auth_params()
 
-    def _validate(self) -> None:
-        """Check if the attributes and files retrieved from the DB are valid.
-        Raise a ValidationError if something is wrong.
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-        Must be able to work even before storing: therefore, use the get_attr and similar methods
-        that automatically read either from the DB or from the internal attribute cache.
-
-        For the base class, this is always valid. Subclasses will reimplement this.
-        In the subclass, always call the super().validate() method first!
-        """
-        if not self.label.strip():
-            raise exceptions.ValidationError('No name specified')
+        if not storing:
+            return
 
         self._label_validator(self.label)
         self._hostname_validator(self.hostname)
-        self._description_validator(self.description)
         self._transport_type_validator(self.transport_type)
         self._scheduler_type_validator(self.scheduler_type)
         self._workdir_validator(self.get_workdir())
@@ -560,11 +553,6 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
             raise exceptions.ValidationError('No hostname specified')
 
     @classmethod
-    def _description_validator(cls, description: str) -> None:
-        """Validates the description."""
-        # The description is always valid
-
-    @classmethod
     def _transport_type_validator(cls, transport_type: str) -> None:
         """Validates the transport string."""
         from aiida.plugins.entry_point import get_entry_point_names
@@ -574,22 +562,12 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
     @classmethod
     def _scheduler_type_validator(cls, scheduler_type: str) -> None:
-        """Validates the transport string."""
+        """Validates the scheduler string."""
         from aiida.plugins.entry_point import get_entry_point_names
 
         if scheduler_type not in get_entry_point_names('aiida.schedulers'):
             msg = f'The specified scheduler `{scheduler_type}` is not a valid one'
             raise exceptions.ValidationError(msg)
-
-    @classmethod
-    def _prepend_text_validator(cls, prepend_text: str) -> None:
-        """Validates the prepend text string."""
-        # no validation done
-
-    @classmethod
-    def _append_text_validator(cls, append_text: str) -> None:
-        """Validates the append text string."""
-        # no validation done
 
     @classmethod
     def _workdir_validator(cls, workdir: str) -> None:

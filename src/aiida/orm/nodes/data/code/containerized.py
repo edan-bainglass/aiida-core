@@ -78,13 +78,9 @@ class ContainerizedCode(InstalledCode):
 
         return (mpi_args or []) + (extra_mpirun_params or []) + engine_cmdline_params
 
-    def _initialize(self):
-        super()._initialize()
-        self._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
 
-    def _validate(self) -> None:
-        """Validate the containerized code configuration."""
-        super()._validate()
         try:
             engine_command = self.engine_command
         except AttributeError as exc:

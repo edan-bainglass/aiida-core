@@ -254,9 +254,11 @@ class XyData(ArrayData):
 
         return list(zip(y_names, y_arrays, y_units))
 
-    def _validate(self) -> None:
-        """Validate the XY data."""
-        super()._validate()
+    def _validate(self, storing: bool = False) -> None:
+        super()._validate(storing=storing)
+
+        if not storing:
+            return
 
         try:
             _, x_array, _ = self.get_x()
