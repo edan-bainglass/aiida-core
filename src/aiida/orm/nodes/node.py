@@ -250,20 +250,12 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             computer=backend_computer,
         )
 
-        attributes = attributes or {}
-
-        self._validate_attributes(attributes, attribute_kwargs)
-
-        for key, value in attributes.items():
-            if key in self._declared_attributes:
-                setattr(self, key, value)
-            else:
-                self.base.attributes.set(key, value)
-
         if extras:
             self.base.extras.set_many(extras)
 
-        self._validate_and_attach_files(files, repository_metadata)
+        self._set_attributes(attributes or {}, attribute_kwargs)
+
+        self._attach_files(files, repository_metadata)
 
         self._initialize()
 
@@ -540,6 +532,16 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         config = cls.__dict__.get('_attributes_model_config')
         return config is not None and config.get('extra') == 'allow'
 
+    def _set_attributes(self, attributes: dict[str, t.Any], attribute_kwargs: dict[str, t.Any]) -> None:
+        """Set the attributes for the node, once validated."""
+        self._validate_attributes(attributes, attribute_kwargs)
+
+        for key, value in attributes.items():
+            if key in self._declared_attributes:
+                setattr(self, key, value)
+            else:
+                self.base.attributes.set(key, value)
+
     def _set_attribute_defaults(self) -> None:
         """Persist defaults for declared attributes that remain unset after initialization."""
         attributes = self.base.attributes.all.copy()
@@ -594,7 +596,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
                 )
                 raise TypeError(msg)
 
-    def _validate_and_attach_files(
+    def _attach_files(
         self,
         files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
         repository_metadata: dict | None = None,
