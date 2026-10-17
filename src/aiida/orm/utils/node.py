@@ -9,15 +9,12 @@
 """Utilities to operate on `Node` classes."""
 
 import functools
-import logging
 import typing as t
 import warnings
-from abc import ABCMeta
 
 from aiida.common import exceptions
 
 __all__ = (
-    'AbstractNodeMeta',
     'get_query_type_from_type_string',
     'get_type_string_from_class',
     'load_node_class',
@@ -166,15 +163,6 @@ def get_query_type_from_type_string(type_string):
     type_string = f'{type_path}.'
 
     return type_string
-
-
-class AbstractNodeMeta(ABCMeta):
-    """Some python black magic to set correctly the logger also in subclasses."""
-
-    def __new__(mcs, name, bases, namespace, **kwargs):
-        newcls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        newcls._logger = logging.getLogger(f'{namespace["__module__"]}.{name}')
-        return newcls
 
 
 _F = t.TypeVar('_F', bound=t.Callable[..., t.Any])

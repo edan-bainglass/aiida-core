@@ -20,6 +20,7 @@ from string import Template
 import numpy
 
 from aiida.common.exceptions import ValidationError
+from aiida.common.lang import type_check
 from aiida.common.utils import join_labels, prettify_labels
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.data.array.kpoints import KpointsData
@@ -217,10 +218,27 @@ class BandsData(KpointsData):
 
     _attributes_model_config = KpointsData._attributes_model_config
 
+    def __init__(
+        self,
+        *,
+        array_labels: list[str] | None = None,
+        units: str | None = None,
+        **kwargs: t.Any,
+    ):
+        super().__init__(**kwargs)
+        self.array_labels = array_labels
+        self.units = units
+
     @attribute
     def array_labels(self) -> list[str] | None:
         """Labels associated with the band arrays."""
         return self.base.attributes.get('array_labels')
+
+    @array_labels.setter
+    def array_labels(self, value: list[str] | None) -> None:
+        if value is not None:
+            type_check(value, list)
+        self.base.attributes.set('array_labels', value)
 
     @attribute
     def units(self) -> str | None:
@@ -228,8 +246,10 @@ class BandsData(KpointsData):
         return self.base.attributes.get('units')
 
     @units.setter
-    def units(self, value: str) -> None:
-        self.base.attributes.set('units', str(value))
+    def units(self, value: str | None) -> None:
+        if value is not None:
+            type_check(value, str)
+        self.base.attributes.set('units', value)
 
     def set_kpointsdata(self, kpointsdata):
         """Load the kpoints from a kpoint object.
@@ -275,7 +295,7 @@ class BandsData(KpointsData):
         self.units = units
 
         if the_labels is not None:
-            self.base.attributes.set('array_labels', the_labels)
+            self.array_labels = the_labels
 
         if the_occupations is not None:
             # set occupations

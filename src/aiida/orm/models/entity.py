@@ -200,6 +200,11 @@ class ModelsNamespace(t.Generic[_EntityT]):
             msg = f"'models' must be accessed through the entity class; use {owner.__name__}.models"
             raise AttributeError(msg)
 
+        # Access through a generated Pydantic model: return the bound namespace.
+        if issubclass(owner, EntityModel):
+            return self
+
+        # Access through an ORM entity class: bind the namespace.
         namespace = self._namespaces.get(owner)
 
         if namespace is None:

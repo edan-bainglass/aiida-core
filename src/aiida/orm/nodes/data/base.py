@@ -28,6 +28,10 @@ class BaseType(Data, abc.ABC, t.Generic[_ValueT]):
 
     _type: type[_ValueT]
 
+    def __init__(self, value: _ValueT | None = None, **kwargs: t.Any):
+        super().__init__(**kwargs)
+        self.value = value if value is not None else self._type()
+
     @property
     @abc.abstractmethod
     def value(self) -> _ValueT:
@@ -47,16 +51,6 @@ class BaseType(Data, abc.ABC, t.Generic[_ValueT]):
 
     def new(self, value: t.Any | None = None) -> Self:
         return type(self)(value=self.value if value is None else value)
-
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if storing:
-            return
-
-        # If not already set, set the type-specific default
-        if 'value' not in self.attributes:
-            self.value = self._type()
 
 
 @singledispatch

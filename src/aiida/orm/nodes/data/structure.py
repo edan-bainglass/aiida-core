@@ -32,13 +32,14 @@ from aiida.orm.utils.node import reject_attributes
 
 __all__ = ('Kind', 'Site', 'StructureData')
 
-# Threshold used to check if the mass of two different Site objects is the same.
-
+# Threshold used to check if the mass of two different Site objects is the same.s
 _MASS_THRESHOLD = 1.0e-3
+
 # Threshold to check if the sum is one or not
 _SUM_THRESHOLD = 1.0e-6
+
 # Default cell
-_DEFAULT_CELL = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+DEFAULT_CELL = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
 _valid_symbols = tuple(i['symbol'] for i in elements.values())
 _atomic_masses = {el['symbol']: el['mass'] for el in elements.values()}
@@ -1267,6 +1268,46 @@ class StructureData(Data):
         instance.set_pymatgen_molecule(molecule, margin=margin)
         return instance
 
+    def __init__(
+        self,
+        cell: list[list[float]] | None = None,
+        pbc1: bool | None = None,
+        pbc2: bool | None = None,
+        pbc3: bool | None = None,
+        kinds: list[Kind | dict[str, t.Any]] | None = None,
+        sites: list[Site | dict[str, t.Any]] | None = None,
+        **kwargs: t.Any,
+    ):
+        super().__init__(**kwargs)
+
+        if pbc1 is not None or pbc2 is not None or pbc3 is not None:
+            pbc = [pbc1 or False, pbc2 or False, pbc3 or False]
+        else:
+            pbc = [True, True, True]
+
+        self.cell = cell or DEFAULT_CELL
+        self.set_pbc(pbc)
+
+        if kinds is not None:
+            self.base.attributes.set('kinds', [])
+            for kind in kinds:
+                if isinstance(kind, Kind):
+                    self.append_kind(kind)
+                elif isinstance(kind, dict):
+                    self.append_kind(Kind(**kind))
+                else:
+                    raise TypeError('Each kind must be either a Kind instance or a dictionary.')
+
+        if sites is not None:
+            self.base.attributes.set('sites', [])
+            for site in sites:
+                if isinstance(site, Site):
+                    self.append_site(site)
+                elif isinstance(site, dict):
+                    self.append_site(Site(**site))
+                else:
+                    raise TypeError('Each site must be either a Site instance or a dictionary.')
+
     @attribute(model_field_info=pdt.fields.FieldInfo(default=False))
     def pbc1(self) -> bool:
         """Whether periodic in the a direction."""
@@ -1297,7 +1338,7 @@ class StructureData(Data):
         type_check(value, bool)
         self.base.attributes.set('pbc3', value)
 
-    @attribute(model_field_info=pdt.fields.FieldInfo(default_factory=lambda: _DEFAULT_CELL))
+    @attribute(model_field_info=pdt.fields.FieldInfo(default_factory=lambda: DEFAULT_CELL))
     def cell(self) -> list[list[float]]:
         """The cell parameters."""
         return copy.deepcopy(self.base.attributes.get('cell'))
@@ -1642,9 +1683,14 @@ class StructureData(Data):
             raise ModificationNotAllowed('The StructureData object cannot be modified, it has already been stored')
 
         the_pbc = get_valid_pbc(value)
-        self.base.attributes.set('pbc1', the_pbc[0])
-        self.base.attributes.set('pbc2', the_pbc[1])
-        self.base.attributes.set('pbc3', the_pbc[2])
+
+        self.base.attributes.set_many(
+            {
+                'pbc1': the_pbc[0],
+                'pbc2': the_pbc[1],
+                'pbc3': the_pbc[2],
+            }
+        )
 
     def set_cell_lengths(self, value):
         raise NotImplementedError('Modification is not implemented yet')
@@ -1915,22 +1961,10 @@ class StructureData(Data):
         ret_dict = conv_f(struct=self, parameters=param, metadata={'store_provenance': store})
         return ret_dict['cif']
 
-    def _validate(self, storing: bool = False) -> None:
+    def _validate(self) -> None:
         from collections import Counter
 
-        super()._validate(storing=storing)
-
-        if not storing:
-            if 'cell' not in self.attributes:
-                self.cell = _DEFAULT_CELL
-
-            pbc_keys = ('pbc1', 'pbc2', 'pbc3')
-
-            if not any(key in self.attributes for key in pbc_keys):
-                self.set_pbc(True)
-            elif not all(key in self.attributes for key in pbc_keys):
-                self.set_pbc(tuple(self.attributes.get(key, False) for key in pbc_keys))
-            return
+        super()._validate()
 
         try:
             _get_valid_cell(self.cell)

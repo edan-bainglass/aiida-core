@@ -307,6 +307,10 @@ class UpfData(SinglefileData):
         builder.append(cls, filters={'attributes.md5': {'==': md5}})
         return builder.all(flat=True)
 
+    def __init__(self, **kwargs: t.Any):
+        emit_deprecation()
+        super().__init__(**kwargs)
+
     @attribute(
         readonly=True,
         required_once_stored=True,
@@ -453,12 +457,8 @@ class UpfData(SinglefileData):
         query.append(UpfData, filters={'id': {'==': self.pk}}, with_group='group')
         return query.all(flat=True)
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if not storing:
-            emit_deprecation()
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             element, md5 = self._parse_repository_file()

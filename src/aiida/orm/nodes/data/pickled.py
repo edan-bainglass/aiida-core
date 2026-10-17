@@ -11,12 +11,14 @@
 from __future__ import annotations
 
 import importlib.metadata
+import io
 import typing as t
 
 import pydantic as pdt
 from typing_extensions import Self
 
 from aiida.common import exceptions
+from aiida.common.lang import type_check
 from aiida.common.log import AIIDA_LOGGER
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.data.singlefile import SinglefileData
@@ -41,36 +43,62 @@ class PickledData(SinglefileData):
     KEY_ATTRIBUTES_PICKLER_KWARGS: str = 'pickler_kwargs'
     """Attribute key that stores the keyword arguments passed to the constructor which are forwarded to the pickler."""
 
-    @classmethod
-    def from_object(cls, obj: t.Any, **kwargs: t.Any) -> Self:
-        """Construct a new instance by pickling the provided Python object.
+    # TODO tighten this!
+    def __init__(
+        self,
+        obj: t.Any | None = None,
+        *,
+        unpickler_module: str | None = None,
+        unpickler_name: str | None = None,
+        pickler_version: str | None = None,
+        pickler_kwargs: dict[str, t.Any] | None = None,
+        **kwargs: t.Any,
+    ) -> Self:
+        super().__init__(**kwargs)
 
-        :param obj: The Python object to pickle and store.
-        :param kwargs: Keyword arguments forwarded to the pickler, and recorded on the node.
-        :raises TypeError: If the Python object cannot be pickled.
-        """
-        pickled = cls._get_pickler()(obj, **kwargs)
+        if obj is not None:
+            pickler_kwargs = pickler_kwargs or {}
+            pickled = self._get_pickler()(obj, **pickler_kwargs)
+            self.set_file(io.BytesIO(pickled))
+            self._set_unpickler_information()
+            self.pickler_kwargs = pickler_kwargs
+        elif unpickler_module is not None and unpickler_name is not None:
+            self._set_unpickler_attributes(
+                unpickler_module=unpickler_module,
+                unpickler_name=unpickler_name,
+                pickler_version=pickler_version,
+            )
 
-        instance = cls.from_bytes(pickled)
-        instance._set_unpickler_information()
-        instance.pickler_kwargs = kwargs
-
-        return instance
-
-    @attribute(readonly=True)
+    @attribute
     def unpickler_module(self) -> str:
         """The module of the function that can unpickle this object."""
         return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_MODULE))
 
-    @attribute(readonly=True)
+    @unpickler_module.setter
+    def unpickler_module(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_MODULE, value)
+
+    @attribute
     def unpickler_name(self) -> str:
         """The name of the function that can unpickle this object."""
         return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_NAME))
 
-    @attribute(readonly=True)
+    @unpickler_name.setter
+    def unpickler_name(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_NAME, value)
+
+    @attribute
     def pickler_version(self) -> str | None:
         """The version of the package whose function can unpickle this object."""
         return t.cast(str | None, self.base.attributes.get(self.KEY_ATTRIBUTES_UNPICKLER_VERSION))
+
+    @pickler_version.setter
+    def pickler_version(self, value: str | None) -> None:
+        if value is not None:
+            type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_VERSION, value)
 
     @attribute(model_field_info=pdt.fields.FieldInfo(default_factory=dict))
     def pickler_kwargs(self) -> dict[str, t.Any]:
@@ -79,6 +107,7 @@ class PickledData(SinglefileData):
 
     @pickler_kwargs.setter
     def pickler_kwargs(self, value: dict[str, t.Any]) -> None:
+        type_check(value, dict)
         self.base.attributes.set(self.KEY_ATTRIBUTES_PICKLER_KWARGS, value)
 
     def get_unpickler_information(self) -> tuple[str, str, str | None]:
@@ -184,15 +213,29 @@ class PickledData(SinglefileData):
         except importlib.metadata.PackageNotFoundError:
             version = None
 
-        self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_MODULE, unpickler.__module__)
-        self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_NAME, unpickler.__name__)
-        self.base.attributes.set(self.KEY_ATTRIBUTES_UNPICKLER_VERSION, version)
+        self._set_unpickler_attributes(
+            unpickler_module=package,
+            unpickler_name=unpickler.__name__,
+            pickler_version=version,
+        )
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
+    def _set_unpickler_attributes(
+        self,
+        unpickler_module: str,
+        unpickler_name: str,
+        pickler_version: str | None,
+    ) -> None:
+        """Set the unpickler attributes for this node."""
+        self.base.attributes.set_many(
+            {
+                self.KEY_ATTRIBUTES_UNPICKLER_MODULE: unpickler_module,
+                self.KEY_ATTRIBUTES_UNPICKLER_NAME: unpickler_name,
+                self.KEY_ATTRIBUTES_UNPICKLER_VERSION: pickler_version,
+            }
+        )
 
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             self.unpickler_module

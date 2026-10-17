@@ -20,8 +20,6 @@ from __future__ import annotations
 import typing as t
 from enum import Enum
 
-from typing_extensions import Self
-
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.common.loaders import get_object_loader
@@ -48,20 +46,20 @@ class EnumData(Data, t.Generic[_EnumT]):
     KEY_VALUE = 'value'
     KEY_IDENTIFIER = 'identifier'
 
-    @classmethod
-    def from_member(cls, member: Enum, **kwargs: t.Any) -> Self:
-        """Construct a new instance for the enum member that is to be wrapped."""
-        type_check(member, Enum)
-
-        instance = cls(**kwargs)
-        instance.base.attributes.set_many(
-            {
-                instance.KEY_NAME: member.name,
-                instance.KEY_VALUE: member.value,
-                instance.KEY_IDENTIFIER: get_object_loader().identify_object(member.__class__),
-            }
-        )
-        return instance
+    def __init__(
+        self,
+        member: Enum | None = None,
+        *,
+        name: str | None = None,
+        value: object | None = None,
+        identifier: str | None = None,
+        **kwargs: t.Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        if member is not None:
+            self.set_member(member)
+        elif name is not None and value is not None and identifier is not None:
+            self._set_member_parts(name, value, identifier)
 
     def __eq__(self, other: t.Any) -> bool:
         """Return whether the other object is equivalent to ourselves."""
@@ -76,20 +74,35 @@ class EnumData(Data, t.Generic[_EnumT]):
 
         return False
 
-    @attribute(readonly=True)
+    @attribute
     def name(self) -> str:
         """The name of the enum member."""
         return self.base.attributes.get(self.KEY_NAME)
 
-    @attribute(readonly=True)
+    @name.setter
+    def name(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_NAME, value)
+
+    @attribute
     def value(self) -> object:
         """The value of the enum member."""
         return self.base.attributes.get(self.KEY_VALUE)
 
-    @attribute(readonly=True)
+    @value.setter
+    def value(self, value: object) -> None:
+        type_check(value, object)
+        self.base.attributes.set(self.KEY_VALUE, value)
+
+    @attribute
     def identifier(self) -> str:
-        """The identifier of the enum member."""
+        """The identifier of the enum class (<module>:<class>)."""
         return self.base.attributes.get(self.KEY_IDENTIFIER)
+
+    @identifier.setter
+    def identifier(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_IDENTIFIER, value)
 
     @property
     def member(self) -> Enum:
@@ -131,11 +144,30 @@ class EnumData(Data, t.Generic[_EnumT]):
             )
             raise ValueError(msg) from exc
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
+    def set_member(self, member: Enum) -> None:
+        """Set the enum member for this node."""
+        type_check(member, Enum)
+        self._set_member_parts(
+            name=member.name,
+            value=member.value,
+            identifier=get_object_loader().identify_object(member.__class__),
+        )
 
-        if not storing:
-            return
+    def _set_member_parts(self, name: str, value: object, identifier: str) -> None:
+        """Set the enum member for this node using its individual parts."""
+        type_check(name, str)
+        type_check(value, object)
+        type_check(identifier, str)
+        self.base.attributes.set_many(
+            {
+                self.KEY_NAME: name,
+                self.KEY_VALUE: value,
+                self.KEY_IDENTIFIER: identifier,
+            }
+        )
+
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             name = self.name

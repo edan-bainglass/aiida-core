@@ -16,6 +16,7 @@ from copy import deepcopy
 
 import pydantic as pdt
 
+from aiida.common.lang import type_check
 from aiida.orm.nodes.data.base import to_aiida_type
 from aiida.orm.nodes.data.data import Data
 
@@ -23,15 +24,13 @@ __all__ = ('Dict',)
 
 
 class Dict(Data):
-    """ORM representation of a dictionary node.
+    """`Data` sub class to represent a dictionary.
 
-    The dictionary contents of a `Dict` node are stored directly as node attributes. The dictionary
-    can be initialized with keyword arguments directly:
+    The dictionary contents of a `Dict` node are stored in the database as attributes. The dictionary
+    can be initialized through the `dict` argument in the constructor. Usual rules for attribute names
+    apply, in particular, keys cannot start with an underscore, or a ``ValueError`` will be raised.
 
-        d = Dict(key='value')
-
-    After construction, values can be retrieved and updated through the item getters and setters,
-    respectively:
+    After construction, values can be retrieved and updated through the item getters and setters, respectively:
 
         node['key'] = 'value'
 
@@ -49,6 +48,11 @@ class Dict(Data):
 
     _attributes_model_config = pdt.ConfigDict(extra='allow')
     _cli_expose_extra_attributes = True
+
+    def __init__(self, dict: builtins.dict[str, t.Any] | None = None, **kwargs: t.Any):
+        super().__init__(**kwargs)
+        if dict:
+            self.value = dict
 
     def __getitem__(self, key: str) -> t.Any:
         try:
@@ -73,6 +77,9 @@ class Dict(Data):
         """Return whether the node contains a key."""
         return key in self.base.attributes
 
+    def __str__(self) -> str:
+        return f'{super().__str__()} value: {self.value}'
+
     @property
     def value(self) -> builtins.dict[str, t.Any]:
         """The dictionary content."""
@@ -80,8 +87,6 @@ class Dict(Data):
 
     @value.setter
     def value(self, value: builtins.dict[str, t.Any]) -> None:
-        if not isinstance(value, dict):
-            raise TypeError('Must supply dict type')
         self.set_dict(value)
 
     @property
@@ -138,12 +143,13 @@ class Dict(Data):
 
         :param dictionary: dictionary to set
         """
-        if not isinstance(dictionary, dict):
-            raise TypeError('Must supply dict type')
+        type_check(dictionary, dict)
 
-        source = deepcopy(self.source)
+        if self.source is not None:
+            dictionary = {'source': deepcopy(self.source), **dictionary}
+
         self.base.attributes.clear()
-        self.base.attributes.set_many({'source': source, **dictionary})
+        self.base.attributes.set_many(dictionary)
 
 
 @to_aiida_type.register(dict)

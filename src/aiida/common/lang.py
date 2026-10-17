@@ -43,7 +43,7 @@ def type_check(what: T, of_type: t.Any, msg: 'str | None' = None, allow_none: bo
 
     if not isinstance(what, of_type):
         if msg is None:
-            msg = f"Got object of type '{type(what)}', expecting '{of_type}'"
+            msg = f'Got object of type {type(what).__name__!r}; expected type {of_type.__name__!r}'
         raise TypeError(msg)
 
     return what

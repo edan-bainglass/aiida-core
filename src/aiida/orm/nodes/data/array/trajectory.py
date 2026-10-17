@@ -32,12 +32,21 @@ class TrajectoryData(ArrayData):
 
     _attributes_model_config = ArrayData._attributes_model_config
 
-    @classmethod
-    def from_structure_list(cls, structurelist: list[StructureData], **kwargs: t.Any) -> Self:
-        """Construct a TrajectoryData instance from a list of StructureData objects."""
-        instance = cls(**kwargs)
-        instance.set_structurelist(structurelist)
-        return instance
+    def __init__(
+        self,
+        structurelist: list[StructureData] | None = None,
+        *,
+        symbols: list[str] | None = None,
+        pbc: tuple[bool, bool, bool] | None = None,
+        **kwargs: t.Any,
+    ) -> None:
+        super().__init__(**kwargs)
+
+        if structurelist is not None:
+            self.set_structurelist(structurelist)
+        elif symbols is not None and pbc is not None:
+            self.base.attributes.set('symbols', list(symbols))
+            self.base.attributes.set('pbc', tuple(pbc))
 
     @attribute
     def symbols(self) -> list[str]:
@@ -733,11 +742,8 @@ class TrajectoryData(ArrayData):
             if cells is None and any(pbc):
                 raise ValueError('Periodic boundary conditions are only possible when a cell is defined.')
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             self._internal_validate(

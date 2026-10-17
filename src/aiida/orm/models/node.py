@@ -54,7 +54,15 @@ class NodeCreateModel(CreateModel[_NodeT]):
     files: pdt.json_schema.SkipJsonSchema[dict[str, t.Callable[[], t.BinaryIO | None]] | None] = None
 
     def _to_entity_field_values(self, *, only_set: bool = False) -> dict[str, t.Any]:
-        return super()._to_entity_field_values(only_set=only_set) | {'files': self.files}
+        values = super()._to_entity_field_values(only_set=only_set)
+
+        if not only_set or 'files' in self.model_fields_set:
+            values['files'] = self.files
+
+        attributes = values.pop('attributes', {})
+        values.update(**attributes)
+
+        return values
 
 
 class NodeModelsNamespace(ModelsNamespace[_NodeT]):
@@ -225,7 +233,11 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
         if self._entity is None:
             raise RuntimeError('model namespace is not bound to a Node class')
 
-        values = model.model_dump() if isinstance(model, AttributesModel) else dict(model)
+        if isinstance(model, AttributesModel):
+            values = {name: getattr(model, name) for name in type(model).model_fields}
+            values.update(model.__pydantic_extra__ or {})
+        else:
+            values = dict(model)
 
         for name, attribute in iter_attributes(self._entity).items():
             if name not in values:

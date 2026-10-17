@@ -10,12 +10,14 @@
 
 from __future__ import annotations
 
+import typing as t
+
 import pydantic as pdt
 
 from aiida.common.datastructures import StashMode
 from aiida.common.lang import type_check
 from aiida.orm.decorators.attributes import attribute
-from aiida.orm.nodes.data.remote.stash.base import RemoteStashData
+from aiida.orm.nodes.data.remote.stash.base import RemoteStashData, RemoteStashDataKwargs
 
 __all__ = ('RemoteStashFolderData',)
 
@@ -26,9 +28,22 @@ class RemoteStashFolderData(RemoteStashData):
     This data plugin can and should be used to stash files if and only if the stash mode is `StashMode.COPY`.
     """
 
-    _valid_modes = [StashMode.COPY]
+    _valid_modes = {StashMode.COPY}
 
     _storable = True
+
+    def __init__(
+        self,
+        target_basepath: str,
+        source_list: list[str],
+        fail_on_missing: bool = False,
+        **kwargs: t.Unpack[RemoteStashDataKwargs],
+    ):
+        super().__init__(**kwargs)
+
+        self.target_basepath = target_basepath
+        self.source_list = source_list
+        self.fail_on_missing = fail_on_missing
 
     @attribute
     def target_basepath(self) -> str:
@@ -64,13 +79,10 @@ class RemoteStashFolderData(RemoteStashData):
         type_check(value, bool)
         self.base.attributes.set('fail_on_missing', value)
 
-    def _validate(self, storing: bool = False) -> None:
+    def _validate(self) -> None:
         from aiida.common.exceptions import ValidationError
 
-        super()._validate(storing=storing)
-
-        if self.stash_mode != StashMode.COPY:
-            raise ValidationError('`RemoteStashFolderData` can only be used with `stash_mode == StashMode.COPY`.')
+        super()._validate()
 
         try:
             self.target_basepath

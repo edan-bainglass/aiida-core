@@ -358,19 +358,18 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
         return entity
 
     @super_check
-    def _validate(self, storing: bool = False) -> None:
-        """Validate the entity instance.
-
-        :param storing: Whether the entity is being stored (default: False)
-        """
+    def _validate(self) -> None:
+        """Validate the entity instance."""
 
     def _initialize(self) -> None:
-        """Validate the entity instance upon initialization."""
-        call_with_super_check(self._validate, storing=False)
+        """Initialize instance attributes.
+
+        This will be called after the constructor is called or an entity is created from an existing backend entity.
+        """
 
     def _finalize(self) -> None:
         """Validate the entity instance before storing."""
-        call_with_super_check(self._validate, storing=True)
+        call_with_super_check(self._validate)
 
     @classmethod
     def _get_qb_field_factories(cls: type[_EntityT]) -> dict[str, t.Callable[[], QbField]]:

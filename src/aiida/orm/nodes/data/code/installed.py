@@ -145,8 +145,8 @@ class InstalledCode(Code):
         """
         return self.filepath_executable
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             self.computer

@@ -10,11 +10,13 @@
 
 from __future__ import annotations
 
+import typing as t
+
 from aiida.common import exceptions
 from aiida.common.datastructures import StashMode
 from aiida.common.lang import type_check
 from aiida.orm.decorators.attributes import attribute
-from aiida.orm.nodes.data.remote.stash.base import RemoteStashData
+from aiida.orm.nodes.data.remote.stash.base import RemoteStashData, RemoteStashDataKwargs
 
 __all__ = ('RemoteStashCustomData',)
 
@@ -22,9 +24,19 @@ __all__ = ('RemoteStashCustomData',)
 class RemoteStashCustomData(RemoteStashData):
     """Data plugin that models stashed data on a remote computer, which was done via a custom script."""
 
-    _valid_modes = [StashMode.COPY]
+    _valid_modes = {StashMode.COPY}
 
     _storable = True
+
+    def __init__(
+        self,
+        target_basepath: str,
+        source_list: list[str],
+        **kwargs: t.Unpack[RemoteStashDataKwargs],
+    ):
+        super().__init__(**kwargs)
+        self.target_basepath = target_basepath
+        self.source_list = source_list
 
     @attribute
     def target_basepath(self) -> str:
@@ -50,16 +62,8 @@ class RemoteStashCustomData(RemoteStashData):
 
         self.base.attributes.set('source_list', list(value))
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if self.stash_mode != StashMode.SUBMIT_CUSTOM_CODE:
-            raise exceptions.ValidationError(
-                '`RemoteStashCustomData` can only be used with `stash_mode == StashMode.SUBMIT_CUSTOM_CODE`.'
-            )
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             self.target_basepath

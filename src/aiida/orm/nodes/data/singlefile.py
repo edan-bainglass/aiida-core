@@ -16,9 +16,8 @@ import os
 import pathlib
 import typing as t
 
-from typing_extensions import Self
-
 from aiida.common import exceptions
+from aiida.common.lang import type_check
 from aiida.common.typing import FilePath
 from aiida.orm.cli import CliFieldInfo
 from aiida.orm.decorators import attribute
@@ -82,69 +81,36 @@ class SinglefileData(Data):
 
     DEFAULT_FILENAME = 'file.txt'
 
-    @classmethod
-    def from_path(
-        cls,
-        filepath: FilePath,
-        filename: FilePath | None = None,
+    def __init__(
+        self,
+        file: str | pathlib.Path | t.IO | None = None,
+        filename: str | pathlib.Path | None = None,
+        content: str | bytes | None = None,
         **kwargs: t.Any,
-    ) -> Self:
-        """Construct a new instance and set the contents to that of the file.
+    ) -> None:
+        super().__init__(**kwargs)
 
-        :param filepath: an absolute filepath whose contents to copy.
-        :param filename: specify filename to use (defaults to name of provided file).
-        """
-        instance = cls(**kwargs)
-        instance.set_file(filepath, filename=filename)
-        return instance
+        if file is not None and content is not None:
+            raise ValueError('cannot specify both `file` and `content`.')
 
-    @classmethod
-    def from_string(
-        cls,
-        content: str,
-        filename: FilePath | None = None,
-        **kwargs: t.Any,
-    ) -> Self:
-        """Construct a new instance and set ``content`` as its contents.
+        if content is not None:
+            if isinstance(content, str):
+                content = io.StringIO(str(content))
+            elif isinstance(content, bytes):
+                content = io.BytesIO(content)
+            else:
+                raise TypeError('`content` must be of type `str` or `bytes`.')
 
-        :param content: The content as a string.
-        :param filename: Specify filename to use (defaults to ``file.txt``).
-        """
-        instance = cls(**kwargs)
-        instance.set_file(io.StringIO(content), filename=filename)
-        return instance
+            file = content
 
-    @classmethod
-    def from_bytes(
-        cls,
-        content: bytes,
-        filename: FilePath | None = None,
-        **kwargs: t.Any,
-    ) -> Self:
-        """Construct a new instance and set ``content`` as its contents.
+        if file is not None:
+            self.set_file(file, filename=filename)
 
-        :param content: The content as bytes.
-        :param filename: Specify filename to use (defaults to ``file.txt``).
-        """
-        instance = cls(**kwargs)
-        instance.set_file(io.BytesIO(content), filename=filename)
-        return instance
+        if filename is not None:
+            self.filename = filename
 
-    @classmethod
-    def from_filelike(
-        cls,
-        handle: t.IO[t.Any],
-        filename: FilePath | None = None,
-        **kwargs: t.Any,
-    ) -> Self:
-        """Construct a new instance and set the contents from a file-like object.
-
-        :param handle: A file-like object whose contents to copy.
-        :param filename: Specify filename to use.
-        """
-        instance = cls(**kwargs)
-        instance.set_file(handle, filename=filename)
-        return instance
+    def __str__(self) -> str:
+        return f'{super().__str__()} file: {self.filename}'
 
     @attribute(
         required_once_stored=True,
@@ -160,6 +126,7 @@ class SinglefileData(Data):
 
     @filename.setter
     def filename(self, value: str) -> None:
+        type_check(value, str)
         self.base.attributes.set('filename', value)
 
     @repo_source(
@@ -311,11 +278,8 @@ class SinglefileData(Data):
     def attach_file(self, filepath: str, fileobj: t.BinaryIO) -> None:
         self.set_file(fileobj, filepath)
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         objects = self.base.repository.list_object_names()
 

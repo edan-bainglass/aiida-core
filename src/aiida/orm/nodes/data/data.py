@@ -10,10 +10,12 @@
 
 from __future__ import annotations
 
+import typing as t
+
 import pydantic as pdt
 
 from aiida.common import exceptions
-from aiida.common.lang import override
+from aiida.common.lang import override, type_check
 from aiida.common.links import LinkType
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.node import Node
@@ -58,6 +60,11 @@ class Data(Node):
     _storable = True
     _unstorable_message = 'storing for this node has been disabled'
 
+    def __init__(self, source: dict | None = None, **kwargs: t.Any) -> None:
+        super().__init__(**kwargs)
+        if source is not None:
+            self.source = source
+
     def __copy__(self):
         """Copying a Data node is not supported, use copy.deepcopy or call Data.clone()."""
         raise exceptions.InvalidOperation('copying a Data node is not supported, use copy.deepcopy')
@@ -99,8 +106,7 @@ class Data(Node):
                 self.base.attributes.delete('source')
             return
 
-        if not isinstance(source, dict):
-            raise ValueError('Source must be supplied as a dictionary')
+        type_check(source, dict)
 
         unknown_attrs = tuple(set(source.keys()) - set(self._source_attributes))
         if unknown_attrs:

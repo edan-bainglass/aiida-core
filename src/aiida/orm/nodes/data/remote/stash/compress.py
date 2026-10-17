@@ -10,13 +10,15 @@
 
 from __future__ import annotations
 
+import typing as t
+
 import pydantic as pdt
 
 from aiida.common import exceptions
 from aiida.common.datastructures import StashMode
 from aiida.common.lang import type_check
 from aiida.orm.decorators.attributes import attribute
-from aiida.orm.nodes.data.remote.stash.base import RemoteStashData
+from aiida.orm.nodes.data.remote.stash.base import RemoteStashData, RemoteStashDataKwargs
 
 __all__ = ('RemoteStashCompressedData',)
 
@@ -24,14 +26,30 @@ __all__ = ('RemoteStashCompressedData',)
 class RemoteStashCompressedData(RemoteStashData):
     """Data plugin that models a compressed stashed file on a remote computer."""
 
-    _valid_modes = [
+    _valid_modes = {
         StashMode.COMPRESS_TAR,
         StashMode.COMPRESS_TARBZ2,
         StashMode.COMPRESS_TARGZ,
         StashMode.COMPRESS_TARXZ,
-    ]
+    }
 
     _storable = True
+
+    def __init__(
+        self,
+        *,
+        target_basepath: str | None = None,
+        source_list: list[str] | None = None,
+        dereference: bool | None = None,
+        fail_on_missing: bool = False,
+        **kwargs: t.Unpack[RemoteStashDataKwargs],
+    ):
+        super().__init__(**kwargs)
+
+        self.target_basepath = target_basepath
+        self.source_list = source_list
+        self.dereference = dereference
+        self.fail_on_missing = fail_on_missing
 
     @attribute
     def target_basepath(self) -> str:
@@ -77,23 +95,8 @@ class RemoteStashCompressedData(RemoteStashData):
         type_check(value, bool)
         self.base.attributes.set('fail_on_missing', value)
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if self.stash_mode not in {
-            StashMode.COMPRESS_TAR,
-            StashMode.COMPRESS_TARBZ2,
-            StashMode.COMPRESS_TARGZ,
-            StashMode.COMPRESS_TARXZ,
-        }:
-            raise exceptions.ValidationError(
-                '`RemoteStashCompressedData` can only be used with `stash_mode` being either '
-                '`StashMode.COMPRESS_TAR`, `StashMode.COMPRESS_TARGZ`, '
-                '`StashMode.COMPRESS_TARBZ2` or `StashMode.COMPRESS_TARXZ`.'
-            )
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             self.target_basepath

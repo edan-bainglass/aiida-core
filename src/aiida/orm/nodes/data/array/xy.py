@@ -254,8 +254,8 @@ class XyData(ArrayData):
 
         return list(zip(y_names, y_arrays, y_units))
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
+    def _validate(self) -> None:
+        super()._validate()
 
         if not storing:
             return

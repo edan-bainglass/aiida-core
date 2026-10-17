@@ -10,11 +10,14 @@
 
 from __future__ import annotations
 
+import typing as t
+
 from aiida.common.datastructures import StashMode
 from aiida.common.lang import type_check
 from aiida.orm.decorators import attribute
 from aiida.orm.models.adapters import EnumStrAdapter
 from aiida.orm.nodes.data.data import Data
+from aiida.orm.nodes.node import NodeKwargs
 
 __all__ = ('RemoteStashData',)
 
@@ -24,6 +27,10 @@ __all__ = ('RemoteStashData',)
 # TODO ORM has its own utils...
 class InvalidStashModeError(ValueError):
     """Exception raised when an invalid stash mode is used."""
+
+
+class RemoteStashDataKwargs(NodeKwargs, total=False):
+    stash_mode: StashMode | None
 
 
 class RemoteStashData(Data):
@@ -43,9 +50,18 @@ class RemoteStashData(Data):
     methods of the class will only be available or function properly based on the ``stash_mode``.
     """
 
-    _valid_modes: list[StashMode] = []
+    _valid_modes: set[StashMode] = set()
 
     _storable = False
+
+    def __init__(self, stash_mode: StashMode | None = None, **kwargs: t.Unpack[NodeKwargs]) -> None:
+        """Construct a new instance
+
+        :param stash_mode: the stashing mode with which the data was stashed on the remote.
+        """
+        super().__init__(**kwargs)
+        if stash_mode is not None:
+            self.stash_mode = stash_mode
 
     @attribute(model_adapter=EnumStrAdapter(StashMode))
     def stash_mode(self) -> StashMode:
@@ -55,8 +71,16 @@ class RemoteStashData(Data):
     @stash_mode.setter
     def stash_mode(self, value: StashMode) -> None:
         type_check(value, StashMode)
-        if value not in self._valid_modes:
+        self._validate_stash_mode(value)
+        self.base.attributes.set('stash_mode', value.value)
+
+    def _validate_stash_mode(self, stash_mode: StashMode) -> None:
+        """Validate that the current stash mode is one of the valid modes."""
+        if self._valid_modes and stash_mode not in self._valid_modes:
             valid_modes = ', '.join(f'{mode.name}' for mode in self._valid_modes)
             msg = f'`{type(self).__name__}` can only be used with the following stash modes: {valid_modes}'
             raise InvalidStashModeError(msg)
-        self.base.attributes.set('stash_mode', value.value)
+
+    def _validate(self) -> None:
+        super()._validate()
+        self._validate_stash_mode(self.stash_mode)

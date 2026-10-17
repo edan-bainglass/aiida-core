@@ -7,9 +7,9 @@ import json
 import typing as t
 
 import pydantic as pdt
-from typing_extensions import Self
 
 from aiida.common import exceptions
+from aiida.common.lang import type_check
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.data.data import Data
 
@@ -35,56 +35,77 @@ class JsonableData(Data):
 
     _obj: JsonSerializableProtocol | None = None
 
-    @classmethod
-    def from_object(cls, obj: JsonSerializableProtocol, **kwargs: t.Any) -> Self:
-        """Construct a new instance from a JSON-serializable object."""
-        if obj is None:
-            raise TypeError('the `obj` argument cannot be `None`.')
+    def __init__(
+        self,
+        obj: JsonSerializableProtocol | None = None,
+        data: dict[str, t.Any] | None = None,
+        the_class: str | None = None,
+        the_module: str | None = None,
+        **kwargs: t.Any,
+    ) -> None:
+        super().__init__(**kwargs)
 
-        if not hasattr(obj, 'as_dict') or not callable(getattr(obj, 'as_dict')):
-            raise TypeError('the `obj` argument does not have the required `as_dict` method.')
+        if obj is not None:
+            if not hasattr(obj, 'as_dict') or not callable(getattr(obj, 'as_dict')):
+                raise TypeError('the `obj` argument does not have the required `as_dict` method.')
 
-        dictionary = obj.as_dict()
+            dictionary = {'data': obj.as_dict()}
 
-        if '@class' not in dictionary:
-            dictionary['@class'] = obj.__class__.__name__
+            if 'the_class' not in dictionary:
+                dictionary['the_class'] = obj.__class__.__name__
 
-        if '@module' not in dictionary:
-            dictionary['@module'] = obj.__class__.__module__
+            if 'the_module' not in dictionary:
+                dictionary['the_module'] = obj.__class__.__module__
 
-        try:
-            serialized = json.loads(json.dumps(dictionary), parse_constant=lambda value: value)
-        except TypeError as exc:
-            msg = f'the object `{obj}` is not JSON-serializable and therefore cannot be stored.'
-            raise TypeError(msg) from exc
+            try:
+                serialized = json.loads(json.dumps(dictionary), parse_constant=lambda value: value)
+            except TypeError as exc:
+                msg = f'the object `{obj}` is not JSON-serializable and therefore cannot be stored.'
+                raise TypeError(msg) from exc
 
-        instance = cls(**kwargs)
-        instance.base.attributes.set_many(serialized)
-        instance._obj = obj
+            self.base.attributes.set_many(serialized)
+            self._obj = obj
 
-        return instance
+        elif data is not None and the_class is not None and the_module is not None:
+            self.base.attributes.set_many(
+                {
+                    'data': data,
+                    'the_class': the_class,
+                    'the_module': the_module,
+                }
+            )
 
-    @attribute(
-        readonly=True,
-        model_field_info=pdt.fields.FieldInfo(
-            alias='@module',
-            title='Module name',
-        ),
-    )
+    def __str__(self) -> str:
+        return f'{super().__str__()} data: {self.obj.as_dict()}'
+
+    @attribute
+    def data(self) -> dict[str, t.Any]:
+        return self.base.attributes.get('data')
+
+    @data.setter
+    def data(self, value: dict[str, t.Any]) -> None:
+        type_check(value, dict)
+        self.base.attributes.set('data', value)
+
+    @attribute
     def the_module(self) -> str:
         """The module name of the wrapped object."""
-        return self.base.attributes.get('@module')
+        return self.base.attributes.get('the_module')
 
-    @attribute(
-        readonly=True,
-        model_field_info=pdt.fields.FieldInfo(
-            alias='@class',
-            title='Class name',
-        ),
-    )
+    @the_module.setter
+    def the_module(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set('the_module', value)
+
+    @attribute
     def the_class(self) -> str:
         """The class name of the wrapped object."""
-        return self.base.attributes.get('@class')
+        return self.base.attributes.get('the_class')
+
+    @the_class.setter
+    def the_class(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set('the_class', value)
 
     @property
     def obj(self) -> JsonSerializableProtocol:
@@ -122,8 +143,8 @@ class JsonableData(Data):
             return self._obj
 
         attributes = self.base.attributes.all
-        class_name = attributes.pop('@class')
-        module_name = attributes.pop('@module')
+        class_name = attributes.pop('the_class')
+        module_name = attributes.pop('the_module')
 
         try:
             module = importlib.import_module(module_name)
@@ -142,21 +163,18 @@ class JsonableData(Data):
 
         return self._obj
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             module_name = self.the_module
         except AttributeError as exc:
-            raise exceptions.ValidationError("attribute '@module' not set.") from exc
+            raise exceptions.ValidationError("attribute 'the_module' not set.") from exc
 
         try:
             class_name = self.the_class
         except AttributeError as exc:
-            raise exceptions.ValidationError("attribute '@class' not set.") from exc
+            raise exceptions.ValidationError("attribute 'the_class' not set.") from exc
 
         try:
             module = importlib.import_module(module_name)

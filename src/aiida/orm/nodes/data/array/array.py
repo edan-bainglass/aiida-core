@@ -18,7 +18,6 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 import pydantic as pdt
-from typing_extensions import Self
 
 from aiida.common import exceptions
 from aiida.orm.cli import CliAdapter, CliFieldInfo
@@ -157,11 +156,13 @@ class ArrayData(Data):
     array_prefix = 'array|'
     default_array_name = 'default'
 
+    _extra_attributes_pattern = r'^array\|[A-Za-z0-9_]+$'
+
     _attributes_model_config = pdt.ConfigDict(
         extra='allow',
         json_schema_extra={
             'patternProperties': {
-                r'^array\|[A-Za-z0-9_]+$': {
+                _extra_attributes_pattern: {
                     'type': 'array',
                     'items': {'type': 'integer'},
                     'minItems': 1,
@@ -174,18 +175,14 @@ class ArrayData(Data):
 
     _requires_array = True
 
-    @classmethod
-    def from_arrays(cls, arrays: ArrayLike | Mapping[str, ArrayLike], **kwargs: t.Any) -> Self:
-        """Construct a new instance and set one or multiple numpy arrays.
+    def __init__(self, arrays: ArrayLike | Mapping[str, ArrayLike] | None = None, **kwargs: t.Any) -> None:
+        super().__init__(**kwargs)
 
-        If a single array is provided, it will be stored under the default array name.
-
-        :param arrays: a single numpy array or sequence, or a mapping of arrays to store.
-        """
-        node = cls(**kwargs)
+        if arrays is None:
+            return
 
         if isinstance(arrays, (Sequence, np.ndarray)):
-            arrays = {cls.default_array_name: arrays}
+            arrays = {self.default_array_name: arrays}
 
         if not isinstance(arrays, Mapping):
             raise TypeError(
@@ -196,9 +193,7 @@ class ArrayData(Data):
             raise TypeError('`arrays` should be a single sequence or mapping of sequences')
 
         for name, array in arrays.items():
-            node.set_array(array=np.asarray(array), name=name)
-
-        return node
+            self.set_array(array=np.asarray(array), name=name)
 
     @repo_source(
         cli_inputs=(
@@ -394,12 +389,8 @@ class ArrayData(Data):
             )
             raise ValueError(msg)
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if not storing:
-            self._cached_arrays: dict[str, np.ndarray] = {}
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         files = self._arraynames_from_files()
         properties = self._arraynames_from_properties()

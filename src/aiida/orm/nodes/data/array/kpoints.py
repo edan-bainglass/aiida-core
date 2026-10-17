@@ -14,19 +14,23 @@ periodic crystal structure).
 from __future__ import annotations
 
 import typing as t
+from collections.abc import Mapping
 
 import numpy as np
 import pydantic as pdt
 
 from aiida.common import exceptions
+from aiida.common.lang import type_check
 from aiida.orm.decorators import attribute
-from aiida.orm.models.adapters import NumpyArrayListAdapter
-from aiida.orm.nodes.data.array.array import ArrayData
+from aiida.orm.nodes.data.array.array import ArrayData, ArrayLike
+from aiida.orm.nodes.data.structure import (
+    DEFAULT_CELL,
+    StructureData,
+    _get_valid_cell,
+    get_valid_pbc,
+)
 
 __all__ = ('KpointsData',)
-
-_DEFAULT_EPSILON_LENGTH = 1e-5
-_DEFAULT_EPSILON_ANGLE = 1e-5
 
 
 class KpointsData(ArrayData):
@@ -46,18 +50,51 @@ class KpointsData(ArrayData):
 
     _requires_array = False
 
-    @attribute(
-        model_adapter=NumpyArrayListAdapter(),
-        model_field_info=pdt.fields.FieldInfo(annotation=list[list[float]]),
-    )
-    def cell(self) -> np.ndarray | None:
-        """The crystal unit cell, with rows representing crystal vectors in Angstroms."""
-        cell = self.base.attributes.get('cell')
-        return None if cell is None else np.array(cell)
+    def __init__(
+        self,
+        arrays: ArrayLike | Mapping[str, ArrayLike] | None = None,
+        *,
+        labels: list[str] | None = None,
+        label_numbers: list[int] | None = None,
+        cell: list[list[float]] | None = None,
+        pbc1: bool | None = None,
+        pbc2: bool | None = None,
+        pbc3: bool | None = None,
+        mesh: list[int] | None = None,
+        offset: list[float] | None = None,
+        **kwargs,
+    ):
+        # TODO more checks for invalid parameter combinations
 
-    @cell.setter
-    def cell(self, value: np.ndarray | None) -> None:
-        raise AttributeError("cannot set 'cell' directly; use 'set_cell' instead")
+        super().__init__(**kwargs)
+
+        if mesh is not None:
+            self.set_kpoints_mesh(mesh, offset=offset)
+            return
+
+        pbc = (pbc1 or False, pbc2 or False, pbc3 or False)
+
+        self.set_cell(cell or DEFAULT_CELL, pbc)
+
+        if arrays is not None:
+            if not isinstance(arrays, dict):
+                arrays = {'kpoints': arrays}
+
+            kpoints = arrays.pop('kpoints', None)
+            if kpoints is None:
+                raise ValueError("When providing a dict of arrays, it must contain the key 'kpoints'")
+
+            if labels is not None and label_numbers is not None:
+                if len(labels) != len(label_numbers):
+                    raise ValueError('Labels and label numbers must have the same length')
+                label_list = list(zip(label_numbers, labels))
+            else:
+                label_list = None
+
+            self.set_kpoints(kpoints, labels=label_list)
+
+            for key, array in arrays.items():
+                self.set_array(array=array, name=key)
 
     @attribute
     def pbc1(self) -> bool | None:
@@ -66,6 +103,7 @@ class KpointsData(ArrayData):
 
     @pbc1.setter
     def pbc1(self, value: bool) -> None:
+        type_check(value, bool)
         self.base.attributes.set('pbc1', value)
 
     @attribute
@@ -75,6 +113,7 @@ class KpointsData(ArrayData):
 
     @pbc2.setter
     def pbc2(self, value: bool) -> None:
+        type_check(value, bool)
         self.base.attributes.set('pbc2', value)
 
     @attribute
@@ -84,7 +123,17 @@ class KpointsData(ArrayData):
 
     @pbc3.setter
     def pbc3(self, value: bool) -> None:
+        type_check(value, bool)
         self.base.attributes.set('pbc3', value)
+
+    @attribute(model_field_info=pdt.fields.FieldInfo(annotation=list[list[float]]))
+    def cell(self) -> list[list[float]] | None:
+        """The crystal unit cell, with rows representing crystal vectors in Angstroms."""
+        return self.base.attributes.get('cell')
+
+    @cell.setter
+    def cell(self, value: list[list[float]]) -> None:
+        raise AttributeError("cannot set 'cell' directly; use 'set_cell' instead")
 
     @attribute
     def mesh(self) -> list[int] | None:
@@ -194,15 +243,13 @@ class KpointsData(ArrayData):
         self.base.attributes.set('label_numbers', label_numbers)
         self.base.attributes.set('labels', labels)
 
-    def set_cell_from_structure(self, structuredata):
+    def set_cell_from_structure(self, structuredata: StructureData) -> None:
         """Set a cell to be used for symmetry analysis from an AiiDA structure.
         Inherits both the cell and the pbc's.
         To set manually a cell, use "set_cell"
 
         :param structuredata: an instance of StructureData
         """
-        from aiida.orm import StructureData
-
         if not isinstance(structuredata, StructureData):
             msg = (
                 'An instance of StructureData should be passed to the KpointsData, '
@@ -212,7 +259,7 @@ class KpointsData(ArrayData):
 
         self.set_cell(structuredata.cell, structuredata.pbc)
 
-    def set_cell(self, cell, pbc=None):
+    def set_cell(self, cell: list[list[float]], pbc: list[bool] | None = None) -> None:
         """Set a cell to be used for symmetry analysis.
         To set a cell from an AiiDA structure, use "set_cell_from_structure".
 
@@ -221,8 +268,6 @@ class KpointsData(ArrayData):
         :param pbc: list of 3 booleans, True if in the nth crystal direction the
                     structure is periodic. Default = [True,True,True]
         """
-        from aiida.orm.nodes.data.structure import _get_valid_cell
-
         the_cell = _get_valid_cell(cell)
         self.base.attributes.set('cell', the_cell)
 
@@ -230,8 +275,6 @@ class KpointsData(ArrayData):
 
     def set_pbc(self, value: t.Sequence[bool]) -> None:
         """Set the periodic boundary conditions."""
-        from aiida.orm.nodes.data.structure import get_valid_pbc
-
         if self.is_stored:
             msg = f'{self.__class__.__name__} cannot be modified once stored'
             raise exceptions.ModificationNotAllowed(msg)
@@ -245,7 +288,7 @@ class KpointsData(ArrayData):
             }
         )
 
-    def set_kpoints_mesh(self, mesh, offset=None):
+    def set_kpoints_mesh(self, mesh: list[int], offset: list[float] | None = None) -> None:
         """Set KpointsData to represent a uniformly spaced mesh of kpoints in the
         Brillouin zone. This excludes the possibility of set/get kpoints
 
@@ -257,8 +300,6 @@ class KpointsData(ArrayData):
             [1.,1.,1.] by periodicity should be equivalent to [0.,0.,0.]
             Default = [0.,0.,0.].
         """
-        from aiida.common.exceptions import ModificationNotAllowed
-
         try:
             the_mesh = [int(item) for item in mesh]
             if len(the_mesh) != 3:
@@ -278,7 +319,7 @@ class KpointsData(ArrayData):
 
         try:
             self.get_array('kpoints')
-            raise ModificationNotAllowed('KpointsData has already a kpoint-list stored')
+            raise exceptions.ModificationNotAllowed('KpointsData has already a kpoint-list stored')
         except KeyError:
             pass
 
@@ -289,7 +330,7 @@ class KpointsData(ArrayData):
             }
         )
 
-    def get_kpoints_mesh(self, print_list=False):
+    def get_kpoints_mesh(self, print_list: bool = False) -> tuple[list[int], list[float]] | np.ndarray:
         """Get the mesh of kpoints.
 
         :param print_list: default=False. If True, prints the mesh of kpoints as a list
@@ -318,7 +359,12 @@ class KpointsData(ArrayData):
 
         return offset_kpoints
 
-    def set_kpoints_mesh_from_density(self, distance, offset=None, force_parity=False):
+    def set_kpoints_mesh_from_density(
+        self,
+        distance: float,
+        offset: list[float] | None = None,
+        force_parity: bool = False,
+    ) -> None:
         """Set a kpoints mesh using a kpoints density, expressed as the maximum
         distance between adjacent points along a reciprocal axis
 
@@ -354,7 +400,14 @@ class KpointsData(ArrayData):
 
         self.set_kpoints_mesh(kpointsmesh, offset=offset)
 
-    def set_kpoints(self, kpoints, cartesian=False, labels=None, weights=None, fill_values=0):
+    def set_kpoints(
+        self,
+        kpoints: ArrayLike,
+        cartesian: bool = False,
+        labels: list[str] | None = None,
+        weights: list[float] | None = None,
+        fill_values: float = 0,
+    ) -> None:
         """Set the list of kpoints. If a mesh has already been stored, raise a ModificationNotAllowed
 
         :param kpoints: a list of kpoints, each kpoint being a list of one, two
@@ -387,7 +440,13 @@ class KpointsData(ArrayData):
             non-periodic dimensions (indicated by False in self.pbc), or list of
             values for each of the non-periodic dimensions.
         """
-        from aiida.common.exceptions import ModificationNotAllowed
+        try:
+            self.mesh
+        except AttributeError:
+            pass
+        else:
+            if self.mesh is not None:
+                raise exceptions.ModificationNotAllowed('KpointsData already has a mesh stored')
 
         the_kpoints, the_weights = self._validate_kpoints_weights(kpoints, weights)
 
@@ -416,9 +475,6 @@ class KpointsData(ArrayData):
         if cartesian:
             the_kpoints = self._change_reference(the_kpoints, to_cartesian=False)
 
-        if self.mesh is not None:
-            raise ModificationNotAllowed('KpointsData has already a mesh stored')
-
         self.set_array(array=the_kpoints, name='kpoints')
 
         if the_weights is not None:
@@ -427,7 +483,11 @@ class KpointsData(ArrayData):
         if labels is not None:
             self.set_labels(labels)
 
-    def get_kpoints(self, also_weights=False, cartesian=False):
+    def get_kpoints(
+        self,
+        also_weights: bool = False,
+        cartesian: bool = False,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """Return the list of kpoints
 
         :param also_weights: if True, returns also the list of weights.
@@ -454,14 +514,14 @@ class KpointsData(ArrayData):
         return kpoints
 
     @property
-    def _dimension(self):
+    def _dimension(self) -> int:
         """Dimensionality of the structure, found from its pbc (i.e. 1 if it's a 1D
         structure, 2 if its 2D, 3 if it's 3D ...).
         :return dimensionality: 0, 1, 2 or 3
         """
         return sum(self.pbc)
 
-    def _change_reference(self, kpoints, to_cartesian=True):
+    def _change_reference(self, kpoints: np.ndarray, to_cartesian: bool = True) -> np.ndarray:
         """Change reference system, from cartesian to crystal coordinates (units of b1,b2,b3) or viceversa.
         :param kpoints: a list of (3) point coordinates
         :return kpoints: a list of (3) point coordinates in the new reference
@@ -479,7 +539,11 @@ class KpointsData(ArrayData):
 
         return np.transpose(np.dot(matrix, np.transpose(kpoints)))
 
-    def _validate_kpoints_weights(self, kpoints, weights):
+    def _validate_kpoints_weights(
+        self,
+        kpoints: ArrayLike,
+        weights: list[float] | None,
+    ) -> tuple[np.ndarray, list[float] | None]:
         """Validate the list of kpoints and of weights before storage.
         Kpoints and weights must be convertible respectively to an array of
         N x dimension and N floats
@@ -491,7 +555,7 @@ class KpointsData(ArrayData):
                 kpoints = np.array([[0.0, 0.0, 0.0]])
             else:
                 msg = (
-                    'empty kpoints list is valid only in zero dimension; '
+                    f'empty kpoints list is valid only in zero dimension; '
                     f'instead here with have {self._dimension} dimensions'
                 )
                 raise ValueError(msg)
@@ -527,11 +591,8 @@ class KpointsData(ArrayData):
 
         return kpoints, weights
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing)
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         has_kpoints = 'kpoints' in self.get_arraynames()
         has_mesh = self.mesh is not None

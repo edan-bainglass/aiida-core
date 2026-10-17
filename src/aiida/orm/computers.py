@@ -519,8 +519,8 @@ class Computer(entities.Entity['BackendComputer', ComputerCollection]):
 
         return authinfo.get_auth_params()
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
+    def _validate(self) -> None:
+        super()._validate()
 
         if not storing:
             return

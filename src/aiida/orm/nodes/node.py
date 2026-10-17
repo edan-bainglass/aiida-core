@@ -11,7 +11,10 @@
 from __future__ import annotations
 
 import datetime
+import logging
+import re
 import typing as t
+from abc import ABCMeta
 from collections.abc import Iterator
 from functools import cached_property
 from uuid import UUID
@@ -21,7 +24,7 @@ from pydantic_core import PydanticUndefined
 from typing_extensions import Self
 
 from aiida.common import exceptions
-from aiida.common.lang import classproperty, super_check
+from aiida.common.lang import classproperty, super_check, type_check
 from aiida.common.links import LinkType
 from aiida.common.log import AIIDA_LOGGER
 from aiida.manage import get_manager
@@ -41,7 +44,6 @@ from aiida.orm.qb_fields import QbField
 from aiida.orm.querybuilder import QueryBuilder
 from aiida.orm.users import User
 from aiida.orm.utils.node import (
-    AbstractNodeMeta,
     get_query_type_from_type_string,
     get_type_string_from_class,
 )
@@ -161,6 +163,35 @@ class NodeBase:
         return self._node._CLS_NODE_LINKS(self._node)
 
 
+class AbstractNodeMeta(ABCMeta):
+    """Some python black magic to set correctly the logger also in subclasses."""
+
+    def __new__(mcs, name, bases, namespace, **kwargs):
+        new_cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+        new_cls._logger = logging.getLogger(f'{namespace["__module__"]}.{name}')
+        return new_cls
+
+    def __call__(cls, *args, **kwargs):
+        node: Node = super().__call__(*args, **kwargs)
+        node._set_attribute_defaults()
+        return node
+
+
+class NodeKwargs(t.TypedDict, total=False):
+    label: str = ''
+    description: str = ''
+    extras: dict | None = None
+    node_type: str | None = None
+    process_type: str | None = None
+    ctime: datetime.datetime | None = None
+    mtime: datetime.datetime | None = None
+    computer: Computer | None = None
+    user: User | None = None
+    repository_metadata: dict | None = None
+    files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None
+    backend: StorageBackend | None = None
+
+
 class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNodeMeta):
     """Base class for all nodes in AiiDA.
 
@@ -180,6 +211,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     models: NodeModelsNamespace[Self] = NodeModelsNamespace()
     _cli_expose_extra_attributes: t.ClassVar[bool] = False
+
+    _extra_attributes_pattern: t.ClassVar[str] = ''
 
     _attributes_model_config: pdt.ConfigDict
 
@@ -217,10 +250,12 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         label: str = '',
         description: str = '',
         extras: dict | None = None,
-        attributes: dict | None = None,
-        computer: Computer | None = None,
         node_type: str | None = None,
         process_type: str | None = None,
+        ctime: datetime.datetime | None = None,
+        mtime: datetime.datetime | None = None,
+        computer: Computer | None = None,
+        user: User | None = None,
         repository_metadata: dict | None = None,
         files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
         backend: StorageBackend | None = None,
@@ -233,7 +268,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         backend_computer = computer.backend_entity if computer else None
 
-        user = backend.default_user
+        user = user or backend.default_user
         if user is None:
             raise ValueError('the default user is not set in the backend')
 
@@ -246,6 +281,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
             description=description,
             node_type=self.class_node_type,
             process_type=process_type,
+            ctime=ctime,
+            mtime=mtime,
             user=user.backend_entity,
             computer=backend_computer,
         )
@@ -253,23 +290,13 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         if extras:
             self.base.extras.set_many(extras)
 
-        self._set_attributes(attributes or {}, attribute_kwargs)
+        if attribute_kwargs:
+            self._set_unhandled_attributes(attribute_kwargs)
 
         self._attach_files(files, repository_metadata)
 
-        self._initialize()
-
-        self._set_attribute_defaults()
-
     def __init_subclass__(cls, **kwargs: t.Any) -> None:
         super().__init_subclass__(**kwargs)
-
-        if '__init__' in cls.__dict__:
-            msg = (
-                f'{cls.__name__} cannot override Node.__init__. '
-                'Define a named class method such as `from_*` for custom construction instead.'
-            )
-            raise TypeError(msg)
 
         # Initialize the set of declared attributes for the subclass.
         cls._declared_attributes = frozenset(iter_attributes(cls))
@@ -311,6 +338,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @label.setter
     def label(self, value: str) -> None:
+        type_check(value, str)
         self._backend_entity.label = value
 
     @column(
@@ -323,6 +351,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @description.setter
     def description(self, value: str) -> None:
+        type_check(value, str)
         self._backend_entity.description = value
 
     @column(
@@ -337,6 +366,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @extras.setter
     def extras(self, value: dict[str, t.Any]) -> None:
+        type_check(value, dict)
         self.base.extras.reset(value)
 
     @attributes_column
@@ -346,6 +376,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @attributes.setter
     def attributes(self, value: dict[str, t.Any]) -> None:
+        type_check(value, dict)
         self.base.attributes.reset(value)
 
     @column(
@@ -375,6 +406,7 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     @node_type.setter
     def node_type(self, value: str | None) -> None:
+        type_check(value, str)
         self._backend_entity.node_type = value
 
     @column(cli_exclude=True)
@@ -385,17 +417,38 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
     @process_type.setter
     def process_type(self, value: str) -> None:
         """Set the node process type."""
+        type_check(value, str)
         self._backend_entity.process_type = value
 
-    @column(readonly=True)
-    def ctime(self) -> datetime.datetime:
+    @column(
+        required_once_stored=True,
+        model_field_info=pdt.fields.FieldInfo(
+            title='Creation time',
+        ),
+    )
+    def ctime(self) -> datetime.datetime | None:
         """The creation time of the node."""
         return self._backend_entity.ctime
 
-    @column(readonly=True)
-    def mtime(self) -> datetime.datetime:
+    @ctime.setter
+    def ctime(self, value: datetime.datetime) -> None:
+        type_check(value, datetime.datetime)
+        self._backend_entity.ctime = value
+
+    @column(
+        required_once_stored=True,
+        model_field_info=pdt.fields.FieldInfo(
+            title='Last Modification Time',
+        ),
+    )
+    def mtime(self) -> datetime.datetime | None:
         """The last modification time of the node."""
         return self._backend_entity.mtime
+
+    @mtime.setter
+    def mtime(self, value: datetime.datetime) -> None:
+        type_check(value, datetime.datetime)
+        self._backend_entity.mtime = value
 
     @column(
         readonly=True,
@@ -412,13 +465,18 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         return None
 
     @column(
-        readonly=True,
+        required_once_stored=True,
         model_field_info=pdt.fields.FieldInfo(description='The PK of the associated user.'),
         model_adapter=EntityPkAdapter(User),
     )
-    def user(self) -> User:
+    def user(self) -> User | None:
         """The user associated with the node."""
         return User._from_backend_entity(self._backend_entity.user)
+
+    @user.setter
+    def user(self, value: User) -> None:
+        type_check(value, User)
+        self._backend_entity.user = value._backend_entity
 
     @cached_property
     def base(self) -> NodeBase:
@@ -532,70 +590,6 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         config = cls.__dict__.get('_attributes_model_config')
         return config is not None and config.get('extra') == 'allow'
 
-    def _set_attributes(self, attributes: dict[str, t.Any], attribute_kwargs: dict[str, t.Any]) -> None:
-        """Set the attributes for the node, once validated."""
-        self._validate_attributes(attributes, attribute_kwargs)
-
-        for key, value in attributes.items():
-            if key in self._declared_attributes:
-                setattr(self, key, value)
-            else:
-                self.base.attributes.set(key, value)
-
-    def _set_attribute_defaults(self) -> None:
-        """Persist defaults for declared attributes that remain unset after initialization."""
-        attributes = self.base.attributes.all.copy()
-        defaults: dict[str, t.Any] = {}
-
-        for name, attribute in iter_attributes(type(self)).items():
-            if name in attributes:
-                continue
-
-            if not attribute.spec.persist_default:
-                continue
-
-            value = attribute.get_default(validated_data=attributes)
-            if value is PydanticUndefined:
-                continue
-
-            defaults[name] = value
-            attributes[name] = value
-
-        if defaults:
-            self.base.attributes.set_many(defaults)
-
-    @classmethod
-    def _validate_attributes(
-        cls,
-        attributes: dict[str, t.Any],
-        attribute_kwargs: dict[str, t.Any],
-    ) -> None:
-        """Validate the incoming attributes.
-
-        The method ensures that:
-        1. No attribute is specified multiple times, e.g., ``Node(value=1, attributes={'value': 2})``.
-        2. All attributes are allowed according to the declared attributes and extra attributes policy.
-        """
-        overlap = attributes.keys() & attribute_kwargs.keys()
-        if overlap:
-            msg = f'attributes specified multiple times: {sorted(overlap)}'
-            raise TypeError(msg)
-
-        attributes.update(attribute_kwargs)
-
-        if not cls._allows_extra_attributes:
-            invalid = sorted(set(attributes) - set(cls._declared_attributes))
-            if invalid:
-                invalid_list = '\n'.join(f'  - {name}' for name in invalid)
-                allowed_list = '\n'.join(f'  - {name}' for name in sorted(cls._declared_attributes))
-                msg = (
-                    f'\n\n{cls.__name__} got unexpected attributes:\n'
-                    f'{invalid_list}'
-                    f'\n\nAllowed attributes:\n'
-                    f'{allowed_list}'
-                )
-                raise TypeError(msg)
-
     def _attach_files(
         self,
         files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
@@ -647,8 +641,54 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         if self.is_stored:
             raise exceptions.ModificationNotAllowed('the attributes of a stored entity are immutable')
 
+    def _set_unhandled_attributes(self, attribute_kwargs: dict[str, t.Any]) -> None:
+        """Set the attributes for the node, once validated."""
+        self._validate_attributes(attribute_kwargs)
+
+        for key, value in attribute_kwargs.items():
+            if key in self._declared_attributes:
+                setattr(self, key, value)
+            elif self._validate_extra_attribute(key):
+                self.base.attributes.set(key, value)
+            else:
+                msg = f'Unexpected attribute key: {key}'
+                raise exceptions.ValidationError(msg)
+
+    def _set_attribute_defaults(self) -> None:
+        """Persist defaults for declared attributes that remain unset after initialization."""
+        attributes = self.base.attributes.all.copy()
+        defaults: dict[str, t.Any] = {}
+
+        for name, attribute in iter_attributes(type(self)).items():
+            if name in attributes:
+                continue
+
+            if not attribute.spec.persist_default:
+                continue
+
+            value = attribute.get_default(validated_data=attributes)
+            if value is PydanticUndefined:
+                continue
+
+            defaults[name] = value
+            attributes[name] = value
+
+        if defaults:
+            self.base.attributes.set_many(defaults)
+
+    def _validate_extra_attribute(self, key: str) -> bool:
+        """Check if extra attribute is valid.
+
+        This is only ever false if the attribute key does not exist in an explicitly defined
+        allowed extra keys, e.g., via pattern matching or a predefined set.
+        """
+        if self._extra_attributes_pattern:
+            if re.match(self._extra_attributes_pattern, key) is None:
+                return False
+        return True
+
     @super_check
-    def _validate(self, storing: bool = False) -> None:
+    def _validate(self) -> None:
         """Validate information stored in Node object.
 
         For the :py:class:`~aiida.orm.Node` base class, this check is always valid.
@@ -662,6 +702,18 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         :param storing: Whether the entity is being stored (default: False)
         """
         return None
+
+    @classmethod
+    def _validate_attributes(cls, attribute_kwargs: dict[str, t.Any]) -> None:
+        """Validate the incoming attributes."""
+        overlap = cls._declared_attributes & attribute_kwargs.keys()
+        if overlap:
+            msg = f'The following attributes must be handled in the {cls.__name__} constructor: {sorted(overlap)}'
+            raise TypeError(msg)
+
+        if not cls._allows_extra_attributes:
+            msg = f'Extra attributes are not allowed on {cls.__name__}'
+            raise TypeError(msg)
 
     def _validate_storability(self) -> None:
         """Verify that the current node is allowed to be stored.

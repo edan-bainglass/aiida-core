@@ -42,6 +42,15 @@ class RemoteData(Data):
 
     KEY_EXTRA_CLEANED = 'cleaned'
 
+    def __init__(
+        self,
+        remote_path: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        if remote_path is not None:
+            self.remote_path = remote_path
+
     @column(
         model_field_info=pdt.fields.FieldInfo(description='The PK of the associated computer.'),
         model_adapter=EntityPkAdapter(Computer),
@@ -298,11 +307,8 @@ class RemoteData(Data):
 
         self.base.extras.set(self.KEY_EXTRA_CLEANED, True)
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             self.computer

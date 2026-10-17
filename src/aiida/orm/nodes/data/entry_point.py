@@ -13,10 +13,10 @@ from __future__ import annotations
 import typing as t
 
 from importlib_metadata import EntryPoint
-from typing_extensions import Self
 
 from aiida.common import exceptions
 from aiida.common.exceptions import EntryPointError
+from aiida.common.lang import type_check
 from aiida.common.log import AIIDA_LOGGER
 from aiida.orm.decorators.attributes import attribute
 from aiida.orm.nodes.data.data import Data
@@ -26,7 +26,7 @@ from aiida.plugins.utils import PluginVersionProvider
 __all__ = ('EntryPointData',)
 
 LOGGER = AIIDA_LOGGER.getChild('entry_point')
-VERSION_PROVIDER = PluginVersionProvider()  # type: ignore[no-untyped-call]
+VERSION_PROVIDER = PluginVersionProvider()
 
 
 class EntryPointData(Data):
@@ -51,84 +51,138 @@ class EntryPointData(Data):
     KEY_ATTRIBUTES_ATTR: str = 'attr'
     """Attribute key that stores the ``attr`` attribute of the wrapped entry point."""
 
-    KEY_ATTRIBUTES_EXTRAS: str = 'extras'
+    KEY_ATTRIBUTES_EXTRAS: str = 'ep_extras'
     """Attribute key that stores the ``extras`` attribute of the wrapped entry point."""
 
     KEY_ATTRIBUTES_VERSION: str = 'version'
     """Attribute key that stores the version of the package that provided the entry point, if available."""
 
-    @classmethod
-    def from_entry_point_object(cls, entry_point: EntryPoint, **kwargs: t.Any) -> Self:
-        """Construct a new instance from an entry point.
+    def __init__(
+        self,
+        entry_point: EntryPoint | None = None,
+        *,
+        name: str | None = None,
+        group: str | None = None,
+        value: str | None = None,
+        module: str | None = None,
+        attr: str | None = None,
+        ep_extras: list[str] | None = None,
+        version: str | None = None,
+        **kwargs: t.Any,
+    ) -> None:
+        """Construct a node representing a registered entry point.
 
-        :param entry_point: The entry point to wrap.
-        :param kwargs: Additional keyword arguments forwarded to :class:`~aiida.orm.nodes.data.data.Data`.
-        :raises TypeError: If the ``entry_point`` is not an instance of ``EntryPoint``.
-        :raises ValueError: If the ``entry_point`` is inconsistent, i.e., its ``name`` and ``group`` do not correspond
-            to an existing entry point or it corresponds to a different entry point.
+        The entry point can be provided directly, identified by its group and
+        name, or reconstructed from its stored attributes.
         """
-        if not isinstance(entry_point, EntryPoint):
-            msg = f'entry_point should be of type `EntryPoint`, got: {type(entry_point)}'  # type: ignore[unreachable]
-            raise TypeError(msg)
+        super().__init__(**kwargs)
 
-        loaded = cls._validate_entry_point(entry_point)
+        if entry_point is not None:
+            type_check(entry_point, EntryPoint)
+        elif name is not None and group is not None:
+            if value is not None:
+                entry_point = EntryPoint(name=name, group=group, value=value)
+            else:
+                try:
+                    entry_point = get_entry_point(group, name)
+                except EntryPointError as exception:
+                    msg = f'entry point with group `{group}` and name `{name}` does not exist.'
+                    raise ValueError(msg) from exception
+        else:
+            raise ValueError('Define either `entry_point` or `group` and `name`.')
 
-        node = cls(**kwargs)
-        node._set_entry_point(entry_point, loaded)
+        loaded = self._validate_entry_point(entry_point)
 
-        return node
+        provided = {
+            'name': name,
+            'group': group,
+            'value': value,
+            'module': module,
+            'attr': attr,
+            'ep_extras': ep_extras,
+        }
 
-    @classmethod
-    def from_entry_point_parameters(cls, group: str, name: str, **kwargs: t.Any) -> Self:
-        """Construct a new instance from the group and name of a registered entry point.
+        for key, supplied in provided.items():
+            if supplied is None:
+                continue
 
-        :param group: The group of the entry point.
-        :param name: The name of the entry point.
-        :param kwargs: Additional keyword arguments forwarded to :class:`~aiida.orm.nodes.data.data.Data`.
-        :raises ValueError: If the ``name`` and ``group`` cannot be resolved to an entry point that can be loaded.
-        """
-        try:
-            entry_point = get_entry_point(group, name)
-        except EntryPointError as exception:
-            msg = f'entry point with group `{group}` and name `{name}` does not exist.'
-            raise ValueError(msg) from exception
+            actual = entry_point.extras if key == 'ep_extras' else getattr(entry_point, key)
 
-        return cls.from_entry_point_object(entry_point, **kwargs)
+            if supplied != actual:
+                msg = f'Inconsistent entry point: supplied `{key}` is {supplied!r}, expected {actual!r}.'
+                raise ValueError(msg)
 
-    @attribute(readonly=True)
+        self._set_entry_point(entry_point, loaded, version=version)
+
+    @attribute
     def name(self) -> str:
         """The name of the wrapped entry point."""
-        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_NAME))
+        return self.base.attributes.get(self.KEY_ATTRIBUTES_NAME)
 
-    @attribute(readonly=True)
+    @name.setter
+    def name(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_NAME, value)
+
+    @attribute
     def group(self) -> str:
         """The group of the wrapped entry point."""
-        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_GROUP))
+        return self.base.attributes.get(self.KEY_ATTRIBUTES_GROUP)
 
-    @attribute(readonly=True)
-    def value(self) -> str:
+    @group.setter
+    def group(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_GROUP, value)
+
+    @attribute(required_once_stored=True)
+    def value(self) -> str | None:
         """The value of the wrapped entry point."""
-        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_VALUE))
+        return self.base.attributes.get(self.KEY_ATTRIBUTES_VALUE)
 
-    @attribute(readonly=True)
-    def module(self) -> str:
+    @value.setter
+    def value(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_VALUE, value)
+
+    @attribute(required_once_stored=True)
+    def module(self) -> str | None:
         """The module of the wrapped entry point."""
-        return t.cast(str, self.base.attributes.get(self.KEY_ATTRIBUTES_MODULE))
+        return self.base.attributes.get(self.KEY_ATTRIBUTES_MODULE)
 
-    @attribute(readonly=True)
+    @module.setter
+    def module(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_MODULE, value)
+
+    @attribute(required_once_stored=True)
     def attr(self) -> str | None:
         """The attribute of the wrapped entry point."""
-        return t.cast(str | None, self.base.attributes.get(self.KEY_ATTRIBUTES_ATTR))
+        return self.base.attributes.get(self.KEY_ATTRIBUTES_ATTR)
 
-    @attribute(readonly=True)
-    def extras(self) -> list[str]:
+    @attr.setter
+    def attr(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_ATTR, value)
+
+    @attribute(required_once_stored=True)
+    def ep_extras(self) -> list[str] | None:
         """The extras of the wrapped entry point."""
-        return t.cast(list[str], self.base.attributes.get(self.KEY_ATTRIBUTES_EXTRAS))
+        return self.base.attributes.get(self.KEY_ATTRIBUTES_EXTRAS)
 
-    @attribute(readonly=True)
+    @ep_extras.setter
+    def ep_extras(self, value: list[str]) -> None:
+        type_check(value, list)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_EXTRAS, value)
+
+    @attribute(required_once_stored=True)
     def version(self) -> str | None:
         """The version of the package that provided the entry point, if available."""
-        return t.cast(str | None, self.base.attributes.get(self.KEY_ATTRIBUTES_VERSION))
+        return self.base.attributes.get(self.KEY_ATTRIBUTES_VERSION)
+
+    @version.setter
+    def version(self, value: str) -> None:
+        type_check(value, str)
+        self.base.attributes.set(self.KEY_ATTRIBUTES_VERSION, value)
 
     def load(self) -> t.Any:
         """Load and return the wrapped entry point.
@@ -143,8 +197,17 @@ class EntryPointData(Data):
         )
         return entry_point.load()  # type: ignore[no-untyped-call]
 
-    def _set_entry_point(self, entry_point: EntryPoint, loaded: t.Any) -> None:
+    def _set_entry_point(
+        self,
+        entry_point: EntryPoint,
+        loaded: t.Any,
+        *,
+        version: str | None = None,
+    ) -> None:
         """Set the attributes describing an entry point."""
+        if version is None:
+            version = VERSION_PROVIDER.get_version_info(loaded)['version'].get('plugin')
+
         attributes = {
             self.KEY_ATTRIBUTES_NAME: entry_point.name,
             self.KEY_ATTRIBUTES_GROUP: entry_point.group,
@@ -152,15 +215,13 @@ class EntryPointData(Data):
             self.KEY_ATTRIBUTES_MODULE: entry_point.module,
             self.KEY_ATTRIBUTES_ATTR: entry_point.attr,
             self.KEY_ATTRIBUTES_EXTRAS: entry_point.extras,
-            self.KEY_ATTRIBUTES_VERSION: VERSION_PROVIDER.get_version_info(loaded)['version'].get('plugin'),
+            self.KEY_ATTRIBUTES_VERSION: version,
         }
+
         self.base.attributes.set_many(attributes)
 
-    def _validate(self, storing: bool = False) -> None:
-        super()._validate(storing=storing)
-
-        if not storing:
-            return
+    def _validate(self) -> None:
+        super()._validate()
 
         try:
             self.name
@@ -189,8 +250,8 @@ class EntryPointData(Data):
             msg = f'Stored entry point attribute `{self.attr}` does not match `{entry_point.attr}`.'
             raise exceptions.ValidationError(msg)
 
-        if self.extras != entry_point.extras:
-            msg = f'Stored entry point extras `{self.extras}` do not match `{entry_point.extras}`.'
+        if self.ep_extras != entry_point.extras:
+            msg = f'Stored entry point extras `{self.ep_extras}` do not match `{entry_point.extras}`.'
             raise exceptions.ValidationError(msg)
 
     @staticmethod

@@ -19,7 +19,6 @@ from aiida.orm.utils.managers import *
 from aiida.orm.utils.node import *
 
 __all__ = (
-    'AbstractNodeMeta',
     'AttributeManager',
     'CalcJobResultManager',
     'CalculationEntityLoader',

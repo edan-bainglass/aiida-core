@@ -6,6 +6,7 @@ from collections.abc import MutableSequence
 
 import pydantic as pdt
 
+from aiida.common.lang import type_check
 from aiida.orm.decorators import attribute
 from aiida.orm.nodes.data.base import to_aiida_type
 from aiida.orm.nodes.data.data import Data
@@ -16,6 +17,10 @@ __all__ = ('List',)
 class List(Data, MutableSequence[t.Any]):
     """ORM representation of a list node."""
 
+    def __init__(self, list: builtins.list[t.Any] | None = None, **kwargs: t.Any):
+        super().__init__(**kwargs)
+        self.list = list or []
+
     def __getitem__(self, item: t.Any) -> t.Any:
         return self.list[item]
 
@@ -23,13 +28,13 @@ class List(Data, MutableSequence[t.Any]):
         data = self.list
         data[key] = value
         if not self._using_list_reference():
-            self.list(data)
+            self.list = data
 
     def __delitem__(self, key: t.Any) -> None:
         data = self.list
         del data[key]
         if not self._using_list_reference():
-            self.list(data)
+            self.list = data
 
     def __len__(self) -> int:
         return len(self.list)
@@ -49,14 +54,8 @@ class List(Data, MutableSequence[t.Any]):
 
     @list.setter
     def list(self, value: builtins.list[t.Any]) -> None:
-        if not isinstance(value, list):
-            raise TypeError('Must supply list type')
-        self.base.attributes.set('list', value.copy())
-
-    @property
-    def value(self) -> builtins.list[t.Any]:
-        """Return the value of this node, which is the list content."""
-        return self.list
+        type_check(value, builtins.list)
+        self.base.attributes.set('list', value.copy())  # TODO why copy?
 
     def append(self, value: t.Any) -> None:
         """Append an item to the list."""

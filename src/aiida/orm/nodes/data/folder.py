@@ -15,8 +15,6 @@ import io
 import pathlib
 import typing as t
 
-from typing_extensions import Self
-
 from aiida.orm.cli import CliFieldInfo
 from aiida.orm.decorators.repo import RepoSourceCliInput, directory_to_repo_files, repo_source
 from aiida.orm.nodes.data.data import Data
@@ -31,17 +29,24 @@ __all__ = ('FolderData',)
 
 
 class FolderData(Data):
-    """`Data` sub class to represent a folder on a file system."""
+    """`Data` sub class to represent a folder on a file system.
 
-    @classmethod
-    def from_tree(cls, tree: FilePath, **kwargs: t.Any) -> Self:
-        """Construct a new `FolderData` from a directory tree.
+    Use the `tree` keyword to simply wrap a directory:
 
-        :param tree: absolute path to a folder to wrap
-        """
-        instance = cls(**kwargs)
-        instance.base.repository.put_object_from_tree(str(tree))
-        return instance
+        folder = FolderData(tree='/absolute/path/to/directory')
+
+    Alternatively, one can construct the node first and then use the various repository methods to add objects:
+
+        folder = FolderData()
+        folder.put_object_from_tree('/absolute/path/to/directory')
+        folder.put_object_from_filepath('/absolute/path/to/file.txt')
+        folder.put_object_from_filelike(filelike_object)
+    """
+
+    def __init__(self, tree: str | pathlib.Path | None = None, **kwargs):
+        super().__init__(**kwargs)
+        if tree:
+            self.base.repository.put_object_from_tree(str(tree))
 
     @repo_source(
         cli_inputs=(
