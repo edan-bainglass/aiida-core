@@ -182,7 +182,7 @@ class EntityCollection(abc.ABC, t.Generic[_EntityT]):
 
     @staticmethod
     @abc.abstractmethod
-    def _entity_base_cls() -> type[_EntityT]:
+    def _entity_base_cls() -> type[Entity]:
         """The allowed entity class or subclasses thereof."""
 
 

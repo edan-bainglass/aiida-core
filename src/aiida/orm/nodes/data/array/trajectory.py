@@ -34,7 +34,7 @@ class TrajectoryData(ArrayData):
 
     def __init__(
         self,
-        structurelist: list[StructureData] | None = None,
+        structurelist: t.Sequence[StructureData] | None = None,
         *,
         symbols: list[str] | None = None,
         pbc: tuple[bool, bool, bool] | None = None,

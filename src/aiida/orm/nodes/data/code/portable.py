@@ -52,13 +52,12 @@ class PortableCode(Code):
 
     _KEY_ATTRIBUTE_FILEPATH_EXECUTABLE: str = 'filepath_executable'
 
-    @classmethod
-    def from_directory(
-        cls,
-        directory: FilePath,
-        filepath_executable: FilePath,
+    def __init__(
+        self,
+        directory: FilePath | None = None,
+        filepath_executable: FilePath | None = None,
         **kwargs: t.Any,
-    ) -> Self:
+    ) -> None:
         """Construct a portable code from a directory containing the code files.
 
         .. note:: If the files necessary for this code are not all located in a single directory or the directory
@@ -69,30 +68,29 @@ class PortableCode(Code):
         :param directory: The filepath to the directory containing all the files of the code.
         :param filepath_executable: The relative filepath of the executable within the directory of uploaded files.
         """
-        type_check(directory, (pathlib.PurePath, str))
-        if not directory:
-            raise ValueError('The `directory` parameter must not be empty.')
+        super().__init__(**kwargs)
+
+        if directory is not None:
+            type_check(directory, (pathlib.PurePath, str))
+            if not directory:
+                raise ValueError('The `directory` parameter must not be empty.')
+
+            directory_path = pathlib.Path(directory)
+            if not directory_path.exists():
+                msg = f'The filepath `{directory}` does not exist.'
+                raise ValueError(msg)
+
+            if not directory_path.is_dir():
+                msg = f'The filepath `{directory}` is not a directory.'
+                raise ValueError(msg)
+
+            self.base.repository.put_object_from_tree(str(directory_path))
 
         type_check(filepath_executable, (str, pathlib.PurePath))
         if not filepath_executable:
             raise ValueError('The `filepath_executable` parameter must not be empty.')
 
-        directory_path = pathlib.Path(directory)
-
-        if not directory_path.exists():
-            msg = f'The filepath `{directory}` does not exist.'
-            raise ValueError(msg)
-
-        if not directory_path.is_dir():
-            msg = f'The filepath `{directory}` is not a directory.'
-            raise ValueError(msg)
-
-        attributes = kwargs.pop('attributes', {})
-        attributes[cls._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE] = str(filepath_executable)
-        node = cls(attributes=attributes, **kwargs)
-        node.base.repository.put_object_from_tree(str(directory_path))
-
-        return node
+        self.filepath_executable = filepath_executable
 
     @attribute(
         model_adapter=PathStrAdapter(),
@@ -205,16 +203,15 @@ class PortableCode(Code):
             msg = f'`filepath_executable` is not set;\n\n{self.__doc__}'
             raise exceptions.ValidationError(msg) from exc
 
-        if storing:
-            try:
-                with self.base.repository.open(self.filepath_executable, 'r'):
-                    # Try opening the file to see if it's in the repository.
-                    # Note: we don't just check `self.base.repository.list_object_names()`
-                    # since the file could be in a subdirectory.
-                    pass
-            except FileNotFoundError as exc:
-                msg = f'The executable `{self.filepath_executable}` is not one of the uploaded files.'
-                raise exceptions.ValidationError(msg) from exc
+        try:
+            with self.base.repository.open(self.filepath_executable, 'r'):
+                # Try opening the file to see if it's in the repository.
+                # Note: we don't just check `self.base.repository.list_object_names()`
+                # since the file could be in a subdirectory.
+                pass
+        except FileNotFoundError as exc:
+            msg = f'The executable `{self.filepath_executable}` is not one of the uploaded files.'
+            raise exceptions.ValidationError(msg) from exc
 
     def _export_filepath_files_from_repo(
         self,

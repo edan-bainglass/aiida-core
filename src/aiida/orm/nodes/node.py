@@ -16,7 +16,7 @@ import re
 import typing as t
 from abc import ABCMeta
 from collections.abc import Iterator
-from functools import cached_property
+from functools import cached_property, wraps
 from uuid import UUID
 
 import pydantic as pdt
@@ -119,7 +119,7 @@ class NodeCollection(EntityCollection[_NodeT], t.Generic[_NodeT]):
                     yield key
 
     @staticmethod
-    def _entity_base_cls() -> type[Node]:  # type: ignore[override]
+    def _entity_base_cls() -> type[Node]:
         return Node
 
 
@@ -170,11 +170,6 @@ class AbstractNodeMeta(ABCMeta):
         new_cls = super().__new__(mcs, name, bases, namespace, **kwargs)
         new_cls._logger = logging.getLogger(f'{namespace["__module__"]}.{name}')
         return new_cls
-
-    def __call__(cls, *args, **kwargs):
-        node: Node = super().__call__(*args, **kwargs)
-        node._set_attribute_defaults()
-        return node
 
 
 class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNodeMeta):
@@ -286,6 +281,29 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
         # Initialize the set of declared attributes for the subclass.
         cls._declared_attributes = frozenset(iter_attributes(cls))
+
+        # Wrap the __init__ method to append default setting to sub-constructors
+        init = cls.__dict__.get('__init__')
+        if init is None:
+            return
+
+        @wraps(init)
+        def wrapped_init(self, *args, **kwargs):
+            outermost = not getattr(self, '_aiida_initializing', False)
+
+            if outermost:
+                self._aiida_initializing = True
+
+            try:
+                init(self, *args, **kwargs)
+
+                if outermost:
+                    self._set_attribute_defaults()
+            finally:
+                if outermost:
+                    del self._aiida_initializing
+
+        cls.__init__ = wrapped_init  # ty: ignore
 
     def __eq__(self, other: t.Any) -> bool:
         """Fallback equality comparison by uuid (can be overwritten by specific types)"""
