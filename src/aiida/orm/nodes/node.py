@@ -177,21 +177,6 @@ class AbstractNodeMeta(ABCMeta):
         return node
 
 
-class NodeKwargs(t.TypedDict, total=False):
-    label: str = ''
-    description: str = ''
-    extras: dict | None = None
-    node_type: str | None = None
-    process_type: str | None = None
-    ctime: datetime.datetime | None = None
-    mtime: datetime.datetime | None = None
-    computer: Computer | None = None
-    user: User | None = None
-    repository_metadata: dict | None = None
-    files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None
-    backend: StorageBackend | None = None
-
-
 class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNodeMeta):
     """Base class for all nodes in AiiDA.
 
@@ -293,7 +278,8 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
         if attribute_kwargs:
             self._set_unhandled_attributes(attribute_kwargs)
 
-        self._attach_files(files, repository_metadata)
+        if files:
+            self._attach_files(files, repository_metadata)
 
     def __init_subclass__(cls, **kwargs: t.Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -592,15 +578,14 @@ class Node(Entity['BackendNode', NodeCollection['Node']], metaclass=AbstractNode
 
     def _attach_files(
         self,
-        files: dict[str, t.Callable[[], t.BinaryIO | None]] | None = None,
+        files: dict[str, t.Callable[[], t.BinaryIO | None]],
         repository_metadata: dict | None = None,
     ) -> None:
         """Attach repository files, optionally validated against expected repository metadata."""
-        if files is not None:
-            from aiida.orm.decorators.repo import iter_repo_sources
+        from aiida.orm.decorators.repo import iter_repo_sources
 
-            for source in iter_repo_sources(type(self)).values():
-                source.validate_files(files)
+        for source in iter_repo_sources(type(self)).values():
+            source.validate_files(files)
 
         if repository_metadata:
             import hashlib

@@ -33,9 +33,7 @@ if t.TYPE_CHECKING:
 
 __all__ = ('Entity', 'EntityCollection', 'EntityTypes')
 
-_CollectionT = t.TypeVar('_CollectionT', bound='EntityCollection[t.Any]')
 _EntityT = t.TypeVar('_EntityT', bound='Entity[t.Any, t.Any]')
-_BackendEntityT = t.TypeVar('_BackendEntityT', bound='BackendEntity')
 
 
 class EntityTypes(Enum):
@@ -188,7 +186,11 @@ class EntityCollection(abc.ABC, t.Generic[_EntityT]):
         """The allowed entity class or subclasses thereof."""
 
 
-class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
+_BackendEntityT = t.TypeVar('_BackendEntityT', bound='BackendEntity')
+_EntityCollectionT = t.TypeVar('_EntityCollectionT', bound=EntityCollection[t.Any])
+
+
+class Entity(abc.ABC, t.Generic[_BackendEntityT, _EntityCollectionT]):
     """Base class for all ORM entities."""
 
     identity_field = 'pk'
@@ -196,7 +198,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
     models: ModelsNamespace[Self] = ModelsNamespace()
 
     _CLS_CLI_SPEC: t.ClassVar[type[EntityCliCreateSpec]] = EntityCliCreateSpec
-    _CLS_COLLECTION: type[_CollectionT] = EntityCollection  # type: ignore[assignment]
+    _CLS_COLLECTION: type[EntityCollection] = EntityCollection
     _logger = log.AIIDA_LOGGER.getChild('orm.entities')
 
     _entity_model_config: pdt.ConfigDict
@@ -266,7 +268,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
         return cli_spec
 
     @classproperty
-    def collection(cls: type[_EntityT]) -> _CollectionT:  # noqa: N805
+    def collection(cls: type[_EntityT]) -> _EntityCollectionT:  # noqa: N805
         """Get a collection for objects of this type, with the default backend.
 
         :return: an object that can be used to access entities of this type
@@ -290,7 +292,7 @@ class Entity(abc.ABC, t.Generic[_BackendEntityT, _CollectionT]):
         return cls.qb_fields._dict
 
     @classmethod
-    def get_collection(cls, backend: StorageBackend) -> _CollectionT:
+    def get_collection(cls, backend: StorageBackend) -> _EntityCollectionT:
         """Get a collection for objects of this type for a given backend.
 
         .. note:: Use the ``collection`` class property instead if the currently loaded backend or backend of the

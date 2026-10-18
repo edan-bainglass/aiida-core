@@ -14,6 +14,8 @@ be executed when a calculation job is run with this code.
 
 from __future__ import annotations
 
+import typing as t
+
 from aiida.common import exceptions
 from aiida.common.lang import type_check
 from aiida.orm.cli import CliFieldInfo
@@ -28,6 +30,20 @@ class ContainerizedCode(InstalledCode):
 
     _KEY_ATTRIBUTE_ENGINE_COMMAND: str = 'engine_command'
     _KEY_ATTRIBUTE_IMAGE_NAME: str = 'image_name'
+
+    def __init__(
+        self,
+        engine_command: str | None = None,
+        image_name: str | None = None,
+        **kwargs: t.Any,
+    ):
+        if engine_command is None or image_name is None:
+            raise ValueError('Both `engine_command` and `image_name` must be provided.')
+
+        super().__init__(**kwargs)
+
+        self.engine_command = engine_command
+        self.image_name = image_name
 
     @attribute(
         cli_field_info=CliFieldInfo(

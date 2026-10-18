@@ -48,14 +48,18 @@ class AttributesCreateModel(AttributesModel[_OwnerT]):
 _NodeT = t.TypeVar('_NodeT')
 
 
+FileFetcher = t.Callable[[], t.BinaryIO | None]
+
+
 class NodeCreateModel(CreateModel[_NodeT]):
     """Create model for Nodes, including non-column inputs."""
 
-    files: pdt.json_schema.SkipJsonSchema[dict[str, t.Callable[[], t.BinaryIO | None]] | None] = None
+    files: pdt.json_schema.SkipJsonSchema[dict[str, FileFetcher] | None] = pdt.Field(None, exclude=True)
 
     def _to_entity_field_values(self, *, only_set: bool = False) -> dict[str, t.Any]:
         values = super()._to_entity_field_values(only_set=only_set)
 
+        # TODO maybe just `if self.files` would do?
         if not only_set or 'files' in self.model_fields_set:
             values['files'] = self.files
 
@@ -122,19 +126,6 @@ class NodeModelsNamespace(ModelsNamespace[_NodeT]):
             return self.attributes
 
         return self._create_attributes
-
-    def _to_model_value(
-        self,
-        column: Column,
-        value: t.Any,
-        *,
-        context: t.Any | None = None,
-    ) -> t.Any:
-        """Convert a Node column value to its model representation."""
-        if isinstance(column, NodeAttributesColumn):
-            return self._attributes_to_model_value(value, context=context)
-
-        return super()._to_model_value(column, value, context=context)
 
     def _to_entity_value(self, column: Column, value: t.Any) -> t.Any:
         """Convert a model value to its Node entity representation."""

@@ -16,7 +16,7 @@ from aiida.common import exceptions
 from aiida.common.datastructures import StashMode
 from aiida.common.lang import type_check
 from aiida.orm.decorators.attributes import attribute
-from aiida.orm.nodes.data.remote.stash.base import RemoteStashData, RemoteStashDataKwargs
+from aiida.orm.nodes.data.remote.stash.base import RemoteStashData
 
 __all__ = ('RemoteStashCustomData',)
 
@@ -32,7 +32,7 @@ class RemoteStashCustomData(RemoteStashData):
         self,
         target_basepath: str,
         source_list: list[str],
-        **kwargs: t.Unpack[RemoteStashDataKwargs],
+        **kwargs: t.Any,
     ):
         super().__init__(**kwargs)
         self.target_basepath = target_basepath

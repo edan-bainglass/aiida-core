@@ -48,6 +48,49 @@ class Code(Data, metaclass=abc.ABCMeta):
     KEY_ATTRIBUTE_WRAP_CMDLINE_PARAMS: str = 'wrap_cmdline_params'
     KEY_EXTRA_IS_HIDDEN: str = 'is_hidden'
 
+    def __init__(
+        self,
+        *,
+        default_calc_job_plugin: str | None = None,
+        append_text: str = '',
+        prepend_text: str = '',
+        use_double_quotes: bool = False,
+        with_mpi: bool | None = None,
+        is_hidden: bool = False,
+        wrap_cmdline_params: bool = False,
+        **kwargs: t.Any,
+    ):
+        """Construct a new instance.
+
+        :param default_calc_job_plugin: The entry point name of the default ``CalcJob`` plugin to use.
+        :param append_text: The text that should be appended to the run line in the job script.
+        :param prepend_text: The text that should be prepended to the run line in the job script.
+        :param use_double_quotes: Whether the command line invocation of this code should be escaped with double quotes.
+        :param with_mpi: Whether the command should be run as an MPI program.
+        :param wrap_cmdline_params: Whether to wrap the executable and all its command line parameters into quotes to
+            form a single string. This is required to enable support for Docker with the ``ContainerizedCode``.
+        :param is_hidden: Whether the code is hidden.
+        """
+        input_plugin = kwargs.pop(self.KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN, None)
+        if input_plugin is not None:
+            if default_calc_job_plugin is not None:
+                msg = (
+                    f'Got both `{self.KEY_ATTRIBUTE_DEFAULT_CALC_JOB_PLUGIN}` and its replacement '
+                    '`default_calc_job_plugin` as input, which is not allowed'
+                )
+                raise ValueError(msg)
+            default_calc_job_plugin = input_plugin
+
+        super().__init__(**kwargs)
+
+        self.default_calc_job_plugin = default_calc_job_plugin
+        self.append_text = append_text
+        self.prepend_text = prepend_text
+        self.use_double_quotes = use_double_quotes
+        self.with_mpi = with_mpi
+        self.wrap_cmdline_params = wrap_cmdline_params
+        self.is_hidden = is_hidden
+
     def __str__(self):
         if self.computer is None:
             return f"Local code '{self.label}' pk: {self.pk}, uuid: {self.uuid}"

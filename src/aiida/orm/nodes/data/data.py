@@ -60,7 +60,11 @@ class Data(Node):
     _storable = True
     _unstorable_message = 'storing for this node has been disabled'
 
-    def __init__(self, source: dict | None = None, **kwargs: t.Any) -> None:
+    def __init__(
+        self,
+        source: dict | None = None,
+        **kwargs: t.Any,
+    ) -> None:
         super().__init__(**kwargs)
         if source is not None:
             self.source = source

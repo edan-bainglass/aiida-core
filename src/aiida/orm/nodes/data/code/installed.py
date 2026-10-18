@@ -17,6 +17,7 @@ using an ``InstalledCode``, it will run its executable on the associated compute
 from __future__ import annotations
 
 import pathlib
+import typing as t
 
 import pydantic as pdt
 
@@ -37,6 +38,22 @@ class InstalledCode(Code):
 
     _KEY_ATTRIBUTE_FILEPATH_EXECUTABLE: str = 'filepath_executable'
 
+    def __init__(
+        self,
+        label: str,
+        computer: Computer,
+        filepath_executable: str | pathlib.PurePath,
+        **kwargs: t.Any,
+    ):
+        """Construct a new instance.
+
+        :param label: The label of the code.
+        :param computer: The remote computer on which the executable is located.
+        :param filepath_executable: The absolute filepath of the executable on the remote computer.
+        """
+        super().__init__(label=label, computer=computer, **kwargs)
+        self.filepath_executable = filepath_executable
+
     @column(
         model_field_info=pdt.fields.FieldInfo(description='The PK of the associated computer.'),
         model_adapter=EntityPkAdapter(Computer),
@@ -51,16 +68,7 @@ class InstalledCode(Code):
         """The remote computer on which the executable resides."""
         if self.backend_entity.computer is None:
             raise AttributeError('The computer is not set.')
-
-        return Computer._from_backend_entity(self.backend_entity.computer)
-
-    @computer.setter
-    def computer(self, computer: Computer) -> None:
-        if self.is_stored:
-            raise exceptions.ModificationNotAllowed('cannot set the computer on a stored node')
-
-        type_check(computer, Computer)
-        self.backend_entity.computer = computer.backend_entity
+        return super().computer
 
     @attribute(
         model_adapter=PathStrAdapter(),
@@ -75,9 +83,9 @@ class InstalledCode(Code):
         return pathlib.PurePath(filepath)
 
     @filepath_executable.setter
-    def filepath_executable(self, value: str) -> None:
-        type_check(value, str)
-        self.base.attributes.set(self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, value)
+    def filepath_executable(self, value: str | pathlib.PurePath) -> None:
+        type_check(value, (str, pathlib.PurePath))
+        self.base.attributes.set(self._KEY_ATTRIBUTE_FILEPATH_EXECUTABLE, str(value))
 
     @property
     def full_label(self) -> str:

@@ -17,7 +17,6 @@ from aiida.common.lang import type_check
 from aiida.orm.decorators import attribute
 from aiida.orm.models.adapters import EnumStrAdapter
 from aiida.orm.nodes.data.data import Data
-from aiida.orm.nodes.node import NodeKwargs
 
 __all__ = ('RemoteStashData',)
 
@@ -27,10 +26,6 @@ __all__ = ('RemoteStashData',)
 # TODO ORM has its own utils...
 class InvalidStashModeError(ValueError):
     """Exception raised when an invalid stash mode is used."""
-
-
-class RemoteStashDataKwargs(NodeKwargs, total=False):
-    stash_mode: StashMode | None
 
 
 class RemoteStashData(Data):
@@ -54,7 +49,7 @@ class RemoteStashData(Data):
 
     _storable = False
 
-    def __init__(self, stash_mode: StashMode | None = None, **kwargs: t.Unpack[NodeKwargs]) -> None:
+    def __init__(self, stash_mode: StashMode | None = None, **kwargs: t.Any) -> None:
         """Construct a new instance
 
         :param stash_mode: the stashing mode with which the data was stashed on the remote.
